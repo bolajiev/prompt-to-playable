@@ -6,6 +6,8 @@
   "types": "dist/index.d.ts",
   "files": ["dist"],
   "dependencies": {
+    "@prompt-to-playable/engine": "0.1.0",
+    "@prompt-to-playable/schema": "0.1.0",
     "@prompt-to-playable/shared": "0.1.0",
     "three": "^0.169.0"
   },
