@@ -48,6 +48,11 @@ export class Engine {
       this.state = tick(this.state, this.fixedDtMs / 1000);
       this.accumulator -= this.fixedDtMs;
       steps++;
+
+      if (this.state.status !== "running") {
+        this.accumulator = 0;
+        break;
+      }
     }
 
     if (this.accumulator >= this.fixedDtMs) {
