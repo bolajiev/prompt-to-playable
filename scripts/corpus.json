@@ -1,0 +1,131 @@
+{
+  "target": 0.95,
+  "prompts": [
+    {
+      "id": "collect-crystals-guards",
+      "prompt": "collect 3 crystals while avoiding patrolling guards",
+      "archetype": "collect-a-thon",
+      "title": "Crystal Gauntlet"
+    },
+    {
+      "id": "gather-glowing-orbs",
+      "prompt": "gather all five glowing orbs scattered around a ruined courtyard",
+      "archetype": "collect-a-thon",
+      "title": "Orb Courtyard"
+    },
+    {
+      "id": "fallen-star-gems",
+      "prompt": "pick up every fallen star gem before the lights go out",
+      "archetype": "collect-a-thon",
+      "title": "Fallen Stars"
+    },
+    {
+      "id": "robot-batteries",
+      "prompt": "round up three lost robot batteries in a junk arena",
+      "archetype": "collect-a-thon",
+      "title": "Junk Arena"
+    },
+    {
+      "id": "market-coins",
+      "prompt": "hoover up coins across a floating market plaza",
+      "archetype": "collect-a-thon",
+      "title": "Market Sweep"
+    },
+    {
+      "id": "ancient-relics",
+      "prompt": "collect four ancient relics hidden among stone pillars",
+      "archetype": "collect-a-thon",
+      "title": "Relic Hunt"
+    },
+    {
+      "id": "rotate-beams",
+      "prompt": "puzzle room where I rotate beams to light 3 crystals",
+      "archetype": "puzzle-switch",
+      "title": "Beam Chamber"
+    },
+    {
+      "id": "pressure-switch-door",
+      "prompt": "a sealed chamber with a pressure switch that opens the exit door",
+      "archetype": "puzzle-switch",
+      "title": "Pressure Lock"
+    },
+    {
+      "id": "lever-sequence",
+      "prompt": "flip levers in the right order to unlock the vault gate",
+      "archetype": "puzzle-switch",
+      "title": "Lever Vault"
+    },
+    {
+      "id": "rotating-mirrors",
+      "prompt": "align three rotating mirrors so the beam reaches the receiver",
+      "archetype": "puzzle-switch",
+      "title": "Mirror Relay"
+    },
+    {
+      "id": "pressure-plates",
+      "prompt": "step on the pressure plates to raise the bridge to the exit",
+      "archetype": "puzzle-switch",
+      "title": "Plate Bridge"
+    },
+    {
+      "id": "floating-platforms",
+      "prompt": "hop across floating platforms to reach the summit",
+      "archetype": "platformer-lite",
+      "title": "Sky Steps"
+    },
+    {
+      "id": "moving-steps",
+      "prompt": "a small jumping challenge with moving steps up to a goal platform",
+      "archetype": "platformer-lite",
+      "title": "Rising Steps"
+    },
+    {
+      "id": "ledge-tower",
+      "prompt": "climb a tower of stone ledges without falling",
+      "archetype": "platformer-lite",
+      "title": "Ledge Tower"
+    },
+    {
+      "id": "crate-leap",
+      "prompt": "leap between crates to reach the trophy at the top",
+      "archetype": "platformer-lite",
+      "title": "Crate Leap"
+    },
+    {
+      "id": "low-gravity-course",
+      "prompt": "a low-gravity platforming course ending on a high pad",
+      "archetype": "platformer-lite",
+      "title": "Low-G Summit"
+    },
+    {
+      "id": "patrol-guard-shadow-exit",
+      "prompt": "sneak past a patrolling guard to reach the shadowed exit",
+      "archetype": "stealth-chase",
+      "title": "Shadow Patrol"
+    },
+    {
+      "id": "searchlight-back-door",
+      "prompt": "avoid the searchlight and slip out through the back door",
+      "archetype": "stealth-chase",
+      "title": "Searchlight"
+    },
+    {
+      "id": "guarded-courtyard",
+      "prompt": "slip through a guarded courtyard without being seen",
+      "archetype": "stealth-chase",
+      "title": "Courtyard Sneak"
+    },
+    {
+      "id": "crates-patrolling-robot",
+      "prompt": "hide behind crates and escape the patrolling robot",
+      "archetype": "stealth-chase",
+      "title": "Crate Cover"
+    },
+    {
+      "id": "wandering-sentry",
+      "prompt": "evade the wandering sentry and reach the escape zone",
+      "archetype": "stealth-chase",
+      "title": "Sentry Evade"
+    }
+  ]
+}
