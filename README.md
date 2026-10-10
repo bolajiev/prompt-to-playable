@@ -1,10 +1,115 @@
 # Prompt-to-Playable Game
 
-Prompt → playable 3D scene with working logic. Schema-first, data-driven.
+Turn a plain-language prompt into a playable 3D browser game with **working logic** — then keep shaping it by chatting: *"add a second guard and a timer"*, *"raise the platforms"*, *"make the door open on a pressure plate"*.
 
-## Dev
+The architecture is **schema-first and data-driven**. The LLM emits a validated JSON game document; a fixed, deterministic TypeScript engine executes it. No generated code ever runs.
+
+- **Spec:** [`docs/superpowers/specs/2026-10-09-prompt-to-playable-game-design.md`](docs/superpowers/specs/2026-10-09-prompt-to-playable-game-design.md)
+- **Implementation plan:** [`docs/superpowers/plans/2026-10-09-prompt-to-playable-game.md`](docs/superpowers/plans/2026-10-09-prompt-to-playable-game.md)
+- **Submission description:** [`docs/submission/description.md`](docs/submission/description.md)
+- **Demo script:** [`docs/submission/demo-script.md`](docs/submission/demo-script.md)
+
+## What it is
+
+A single JSON document describes the entire game: `meta`, `world`, `entities`, `objectives`, `rules`, and a mutable `scratch` bag. The engine interprets that document every tick; the renderer reflects it. Because game logic lives in data, the same engine plays collect-a-thons, switch puzzles, platformers, and stealth levels.
+
+Four curated archetypes: `collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`.
+
+## Architecture (schema-first)
+
+```
+Browser (client)                       Thin backend (Node/Express)
+┌──────────────────────────┐          ┌────────────────────────────────┐
+│ Chat / command input      │          │ POST /generate                 │
+│ Game runtime (engine)     │ ◄──────► │ POST /edit                     │
+│ Scene renderer (Three.js) │   JSON   │ Archetype classifier           │
+│ HUD / objectives UI       │          │ Structured generator           │
+└──────────────────────────┘          │ Zod validator + repair loop    │
+                                       │ Sanity / solvability checks    │
+                                       │ API keys stay server-side      │
+                                       └────────────────────────────────┘
+```
+
+Boundaries that the code enforces:
+
+1. **Client only ever sees validated JSON.** `/generate` and `/edit` run every document through the Zod schema and sanity checks before responding. Invalid LLM output is repaired (≤2 retries) or rejected — it is never handed to the client.
+2. **Engine is pure TypeScript.** `packages/engine` holds state + `tick(dt)` and imports no DOM/Three.js. It is deterministic: fixed timestep (60 Hz) + seeded RNG, so the same initial state and inputs produce the same simulation.
+3. **Renderer never mutates state.** `packages/render` reconciles Three.js objects to engine snapshots by entity `id` (create on spawn, update transforms, remove on despawn).
+4. **Edits are RFC 6902 JSON Patch only.** `/edit` asks the LLM for a minimal patch, applies it to the current validated document, then re-validates and re-checks sanity before committing. The full document is not regenerated.
+5. **No arbitrary code execution.** Game logic is expressed purely as data (entities + objectives + rules) interpreted by the fixed engine.
+
+### Packages
+
+| Path | Role |
+|---|---|
+| `packages/schema` | Zod schema + inferred types — the single source of truth |
+| `packages/engine` | Pure, deterministic simulation (movement, collision, rules, objectives) |
+| `packages/render` | Three.js reconciliation layer (entity `id` → mesh) |
+| `packages/shared` | Shared types, math, seeded RNG, id helpers |
+| `server` | Express API: classifier, generator, validator, repair, sanity, edit patch |
+| `apps/web` | Vite client: canvas, chat input, HUD, validation badge |
+| `scripts/eval-corpus.ts` | Prompt-corpus reliability harness |
+
+## How to run (dev)
+
+Requires Node 18+ (uses the built-in `fetch`).
+
+```bash
 npm install
-npm test
+```
 
-## Target
-≥95% valid+solvable on prompt corpus. See docs/superpowers/specs/...
+**Backend** (API keys stay server-side):
+
+```bash
+OPENAI_API_KEY=sk-... npx tsx server/src/index.ts   # http://localhost:3000
+```
+
+Without a key the server still starts, but `/generate` and `/edit` will fail at the LLM call.
+
+**Client** (in a second terminal):
+
+```bash
+npm --workspace @prompt-to-playable/web run dev      # Vite dev server
+```
+
+Open the printed URL, type a game prompt, and play. Follow-up messages are applied as conversational edits. Production builds:
+
+```bash
+npm run build
+npm --workspace @prompt-to-playable/web run build
+```
+
+## How to test
+
+```bash
+npm test            # Vitest: unit + integration + e2e smoke
+npm run test:watch  # watch mode
+```
+
+Coverage includes the rules evaluator, objectives, collision, patch application (RFC 6902), validation/sanity, repair loop, the generation/edit pipelines, renderer reconciliation, and an end-to-end smoke test.
+
+## Reliability metric
+
+Success criterion: **≥ 95% of prompt-corpus games are valid + solvable** (schema-valid, pass sanity checks, and contain a winning rule). Run the deterministic harness:
+
+```bash
+npm run eval:corpus
+```
+
+It classifies, generates, validates, sanity-checks, and confirms a win path for each of the 21 curated prompts using a deterministic mock LLM. Current result: **21/21 (100%) valid + solvable**, target ≥ 95% → PASS.
+
+## Tech stack
+
+- **Language:** TypeScript (strict) across client and server
+- **Schema/validation:** Zod (runtime validation + inferred types)
+- **Engine:** framework-agnostic pure TS, fixed timestep, seeded RNG
+- **Renderer:** Three.js (direct, no React)
+- **Backend:** Node + Express
+- **Build/tooling:** npm workspaces, Vite, tsx, Vitest
+
+## Submission notes
+
+- **Focus category:** Prompt-to-playable game / AI-assisted interactive 3D creation.
+- **Artifacts:** public repo, hosted browser demo, demo video < 3 min, written description (`docs/submission/description.md`).
+- **AI usage:** archetype classifier → constrained structured generator → Zod validation + ≤2 repair retries → sanity/solvability checks; conversational edits via RFC 6902 JSON Patch, re-validated before commit.
+- **Demo script:** `docs/submission/demo-script.md`.
