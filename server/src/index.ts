@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Express } from "express";
+import { createDefaultEditDeps, createEditPipeline } from "./edit.js";
 import { createOpenAiLlm } from "./llm.js";
 import { createDefaultPipelineDeps, createGenerationPipeline } from "./pipeline.js";
 import { createApp } from "./routes.js";
@@ -21,7 +22,11 @@ export function buildApp(handlers: RouteHandlers = {}): Express {
 export function createDefaultHandlers(): RouteHandlers {
   const llm = createOpenAiLlm({ apiKey: getApiKey() });
   const pipeline = createGenerationPipeline(createDefaultPipelineDeps(llm));
-  return { generate: (prompt) => pipeline.generateGame(prompt) };
+  const editPipeline = createEditPipeline(createDefaultEditDeps(llm));
+  return {
+    generate: (prompt) => pipeline.generateGame(prompt),
+    edit: (prompt, game, history) => editPipeline.editGame(prompt, game, history),
+  };
 }
 
 export function startServer(handlers?: RouteHandlers): void {

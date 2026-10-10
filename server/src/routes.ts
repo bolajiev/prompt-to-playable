@@ -7,13 +7,12 @@ import type {
   Response,
 } from "express";
 import type { GameDoc } from "@prompt-to-playable/schema";
+import type { EditResult } from "./edit.js";
+import { validatePatch } from "./patch.js";
 import { validateDoc } from "./validate.js";
 import type { ValidationIssue } from "./validate.js";
 
-export interface EditResult {
-  doc: GameDoc;
-  patch: unknown[];
-}
+export type { EditResult };
 
 export interface RouteHandlers {
   generate?: (prompt: string) => Promise<GameDoc>;
@@ -140,10 +139,15 @@ export function createApp(handlers: RouteHandlers = {}): Express {
           issueDetails(patched.issues)
         );
       }
-      if (!Array.isArray(result.patch)) {
-        throw new RouteError("EDIT_FAILED", "Edit did not return a JSON Patch array");
+      const patch = validatePatch(result.patch);
+      if (!patch.ok || !patch.patch) {
+        throw new RouteError(
+          "EDIT_FAILED",
+          "Edit did not return a valid RFC 6902 JSON Patch",
+          patch.issues
+        );
       }
-      res.status(200).json({ doc: patched.data, patch: result.patch });
+      res.status(200).json({ doc: patched.data, patch: patch.patch });
     })
   );
 

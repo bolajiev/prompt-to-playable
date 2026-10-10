@@ -3,6 +3,7 @@ import request from "supertest";
 import type { GameDoc } from "@prompt-to-playable/schema";
 import { validateGame } from "@prompt-to-playable/schema";
 import { createApp, RouteError } from "../src/routes.js";
+import type { EditResult } from "../src/routes.js";
 
 function validDoc(): GameDoc {
   const res = validateGame({
@@ -126,6 +127,22 @@ describe("POST /edit", () => {
     expect(res.body.patch).toEqual([
       { op: "replace", path: "/meta/title", value: "Bigger Room" },
     ]);
+  });
+
+  test("returns 400 when the handler returns an invalid JSON Patch", async () => {
+    const app = createApp({
+      edit: async (_prompt, game) =>
+        ({
+          doc: game,
+          patch: [{ op: "frobnicate", path: "/meta/title", value: "x" }],
+        }) as unknown as EditResult,
+    });
+    const res = await request(app)
+      .post("/edit")
+      .send({ prompt: "rename", game: validDoc() });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("EDIT_FAILED");
+    expect(res.body.details.join("\n")).toContain("unsupported op");
   });
 
   test("returns 400 when the patched doc fails validation", async () => {
