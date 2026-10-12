@@ -5,7 +5,11 @@ import type { GameDoc } from "@prompt-to-playable/schema";
 import { Chat } from "./ui/chat.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
-import { createKeyboardState, PREVENT_DEFAULT_CODES } from "./ui/input.js";
+import {
+  createKeyboardState,
+  PREVENT_DEFAULT_CODES,
+  toWorldInput,
+} from "./ui/input.js";
 
 export interface AppElements {
   canvas: HTMLCanvasElement;
@@ -192,7 +196,11 @@ export class App {
     if (this.lastValidatedDoc !== null) {
       let state = this.engine.getState();
       if (state.status === "running") {
-        state = this.engine.step(dt, this.keyboard.toInput());
+        const input = toWorldInput(
+          this.keyboard.toInput(),
+          this.cameraForward(state)
+        );
+        state = this.engine.step(dt, input);
       }
       this.renderer.reconcile(state);
       this.hud.update(state);
@@ -202,6 +210,18 @@ export class App {
     this.webgl.render(this.scene, this.camera);
     this.frameHandle = this.requestFrame(this.loop);
   };
+
+  /** Camera ground-forward `[x, z]` from the camera toward the player on XZ. */
+  private cameraForward(state: GameState): [number, number] {
+    const player = state.entities.find((entity) => entity.kind === "player");
+    if (!player) return [0, -1];
+    const position = state.entityRuntime[player.id]?.position ?? player.position;
+    const dx = position[0] - this.camera.position.x;
+    const dz = position[2] - this.camera.position.z;
+    const length = Math.hypot(dx, dz);
+    if (length < 1e-6) return [0, -1];
+    return [dx / length, dz / length];
+  }
 
   private updateCamera(state: GameState): void {
     const player = state.entities.find((entity) => entity.kind === "player");

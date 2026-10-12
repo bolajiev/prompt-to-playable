@@ -34,6 +34,39 @@ function axis(
 }
 
 /**
+ * Rotate camera-relative movement into world axes.
+ *
+ * `forward` is the camera's ground-forward unit vector `[x, z]` (from the
+ * camera toward the player). `input.moveZ` is motion along that forward and
+ * `input.moveX` is strafe along its right-hand basis `[-forward[1], forward[0]]`.
+ * A degenerate forward falls back to `[0, -1]`. Combined input longer than one
+ * is normalized, and jump/interact pass through unchanged.
+ */
+export function toWorldInput(
+  input: InputState,
+  forward: readonly [number, number]
+): InputState {
+  const length = Math.hypot(forward[0], forward[1]);
+  const fx = length > 1e-6 ? forward[0] / length : 0;
+  const fz = length > 1e-6 ? forward[1] / length : -1;
+
+  let worldX = fx * input.moveZ - fz * input.moveX;
+  let worldZ = fz * input.moveZ + fx * input.moveX;
+  const worldLength = Math.hypot(worldX, worldZ);
+  if (worldLength > 1) {
+    worldX /= worldLength;
+    worldZ /= worldLength;
+  }
+
+  return sanitizeInput({
+    moveX: worldX,
+    moveZ: worldZ,
+    jump: input.jump,
+    interact: input.interact,
+  });
+}
+
+/**
  * Pure keyboard-to-input mapping. Tracks held `KeyboardEvent.code` values and
  * derives a sanitized `InputState`; contains no DOM access so it is testable in
  * a plain node environment.

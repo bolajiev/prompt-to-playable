@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { NEUTRAL_INPUT } from "@prompt-to-playable/engine";
-import { createKeyboardState } from "../src/ui/input.js";
+import { createKeyboardState, toWorldInput } from "../src/ui/input.js";
 
 function held(...codes: string[]) {
   const keyboard = createKeyboardState();
@@ -113,5 +113,49 @@ describe("keyboard mapping", () => {
       expect(Number.isFinite(value)).toBe(true);
       expect(Math.abs(value)).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe("toWorldInput (camera-relative movement)", () => {
+  const forward = (x: number, z: number) => [x, z] as const;
+
+  test("camera behind at +Z (forward (0,-1)): W walks away, S toward, D right", () => {
+    const behind = forward(0, -1);
+    const w = toWorldInput({ ...NEUTRAL_INPUT, moveZ: 1 }, behind);
+    expect(w.moveX).toBe(0);
+    expect(w.moveZ).toBe(-1);
+
+    const s = toWorldInput({ ...NEUTRAL_INPUT, moveZ: -1 }, behind);
+    expect(s.moveX).toBe(0);
+    expect(s.moveZ).toBe(1);
+
+    const d = toWorldInput({ ...NEUTRAL_INPUT, moveX: 1 }, behind);
+    expect(d.moveX).toBe(1);
+    expect(d.moveZ).toBe(0);
+  });
+
+  test("diagonal forward: W+D yields a normalized world vector", () => {
+    const world = toWorldInput(
+      { ...NEUTRAL_INPUT, moveX: 1, moveZ: 1 },
+      forward(-0.447, -0.894)
+    );
+    expect(world.moveX).toBeCloseTo(0.3162, 3);
+    expect(world.moveZ).toBeCloseTo(-0.9487, 3);
+    expect(Math.hypot(world.moveX, world.moveZ)).toBeCloseTo(1, 3);
+  });
+
+  test("degenerate forward (0,0) falls back to (0,-1)", () => {
+    const w = toWorldInput({ ...NEUTRAL_INPUT, moveZ: 1 }, forward(0, 0));
+    expect(w.moveX).toBe(0);
+    expect(w.moveZ).toBe(-1);
+  });
+
+  test("jump and interact pass through unchanged", () => {
+    const input = toWorldInput(
+      { moveX: 0, moveZ: 1, jump: true, interact: true },
+      forward(0, -1)
+    );
+    expect(input.jump).toBe(true);
+    expect(input.interact).toBe(true);
   });
 });
