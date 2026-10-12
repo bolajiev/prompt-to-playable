@@ -2,7 +2,7 @@
 
 ## What we built
 
-A web app that turns a plain-language prompt into a **playable 3D game with working logic** in the browser — then lets you keep shaping it by chatting. You type something like *"collect three crystals while avoiding patrolling guards,"* and within seconds you are controlling a character in a 3D scene with objectives, enemies, win and lose states. Follow-up messages such as *"add a second guard and a timer"* or *"raise the platforms"* update the live game in place, no reload.
+A web app that turns a plain-language prompt into a **playable 3D game with working logic** in the browser — then lets you keep shaping it by chatting. You type something like *"collect three crystals while avoiding patrolling guards,"* and you are controlling a character in a 3D scene: **WASD / arrow keys** to move, **Space** to jump, **E** to interact. Gravity, obstacle and platform collision, patrolling and chasing enemies, and win and lose states all work in real time. Follow-up messages such as *"add a second guard and a timer"* or *"raise the platforms"* update the live game in place, no reload.
 
 The core idea: **game logic lives in data, not generated code.** The AI produces a validated JSON game document; a fixed, deterministic engine plays it. That keeps AI output safe, keeps behavior reliable, and makes conversational editing cheap.
 
@@ -27,4 +27,4 @@ Because the client only ever receives **validated JSON** and the engine is a fix
 
 ## Reliability
 
-We treat reliability as a first-class metric. A deterministic prompt-corpus harness classifies, generates, validates, sanity-checks, and confirms a win path for 21 curated prompts; the target is **≥ 95% valid + solvable**. The suite (unit, integration, end-to-end) runs on every change.
+We treat reliability as a first-class metric. A deterministic prompt-corpus harness classifies, generates, validates, sanity-checks, and confirms a win path for 21 curated prompts; the target is **≥ 95% valid + solvable**. The live pipeline was also run against a real model (`gemini-3.1-flash-lite` via an OpenAI-compatible endpoint): **4/4 generated games valid + solvable, plus 1/1 working conversational edit** (`docs/llm-eval-2026-10-12.md`). Three of those captured documents are auto-won by input-only steering in the offline suite, so playability is verified with no model and no network. The full suite (unit, integration, end-to-end, fixture playtest) runs on every change and needs no API key.

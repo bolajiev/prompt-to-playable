@@ -58,13 +58,26 @@ Requires Node 18+ (uses the built-in `fetch`).
 npm install
 ```
 
-**Backend** (API keys stay server-side):
+**Backend** (API keys stay server-side, in `server/.env`):
 
 ```bash
-OPENAI_API_KEY=sk-... npx tsx server/src/index.ts   # http://localhost:3000
+cp server/.env.example server/.env   # then fill in the values
+npx tsx server/src/index.ts          # http://localhost:3000
 ```
 
-Without a key the server still starts, but `/generate` and `/edit` will fail at the LLM call.
+`server/.env` variables (names only — the file is gitignored, never commit real values):
+
+| Variable | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Key for the chat-completions endpoint |
+| `OPENAI_BASE_URL` | Optional; OpenAI-compatible base URL (defaults to `https://api.openai.com/v1`) |
+| `OPENAI_MODEL` | Optional; model id (defaults to `gpt-4o-mini`) |
+
+Any OpenAI-compatible endpoint works (OpenAI, DeepSeek, Gemini) by setting
+`OPENAI_BASE_URL` and `OPENAI_MODEL` — e.g. Gemini at
+`https://generativelanguage.googleapis.com/v1beta/openai` with model
+`gemini-3.1-flash-lite`. The server loads `server/.env` at boot; without a key
+it still starts, but `/generate` and `/edit` fail with a clear error.
 
 **Client** (in a second terminal):
 
@@ -72,7 +85,17 @@ Without a key the server still starts, but `/generate` and `/edit` will fail at 
 npm --workspace @prompt-to-playable/web run dev      # Vite dev server
 ```
 
-Open the printed URL, type a game prompt, and play. Follow-up messages are applied as conversational edits. Production builds:
+Open the printed URL, type a game prompt, and play. Follow-up messages are applied as conversational edits.
+
+### Controls
+
+| Action | Keys |
+|---|---|
+| Move | `W`/`A`/`S`/`D` or arrow keys |
+| Jump | `Space` |
+| Interact (switches, doors) | `E` |
+
+Production builds:
 
 ```bash
 npm run build
@@ -82,11 +105,32 @@ npm --workspace @prompt-to-playable/web run build
 ## How to test
 
 ```bash
-npm test            # Vitest: unit + integration + e2e smoke
+npm install         # first time only
+npm test            # Vitest: unit + integration + e2e smoke + fixture playtest
 npm run test:watch  # watch mode
 ```
 
-Coverage includes the rules evaluator, objectives, collision, patch application (RFC 6902), validation/sanity, repair loop, the generation/edit pipelines, renderer reconciliation, and an end-to-end smoke test.
+The offline suite is **25 files / 231 tests**, needs no API key, and includes the
+rules evaluator, movement/gravity/jump and obstacle/platform collision, enemy
+patrol/chase, objectives, the deterministic input-only playtest over the live
+fixtures (`tests/playtest.test.ts`: 3 auto-won games + label/coverage guards),
+patch application (RFC 6902), validation/sanity, repair loop, generation/edit
+pipelines, renderer reconciliation, and an end-to-end smoke test.
+
+## Live smoke (real model)
+
+End-to-end check against a real model, loaded from `server/.env` (see
+[`server/.env.example`](server/.env.example)):
+
+```bash
+npm run llm:smoke                # 4 generations + 1 edit, writes tests/fixtures/live-*.json
+npm run llm:smoke -- --no-edit   # skip the edit stage
+npm run llm:smoke -- --prompts my-prompts.json
+```
+
+Each result is classified, generated, validated, sanity-checked, and captured;
+without `server/.env` the command exits non-zero with
+`No OPENAI_API_KEY found (expected it in server/.env).`
 
 ## Reliability metric
 
@@ -97,6 +141,16 @@ npm run eval:corpus
 ```
 
 It classifies, generates, validates, sanity-checks, and confirms a win path for each of the 21 curated prompts using a deterministic mock LLM. Current result: **21/21 (100%) valid + solvable**, target ≥ 95% → PASS.
+
+### Live model evaluation
+
+The same pipeline was run against a real model (`gemini-3.1-flash-lite` via an
+OpenAI-compatible endpoint) on 2026-10-12: **4/4 generated games valid +
+solvable, plus 1/1 conversational edit** (one transient `503`, auto-retried).
+The captured documents are committed as `tests/fixtures/live-*.json`; three of
+them (collect-a-thon and puzzle-switch) are auto-won by input-only steering in
+the offline suite. Per-prompt results and failure classes:
+[`docs/llm-eval-2026-10-12.md`](docs/llm-eval-2026-10-12.md).
 
 ## Tech stack
 
