@@ -162,4 +162,23 @@ describe("applyPatch", () => {
     ).toThrow(/not allowed/);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
+
+  test("skips forbidden keys inside patch values without polluting prototypes", () => {
+    const doc = validDoc();
+    const value = JSON.parse(
+      '{"__proto__":{"polluted":1},"constructor":{"prototype":{"polluted":1}},"ok":true}'
+    ) as Record<string, unknown>;
+    const patched = applyPatch(doc, [
+      { op: "add", path: "/scratch/evil", value },
+    ]);
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.prototype).not.toHaveProperty("polluted");
+
+    const applied = patched.scratch.evil as Record<string, unknown>;
+    expect(applied).toEqual({ ok: true });
+    expect(Object.getPrototypeOf(applied)).toBe(Object.prototype);
+    expect("polluted" in applied).toBe(false);
+    expect(Object.getPrototypeOf(patched.scratch)).toBe(Object.prototype);
+  });
 });

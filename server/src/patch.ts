@@ -135,6 +135,7 @@ function deepClone<T>(value: T): T {
   const source = value as Record<string, unknown>;
   const clone: Record<string, unknown> = {};
   for (const key of Object.keys(source)) {
+    if (FORBIDDEN_KEYS.has(key)) continue;
     clone[key] = deepClone(source[key]);
   }
   return clone as unknown as T;

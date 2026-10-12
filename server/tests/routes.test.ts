@@ -85,6 +85,58 @@ describe("POST /generate", () => {
     expect(res.status).toBe(404);
     expect(res.body.error).toBe("NOT_FOUND");
   });
+
+  test("returns 400 BAD_REQUEST for a malformed raw JSON body", async () => {
+    const res = await request(createApp())
+      .post("/generate")
+      .set("Content-Type", "application/json")
+      .send('{"prompt": "unterminated');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("BAD_REQUEST");
+    expect(Array.isArray(res.body.details)).toBe(true);
+  });
+
+  test("returns 413 when the JSON body exceeds the size limit", async () => {
+    const res = await request(createApp())
+      .post("/generate")
+      .send({ prompt: "x".repeat(2 * 1024 * 1024) });
+    expect(res.status).toBe(413);
+    expect(res.body.error).toBe("PAYLOAD_TOO_LARGE");
+  });
+
+  test("does not echo the thrown message in the 500 body", async () => {
+    const app = createApp({
+      generate: async () => {
+        throw new Error("super secret internal detail");
+      },
+    });
+    const res = await request(app).post("/generate").send({ prompt: "anything" });
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "INTERNAL_ERROR" });
+    expect(JSON.stringify(res.body)).not.toContain("super secret");
+  });
+
+  test("returns 400 when a generated doc fails the route-level sanity gate", async () => {
+    const doc = validDoc();
+    const app = createApp({
+      generate: async () => ({
+        ...doc,
+        objectives: [
+          {
+            id: "collect-gems",
+            type: "collect" as const,
+            target: "ghost-gem",
+            progress: 0,
+            status: "active" as const,
+          },
+        ],
+      }),
+    });
+    const res = await request(app).post("/generate").send({ prompt: "anything" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("GENERATION_FAILED");
+    expect(res.body.details.join("\n")).toContain("ghost-gem");
+  });
 });
 
 describe("POST /edit", () => {
@@ -158,5 +210,31 @@ describe("POST /edit", () => {
       .send({ prompt: "break it", game: validDoc() });
     expect(res.status).toBe(400);
     expect(res.body.error).toBe("EDIT_FAILED");
+  });
+
+  test("returns 400 when an edited doc fails the route-level sanity gate", async () => {
+    const app = createApp({
+      edit: async (_prompt, game) => ({
+        doc: {
+          ...game,
+          objectives: [
+            {
+              id: "reach-gem",
+              type: "reach" as const,
+              target: "ghost-gem",
+              progress: 0,
+              status: "active" as const,
+            },
+          ],
+        } as GameDoc,
+        patch: [],
+      }),
+    });
+    const res = await request(app)
+      .post("/edit")
+      .send({ prompt: "add an unreachable goal", game: validDoc() });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("EDIT_FAILED");
+    expect(res.body.details.join("\n")).toContain("ghost-gem");
   });
 });

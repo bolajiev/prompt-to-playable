@@ -9,6 +9,8 @@ import type {
 import type { GameDoc } from "@prompt-to-playable/schema";
 import type { EditResult } from "./edit.js";
 import { validatePatch } from "./patch.js";
+import { sanityCheck } from "./sanity.js";
+import type { SanityIssue } from "./sanity.js";
 import { validateDoc } from "./validate.js";
 import type { ValidationIssue } from "./validate.js";
 
@@ -41,6 +43,10 @@ function issueDetails(issues: readonly ValidationIssue[]): string[] {
   );
 }
 
+function sanityDetails(issues: readonly SanityIssue[]): string[] {
+  return issues.map((issue) => `${issue.path}: ${issue.message} [${issue.code}]`);
+}
+
 function readPrompt(body: unknown): { ok: true; value: string } | { ok: false; details: string[] } {
   if (typeof body !== "object" || body === null) {
     return { ok: false, details: ["Request body must be a JSON object"] };
@@ -60,13 +66,37 @@ function asyncHandler(
   };
 }
 
+function bodyParserStatus(err: unknown): 400 | 413 | undefined {
+  if (typeof err !== "object" || err === null) return undefined;
+  const { type, status } = err as { type?: unknown; status?: unknown };
+  if (type === "entity.parse.failed") return 400;
+  if (type === "entity.too.large") return 413;
+  if (status === 400 || status === 413) return status;
+  return undefined;
+}
+
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   if (err instanceof RouteError) {
     res.status(400).json({ error: err.code, details: err.details });
     return;
   }
-  const message = err instanceof Error ? err.message : String(err);
-  res.status(500).json({ error: "INTERNAL_ERROR", details: [message] });
+
+  const clientStatus = bodyParserStatus(err);
+  if (clientStatus === 400) {
+    res
+      .status(400)
+      .json({ error: "BAD_REQUEST", details: ["Malformed JSON request body"] });
+    return;
+  }
+  if (clientStatus === 413) {
+    res.status(413).json({
+      error: "PAYLOAD_TOO_LARGE",
+      details: ["Request body exceeds the JSON size limit"],
+    });
+    return;
+  }
+
+  res.status(500).json({ error: "INTERNAL_ERROR" });
 };
 
 export function createApp(handlers: RouteHandlers = {}): Express {
@@ -96,6 +126,14 @@ export function createApp(handlers: RouteHandlers = {}): Express {
           "GENERATION_FAILED",
           "Generator produced a document that failed validation",
           issueDetails(validated.issues)
+        );
+      }
+      const sanity = sanityCheck(validated.data);
+      if (!sanity.ok) {
+        throw new RouteError(
+          "GENERATION_FAILED",
+          "Generator produced a document that failed sanity checks",
+          sanityDetails(sanity.errors)
         );
       }
       res.status(200).json(validated.data);
@@ -145,6 +183,14 @@ export function createApp(handlers: RouteHandlers = {}): Express {
           "EDIT_FAILED",
           "Edit did not return a valid RFC 6902 JSON Patch",
           patch.issues
+        );
+      }
+      const sanity = sanityCheck(patched.data);
+      if (!sanity.ok) {
+        throw new RouteError(
+          "EDIT_FAILED",
+          "Edited document failed sanity checks",
+          sanityDetails(sanity.errors)
         );
       }
       res.status(200).json({ doc: patched.data, patch: patch.patch });
