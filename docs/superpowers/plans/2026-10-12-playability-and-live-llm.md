@@ -149,13 +149,13 @@ git commit -m "feat(engine): input model, player movement, gravity, floor rest"
 
 **Interfaces:**
 - Consumes: `world.terrain.obstacles: {position, size}[]`, entities with `solid === true` or `kind === "platform"`, player runtime velocity/grounded.
-- Produces: `collectSolids(state): AABB[]`, `resolveXZ(position, velocity, size, solids): {position, velocity}`, `resolveY(position, velocity, size, solids): {position, velocity, grounded}`.
+- Produces: `collectSolids(state: GameState): AABB[]`, `resolveXZ(position, velocity, size, solids): {position, velocity}`, `resolveY(position, velocity, size, solids): {position, velocity, grounded}`.
 
 - [ ] **Step P2.1.1: Extend `collision.ts`**
 ```ts
 export interface Box { position: Vec3; size: Vec3 }
 export function aabbFromBox(box: Box): AABB; // center + size → min/max
-export function collectSolids(doc: GameDoc, isActive: (id: string) => boolean): AABB[]; // terrain.obstacles + solid/platform entities
+export function collectSolids(state: GameState): AABB[]; // terrain.obstacles + active solid/platform entities
 export function resolveXZ(pos: Vec3, vel: Vec3, size: Vec3, solids: AABB[]): { pos: Vec3; vel: Vec3 }; // per-axis pushout
 export function resolveY(pos: Vec3, vel: Vec3, size: Vec3, solids: AABB[]): { pos: Vec3; vel: Vec3; grounded: boolean }; // land on top when falling
 ```
