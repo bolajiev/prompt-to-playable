@@ -200,6 +200,8 @@ export function evaluateRules(
       ...entityRuntime,
       [entity.id]: {
         position: [...entity.position],
+        velocity: [0, 0, 0],
+        grounded: false,
         rotation: entity.rotation ? [...entity.rotation] : undefined,
         active: entity.active,
         state: entity.state,

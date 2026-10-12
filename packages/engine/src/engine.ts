@@ -1,4 +1,5 @@
 import type { GameDoc } from "@prompt-to-playable/schema";
+import { NEUTRAL_INPUT, type InputState } from "./input.js";
 import { createState, type GameState } from "./state.js";
 import { tick } from "./tick.js";
 
@@ -36,7 +37,7 @@ export class Engine {
     return this.state;
   }
 
-  step(dtMs: number): GameState {
+  step(dtMs: number, input: Partial<InputState> = NEUTRAL_INPUT): GameState {
     if (!this.state) {
       throw new Error("Engine has no loaded game state; call load() first");
     }
@@ -45,7 +46,7 @@ export class Engine {
 
     let steps = 0;
     while (this.accumulator >= this.fixedDtMs && steps < this.maxSubSteps) {
-      this.state = tick(this.state, this.fixedDtMs / 1000);
+      this.state = tick(this.state, this.fixedDtMs / 1000, input);
       this.accumulator -= this.fixedDtMs;
       steps++;
 

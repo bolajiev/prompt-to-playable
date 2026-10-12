@@ -2,6 +2,7 @@ import type { Entity, Objective } from "@prompt-to-playable/schema";
 import type { AABB, Vec3 } from "@prompt-to-playable/shared";
 import { pointInAABB } from "./collision.js";
 import type { GameEvent } from "./events.js";
+import { NEUTRAL_INPUT, sanitizeInput, type InputState } from "./input.js";
 import { updateObjectives } from "./objectives.js";
 import { evaluateRules } from "./rules.js";
 import type { GameState } from "./state.js";
@@ -40,13 +41,80 @@ function entityAABB(entity: Entity, position: Vec3): AABB {
   };
 }
 
+export const FLOOR_Y = 0;
+export const DEFAULT_PLAYER_SIZE: Vec3 = [0.6, 1.8, 0.6];
+export const DEFAULT_PLAYER_SPEED = 6;
+export const DEFAULT_JUMP_SPEED = 8;
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 /**
- * Integrate: advance dynamic entities. Movement/AI is intentionally a stub in
- * this task; the player is driven by input/teleport actions from the renderer.
- * Kept as an explicit system so ordering stays spec-compliant and pure.
+ * Integrate: advance the active player from sanitized input — horizontal
+ * velocity, gravity, jump impulse, floor rest and world-bounds clamp. Other
+ * entities stay on their runtime positions until later AI tasks. Pure
+ * copy-on-write: the input state is never mutated.
  */
-export function integrate(state: GameState, _dt: number): GameState {
-  return state;
+export function integrate(
+  state: GameState,
+  dt: number,
+  input: InputState = NEUTRAL_INPUT
+): GameState {
+  const player = state.entities.find(
+    (e) => e.kind === "player" && isActive(state, e.id)
+  );
+  if (!player) return state;
+
+  const runtime = state.entityRuntime[player.id];
+  if (!runtime) return state;
+
+  const speed = player.speed ?? DEFAULT_PLAYER_SPEED;
+  const size = player.size ?? DEFAULT_PLAYER_SIZE;
+  const gravity = state.doc.world.gravity ?? 9.8;
+
+  const position: Vec3 = [...runtime.position];
+  const velocity: Vec3 = runtime.velocity ? [...runtime.velocity] : [0, 0, 0];
+
+  velocity[0] = input.moveX * speed;
+  velocity[2] = input.moveZ * speed;
+  velocity[1] += -gravity * dt;
+
+  if (input.jump && runtime.grounded) {
+    const jumpSpeed =
+      typeof player.props?.jumpSpeed === "number"
+        ? player.props.jumpSpeed
+        : DEFAULT_JUMP_SPEED;
+    velocity[1] = jumpSpeed;
+  }
+
+  position[0] += velocity[0] * dt;
+  position[2] += velocity[2] * dt;
+  position[1] += velocity[1] * dt;
+
+  const halfHeight = size[1] / 2;
+  let grounded: boolean;
+  if (position[1] <= FLOOR_Y + halfHeight) {
+    position[1] = FLOOR_Y + halfHeight;
+    velocity[1] = 0;
+    grounded = true;
+  } else {
+    grounded = false;
+  }
+
+  const bounds = state.doc.world.bounds;
+  const limitX = Math.max(0, bounds[0] / 2 - size[0] / 2);
+  const limitZ = Math.max(0, bounds[2] / 2 - size[2] / 2);
+  position[0] = clamp(position[0], -limitX, limitX);
+  position[2] = clamp(position[2], -limitZ, limitZ);
+
+  return {
+    ...state,
+    entityRuntime: {
+      ...state.entityRuntime,
+      [player.id]: { ...runtime, position, velocity, grounded },
+    },
+  };
 }
 
 export interface BroadphaseResult {
@@ -139,8 +207,18 @@ export function emitEvents(state: GameState): GameEvent[] {
   return [{ type: "tick" }];
 }
 
-export function tick(state: GameState, dt: number): GameState {
-  let next: GameState = integrate(state, dt);
+export function tick(
+  state: GameState,
+  dt: number,
+  input: Partial<InputState> = NEUTRAL_INPUT
+): GameState {
+  const sanitized = sanitizeInput(input);
+  let next: GameState = {
+    ...state,
+    prevInput: state.input ?? { ...NEUTRAL_INPUT },
+    input: sanitized,
+  };
+  next = integrate(next, dt, sanitized);
   next = { ...next, time: state.time + dt, ticks: state.ticks + 1 };
 
   const broad = broadphase(next);
