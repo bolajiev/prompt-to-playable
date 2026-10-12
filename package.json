@@ -13,7 +13,8 @@
     "dev": "echo 'run server + web separately'",
     "test": "vitest run",
     "test:watch": "vitest",
-    "eval:corpus": "tsx scripts/eval-corpus.ts"
+    "eval:corpus": "tsx scripts/eval-corpus.ts",
+    "llm:smoke": "tsx scripts/llm-smoke.ts"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",

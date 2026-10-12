@@ -15,7 +15,11 @@ const SYSTEM_PROMPT =
 export function createOpenAiLlm(options: OpenAiLlmOptions = {}): LlmCall {
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY?.trim();
   const model = options.model ?? process.env.OPENAI_MODEL?.trim() ?? DEFAULT_LLM_MODEL;
-  const baseUrl = (options.baseUrl ?? "https://api.openai.com/v1").replace(/\/+$/, "");
+  const baseUrl = (
+    options.baseUrl ??
+    process.env.OPENAI_BASE_URL?.trim() ??
+    "https://api.openai.com/v1"
+  ).replace(/\/+$/, "");
 
   return async (prompt: string): Promise<string> => {
     if (!apiKey) {
@@ -38,7 +42,8 @@ export function createOpenAiLlm(options: OpenAiLlmOptions = {}): LlmCall {
     });
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      const suffix = body.length > 0 ? `: ${body.slice(0, 200)}` : "";
+      const detail = apiKey ? body.split(apiKey).join("[redacted]") : body;
+      const suffix = detail.length > 0 ? `: ${detail.slice(0, 200)}` : "";
       throw new Error(`LLM request failed with status ${response.status}${suffix}`);
     }
     const payload = (await response.json()) as {

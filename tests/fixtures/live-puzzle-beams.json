@@ -1,0 +1,198 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Tri-Beam Alignment",
+    "archetype": "puzzle-switch",
+    "genre": "puzzle",
+    "difficulty": 0.7
+  },
+  "world": {
+    "bounds": [
+      20,
+      5,
+      20
+    ],
+    "lighting": "indoor",
+    "skybox": "lab",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "position": [
+        10,
+        0,
+        2
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "beam-1",
+      "kind": "interactable",
+      "name": "Beam Alpha",
+      "position": [
+        5,
+        0,
+        10
+      ],
+      "tags": [],
+      "active": true,
+      "state": "idle"
+    },
+    {
+      "id": "beam-2",
+      "kind": "interactable",
+      "name": "Beam Beta",
+      "position": [
+        10,
+        0,
+        10
+      ],
+      "tags": [],
+      "active": true,
+      "state": "idle"
+    },
+    {
+      "id": "beam-3",
+      "kind": "interactable",
+      "name": "Beam Gamma",
+      "position": [
+        15,
+        0,
+        10
+      ],
+      "tags": [],
+      "active": true,
+      "state": "idle"
+    },
+    {
+      "id": "exit-door",
+      "kind": "exitDoor",
+      "name": "Vault Door",
+      "position": [
+        10,
+        0,
+        18
+      ],
+      "tags": [],
+      "active": true,
+      "solid": true
+    }
+  ],
+  "objectives": [
+    {
+      "id": "align-beams",
+      "type": "activate",
+      "description": "Rotate all three beams to align the circuit",
+      "target": "beam-1",
+      "count": 3,
+      "progress": 0,
+      "status": "active"
+    }
+  ],
+  "rules": [
+    {
+      "id": "rotate-beam-1",
+      "on": {
+        "event": "interact",
+        "entity": "beam-1"
+      },
+      "if": {
+        "op": "==",
+        "left": "beam-1.state",
+        "right": "idle"
+      },
+      "then": [
+        {
+          "type": "setEnemyState",
+          "entity": "beam-1",
+          "state": "patrol"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "align-beams",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "rotate-beam-2",
+      "on": {
+        "event": "interact",
+        "entity": "beam-2"
+      },
+      "if": {
+        "op": "==",
+        "left": "beam-2.state",
+        "right": "idle"
+      },
+      "then": [
+        {
+          "type": "setEnemyState",
+          "entity": "beam-2",
+          "state": "patrol"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "align-beams",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "rotate-beam-3",
+      "on": {
+        "event": "interact",
+        "entity": "beam-3"
+      },
+      "if": {
+        "op": "==",
+        "left": "beam-3.state",
+        "right": "idle"
+      },
+      "then": [
+        {
+          "type": "setEnemyState",
+          "entity": "beam-3",
+          "state": "patrol"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "align-beams",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "check-completion",
+      "on": {
+        "event": "objectiveProgress",
+        "objective": "align-beams"
+      },
+      "if": {
+        "op": "==",
+        "left": "align-beams.progress",
+        "right": 3
+      },
+      "then": [
+        {
+          "type": "openDoor",
+          "entity": "exit-door"
+        },
+        {
+          "type": "showMessage",
+          "text": "The door is now unlocked."
+        }
+      ]
+    }
+  ],
+  "scratch": {
+    "beamsAligned": 0
+  }
+}
