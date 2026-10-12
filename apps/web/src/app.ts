@@ -5,6 +5,7 @@ import type { GameDoc } from "@prompt-to-playable/schema";
 import { Chat } from "./ui/chat.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
+import { createKeyboardState, PREVENT_DEFAULT_CODES } from "./ui/input.js";
 
 export interface AppElements {
   canvas: HTMLCanvasElement;
@@ -27,6 +28,14 @@ export interface AppOptions {
 interface EditResponse {
   doc: GameDoc;
   patch: unknown[];
+}
+
+function isTextEntry(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLInputElement ||
+    target instanceof HTMLTextAreaElement ||
+    (target instanceof HTMLElement && target.isContentEditable)
+  );
 }
 
 function errorMessage(payload: unknown, status: number): string {
@@ -60,6 +69,7 @@ export class App {
   private readonly hud: Hud;
   private readonly badge: ValidationBadge;
   private readonly chat: Chat;
+  private readonly keyboard = createKeyboardState();
 
   private readonly fetchImpl: typeof fetch;
   private readonly apiBase: string;
@@ -107,6 +117,9 @@ export class App {
 
     this.handleResize();
     globalThis.addEventListener("resize", this.handleResize);
+    globalThis.addEventListener("keydown", this.handleKeyDown);
+    globalThis.addEventListener("keyup", this.handleKeyUp);
+    globalThis.addEventListener("blur", this.handleBlur);
   }
 
   get validatedDoc(): GameDoc | null {
@@ -154,6 +167,20 @@ export class App {
     this.camera.updateProjectionMatrix();
   };
 
+  private handleKeyDown = (event: KeyboardEvent): void => {
+    if (isTextEntry(event.target)) return;
+    if (PREVENT_DEFAULT_CODES.has(event.code)) event.preventDefault();
+    this.keyboard.setKey(event.code, true);
+  };
+
+  private handleKeyUp = (event: KeyboardEvent): void => {
+    this.keyboard.setKey(event.code, false);
+  };
+
+  private handleBlur = (): void => {
+    this.keyboard.clear();
+  };
+
   private loop = (): void => {
     if (!this.running) return;
 
@@ -164,7 +191,7 @@ export class App {
     if (this.lastValidatedDoc !== null) {
       let state = this.engine.getState();
       if (state.status === "running") {
-        state = this.engine.step(dt);
+        state = this.engine.step(dt, this.keyboard.toInput());
       }
       this.renderer.reconcile(state);
       this.hud.update(state);

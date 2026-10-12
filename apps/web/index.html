@@ -44,6 +44,18 @@
         overflow: hidden;
         background: #05070f;
       }
+      #controls {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        color: var(--muted);
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid var(--border);
+        pointer-events: none;
+      }
       #game {
         display: block;
         width: 100%;
@@ -206,6 +218,7 @@
       <div id="stage">
         <canvas id="game"></canvas>
         <span id="badge">unvalidated</span>
+        <span id="controls">WASD move · Space jump · E interact</span>
       </div>
       <aside id="hud"></aside>
       <section id="chat">
