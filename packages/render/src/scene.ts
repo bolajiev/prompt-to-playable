@@ -1,3 +1,7 @@
+import {
+  DEFAULT_PLAYER_SIZE,
+  DEFAULT_ZONE_SIZE,
+} from "@prompt-to-playable/engine";
 import type { Entity, Vec3 } from "@prompt-to-playable/schema";
 
 export interface EntityDiff {
@@ -47,8 +51,24 @@ export interface EntityTransform {
 }
 
 /**
+ * Absolute full extents the engine assumes per kind when an entity has no
+ * explicit size, mirroring physics defaults: player [0.6, 1.8, 0.6],
+ * zone [2, 2, 2], everything else [1, 1, 1].
+ */
+export const DEFAULT_KIND_SCALE: Record<string, Vec3> = {
+  player: [...DEFAULT_PLAYER_SIZE] as Vec3,
+  zone: [...DEFAULT_ZONE_SIZE] as Vec3,
+};
+
+export function kindDefaultScale(kind: Entity["kind"]): Vec3 {
+  return DEFAULT_KIND_SCALE[kind] ?? [1, 1, 1];
+}
+
+/**
  * Map an engine entity (plus optional runtime overrides) to renderer transform
  * data. Returns fresh arrays so the renderer can never alias engine state.
+ * Scale is the entity's absolute full extents, so meshes built from unit
+ * geometry match the physics AABB exactly.
  */
 export function entityTransform(
   entity: Entity,
@@ -56,7 +76,7 @@ export function entityTransform(
 ): EntityTransform {
   const position = runtime?.position ?? entity.position;
   const rotation = runtime?.rotation ?? entity.rotation ?? [0, 0, 0];
-  const scale = entity.scale ?? entity.size ?? [1, 1, 1];
+  const scale = entity.size ?? entity.scale ?? kindDefaultScale(entity.kind);
   const active = runtime?.active ?? entity.active;
 
   return {

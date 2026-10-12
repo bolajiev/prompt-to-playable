@@ -82,20 +82,24 @@ export class EntityReconciler<TView> {
   }
 }
 
+/**
+ * Unit geometry per kind: every shape has a 1x1x1 bounding box so the mesh's
+ * extents equal `entityTransform.scale`, which is the physics full extents.
+ */
 function geometryForKind(kind: Entity["kind"]): THREE.BufferGeometry {
   switch (kind) {
     case "player":
       return new THREE.SphereGeometry(0.5, 24, 16);
     case "enemy":
-      return new THREE.ConeGeometry(0.5, 1.2, 16);
+      return new THREE.ConeGeometry(0.5, 1, 16);
     case "collectible":
-      return new THREE.OctahedronGeometry(0.4);
+      return new THREE.OctahedronGeometry(0.5);
     case "zone":
       return new THREE.BoxGeometry(1, 1, 1);
     case "beam":
-      return new THREE.CylinderGeometry(0.08, 0.08, 1, 12);
+      return new THREE.CylinderGeometry(0.5, 0.5, 1, 12);
     default:
-      return new THREE.BoxGeometry(0.6, 0.6, 0.6);
+      return new THREE.BoxGeometry(1, 1, 1);
   }
 }
 
