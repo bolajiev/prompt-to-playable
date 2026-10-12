@@ -492,7 +492,7 @@ export function emitEvents(state: GameState): GameEvent[] {
  * Interact: on the rising edge of `input.interact`, emit exactly one `interact`
  * event for the nearest active entity tagged `"interactable"` (or with
  * `kind === "interactable"`) within its
- * `props.interactRange ?? DEFAULT_INTERACT_RANGE`. Ties resolve to document
+ * `props.interactRange ?? DEFAULT_INTERACT_RANGE`. Ties resolve in entity-list
  * order, so emission stays deterministic.
  */
 export function detectInteract(state: GameState): GameEvent[] {
