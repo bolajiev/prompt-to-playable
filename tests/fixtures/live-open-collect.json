@@ -1,0 +1,208 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Crystal Field",
+    "archetype": "collect-a-thon",
+    "genre": "exploration",
+    "difficulty": 0.2
+  },
+  "world": {
+    "bounds": [
+      50,
+      10,
+      50
+    ],
+    "lighting": "day",
+    "skybox": "outdoor",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "crystal-1",
+      "kind": "collectible",
+      "name": "Glowing Crystal 1",
+      "position": [
+        10,
+        0,
+        10
+      ],
+      "color": "blue",
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "zone-1",
+      "kind": "zone",
+      "position": [
+        10,
+        0,
+        10
+      ],
+      "size": [
+        2,
+        2,
+        2
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "crystal-2",
+      "kind": "collectible",
+      "name": "Glowing Crystal 2",
+      "position": [
+        -15,
+        0,
+        5
+      ],
+      "color": "blue",
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "zone-2",
+      "kind": "zone",
+      "position": [
+        -15,
+        0,
+        5
+      ],
+      "size": [
+        2,
+        2,
+        2
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "crystal-3",
+      "kind": "collectible",
+      "name": "Glowing Crystal 3",
+      "position": [
+        5,
+        0,
+        -20
+      ],
+      "color": "blue",
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "zone-3",
+      "kind": "zone",
+      "position": [
+        5,
+        0,
+        -20
+      ],
+      "size": [
+        2,
+        2,
+        2
+      ],
+      "tags": [],
+      "active": true
+    }
+  ],
+  "objectives": [
+    {
+      "id": "collect-all",
+      "type": "collect",
+      "description": "Collect all 3 glowing crystals",
+      "targets": [
+        "crystal-1",
+        "crystal-2",
+        "crystal-3"
+      ],
+      "count": 3,
+      "progress": 0,
+      "status": "active"
+    }
+  ],
+  "rules": [
+    {
+      "id": "collect-1",
+      "on": {
+        "event": "playerEnter",
+        "zone": "zone-1"
+      },
+      "then": [
+        {
+          "type": "despawn",
+          "entity": "crystal-1"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "collect-all",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "collect-2",
+      "on": {
+        "event": "playerEnter",
+        "zone": "zone-2"
+      },
+      "then": [
+        {
+          "type": "despawn",
+          "entity": "crystal-2"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "collect-all",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "collect-3",
+      "on": {
+        "event": "playerEnter",
+        "zone": "zone-3"
+      },
+      "then": [
+        {
+          "type": "despawn",
+          "entity": "crystal-3"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "collect-all",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "win-game",
+      "on": {
+        "event": "objectiveComplete",
+        "objective": "collect-all"
+      },
+      "then": [
+        {
+          "type": "win",
+          "message": "You collected all the crystals!"
+        }
+      ]
+    }
+  ],
+  "scratch": {}
+}

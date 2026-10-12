@@ -1,0 +1,156 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Open Chamber Switches",
+    "archetype": "puzzle-switch",
+    "difficulty": 0.2
+  },
+  "world": {
+    "bounds": [
+      20,
+      10,
+      20
+    ],
+    "lighting": "day",
+    "skybox": "outdoor",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "switch-1",
+      "kind": "interactable",
+      "name": "Switch Alpha",
+      "position": [
+        -5,
+        0,
+        5
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "switch-2",
+      "kind": "interactable",
+      "name": "Switch Beta",
+      "position": [
+        0,
+        0,
+        5
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "switch-3",
+      "kind": "interactable",
+      "name": "Switch Gamma",
+      "position": [
+        5,
+        0,
+        5
+      ],
+      "tags": [],
+      "active": true
+    }
+  ],
+  "objectives": [
+    {
+      "id": "activate-all",
+      "type": "activate",
+      "description": "Activate all three switches in the chamber.",
+      "targets": [
+        "switch-1",
+        "switch-2",
+        "switch-3"
+      ],
+      "count": 3,
+      "progress": 0,
+      "status": "active"
+    }
+  ],
+  "rules": [
+    {
+      "id": "rule-s1",
+      "on": {
+        "event": "interact",
+        "entity": "switch-1"
+      },
+      "then": [
+        {
+          "type": "objectiveProgress",
+          "objective": "activate-all",
+          "by": 1
+        },
+        {
+          "type": "disable",
+          "entity": "switch-1"
+        }
+      ]
+    },
+    {
+      "id": "rule-s2",
+      "on": {
+        "event": "interact",
+        "entity": "switch-2"
+      },
+      "then": [
+        {
+          "type": "objectiveProgress",
+          "objective": "activate-all",
+          "by": 1
+        },
+        {
+          "type": "disable",
+          "entity": "switch-2"
+        }
+      ]
+    },
+    {
+      "id": "rule-s3",
+      "on": {
+        "event": "interact",
+        "entity": "switch-3"
+      },
+      "then": [
+        {
+          "type": "objectiveProgress",
+          "objective": "activate-all",
+          "by": 1
+        },
+        {
+          "type": "disable",
+          "entity": "switch-3"
+        }
+      ]
+    },
+    {
+      "id": "win-game",
+      "on": {
+        "event": "objectiveComplete",
+        "objective": "activate-all"
+      },
+      "then": [
+        {
+          "type": "win",
+          "message": "All switches activated! You win."
+        }
+      ]
+    }
+  ],
+  "scratch": {}
+}

@@ -3,46 +3,20 @@
   "meta": {
     "title": "Crystal Heist",
     "archetype": "stealth-chase",
-    "genre": "stealth",
     "difficulty": 0.5
   },
   "world": {
     "bounds": [
-      20,
+      30,
       5,
-      20
+      30
     ],
     "lighting": "night",
-    "skybox": "lab",
+    "skybox": "cave",
     "gravity": 9.8,
     "terrain": {
       "type": "flat",
-      "obstacles": [
-        {
-          "position": [
-            5,
-            0,
-            5
-          ],
-          "size": [
-            2,
-            2,
-            2
-          ]
-        },
-        {
-          "position": [
-            -5,
-            0,
-            -5
-          ],
-          "size": [
-            2,
-            2,
-            2
-          ]
-        }
-      ]
+      "obstacles": []
     }
   },
   "entities": [
@@ -55,8 +29,7 @@
         0
       ],
       "tags": [],
-      "active": true,
-      "speed": 5
+      "active": true
     },
     {
       "id": "guard",
@@ -77,60 +50,81 @@
           10
         ],
         [
-          -10,
-          0,
-          10
-        ],
-        [
-          -10,
-          0,
-          -10
-        ],
-        [
           10,
           0,
           -10
+        ],
+        [
+          -10,
+          0,
+          -10
+        ],
+        [
+          -10,
+          0,
+          10
         ]
       ],
       "sight": 8,
       "state": "patrol"
     },
     {
-      "id": "crystal1",
+      "id": "crystal-1",
       "kind": "collectible",
       "position": [
-        8,
+        5,
         0,
-        0
+        5
       ],
       "tags": [],
       "active": true
     },
     {
-      "id": "crystal2",
-      "kind": "collectible",
+      "id": "zone-1",
+      "kind": "zone",
       "position": [
+        5,
         0,
-        0,
-        8
+        5
+      ],
+      "size": [
+        2,
+        2,
+        2
       ],
       "tags": [],
       "active": true
     },
     {
-      "id": "crystal3",
+      "id": "crystal-2",
       "kind": "collectible",
       "position": [
-        -8,
+        -5,
         0,
-        0
+        5
       ],
       "tags": [],
       "active": true
     },
     {
-      "id": "exit",
-      "kind": "exitDoor",
+      "id": "zone-2",
+      "kind": "zone",
+      "position": [
+        -5,
+        0,
+        5
+      ],
+      "size": [
+        2,
+        2,
+        2
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "crystal-3",
+      "kind": "collectible",
       "position": [
         0,
         0,
@@ -140,7 +134,23 @@
       "active": true
     },
     {
-      "id": "guard2",
+      "id": "zone-3",
+      "kind": "zone",
+      "position": [
+        0,
+        0,
+        -8
+      ],
+      "size": [
+        2,
+        2,
+        2
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "guard-2",
       "kind": "enemy",
       "name": "Sentinel-B",
       "position": [
@@ -158,19 +168,19 @@
           -10
         ],
         [
-          10,
-          0,
-          -10
-        ],
-        [
-          10,
-          0,
-          10
-        ],
-        [
           -10,
           0,
           10
+        ],
+        [
+          10,
+          0,
+          10
+        ],
+        [
+          10,
+          0,
+          -10
         ]
       ],
       "sight": 8,
@@ -181,26 +191,74 @@
     {
       "id": "collect-crystals",
       "type": "collect",
+      "description": "Collect all 3 crystals",
       "targets": [
-        "crystal1",
-        "crystal2",
-        "crystal3"
+        "crystal-1",
+        "crystal-2",
+        "crystal-3"
       ],
       "count": 3,
       "progress": 0,
       "status": "active"
-    },
-    {
-      "id": "escape",
-      "type": "reach",
-      "target": "exit",
-      "progress": 0,
-      "status": "done"
     }
   ],
   "rules": [
     {
-      "id": "detection",
+      "id": "collect-1",
+      "on": {
+        "event": "playerEnter",
+        "zone": "zone-1"
+      },
+      "then": [
+        {
+          "type": "despawn",
+          "entity": "crystal-1"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "collect-crystals",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "collect-2",
+      "on": {
+        "event": "playerEnter",
+        "zone": "zone-2"
+      },
+      "then": [
+        {
+          "type": "despawn",
+          "entity": "crystal-2"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "collect-crystals",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "collect-3",
+      "on": {
+        "event": "playerEnter",
+        "zone": "zone-3"
+      },
+      "then": [
+        {
+          "type": "despawn",
+          "entity": "crystal-3"
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "collect-crystals",
+          "by": 1
+        }
+      ]
+    },
+    {
+      "id": "spotted",
       "on": {
         "event": "enemyContact",
         "entity": "guard"
@@ -216,17 +274,28 @@
       "id": "win-game",
       "on": {
         "event": "objectiveComplete",
-        "objective": "escape"
+        "objective": "collect-crystals"
       },
       "then": [
         {
           "type": "win",
-          "message": "Escaped with all crystals!"
+          "message": "All crystals secured!"
+        }
+      ]
+    },
+    {
+      "id": "spotted-2",
+      "on": {
+        "event": "enemyContact",
+        "entity": "guard-2"
+      },
+      "then": [
+        {
+          "type": "lose",
+          "message": "Caught by the second sentinel!"
         }
       ]
     }
   ],
-  "scratch": {
-    "crystalsCollected": 0
-  }
+  "scratch": {}
 }

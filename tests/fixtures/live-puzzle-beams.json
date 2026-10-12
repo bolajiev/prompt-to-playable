@@ -1,10 +1,10 @@
 {
   "version": "1.0.0",
   "meta": {
-    "title": "Tri-Beam Alignment",
+    "title": "Beam Alignment Chamber",
     "archetype": "puzzle-switch",
     "genre": "puzzle",
-    "difficulty": 0.7
+    "difficulty": 0.3
   },
   "world": {
     "bounds": [
@@ -25,60 +25,57 @@
       "id": "player",
       "kind": "player",
       "position": [
-        10,
         0,
-        2
+        0,
+        0
       ],
       "tags": [],
       "active": true
     },
     {
-      "id": "beam-1",
+      "id": "beam-switch-1",
       "kind": "interactable",
-      "name": "Beam Alpha",
+      "name": "North Beam",
       "position": [
-        5,
         0,
-        10
+        0,
+        8
       ],
       "tags": [],
-      "active": true,
-      "state": "idle"
+      "active": true
     },
     {
-      "id": "beam-2",
+      "id": "beam-switch-2",
       "kind": "interactable",
-      "name": "Beam Beta",
+      "name": "West Beam",
       "position": [
-        10,
+        -8,
         0,
-        10
+        0
       ],
       "tags": [],
-      "active": true,
-      "state": "idle"
+      "active": true
     },
     {
-      "id": "beam-3",
+      "id": "beam-switch-3",
       "kind": "interactable",
-      "name": "Beam Gamma",
+      "name": "East Beam",
       "position": [
-        15,
+        8,
         0,
-        10
+        0
       ],
       "tags": [],
-      "active": true,
-      "state": "idle"
+      "active": true
     },
     {
       "id": "exit-door",
       "kind": "exitDoor",
-      "name": "Vault Door",
+      "name": "Main Gate",
       "position": [
-        10,
         0,
-        18
+        0,
+        15
       ],
       "tags": [],
       "active": true,
@@ -87,10 +84,14 @@
   ],
   "objectives": [
     {
-      "id": "align-beams",
+      "id": "activate-beams",
       "type": "activate",
-      "description": "Rotate all three beams to align the circuit",
-      "target": "beam-1",
+      "description": "Align all three beam switches",
+      "targets": [
+        "beam-switch-1",
+        "beam-switch-2",
+        "beam-switch-3"
+      ],
       "count": 3,
       "progress": 0,
       "status": "active"
@@ -98,87 +99,64 @@
   ],
   "rules": [
     {
-      "id": "rotate-beam-1",
+      "id": "trigger-1",
       "on": {
         "event": "interact",
-        "entity": "beam-1"
-      },
-      "if": {
-        "op": "==",
-        "left": "beam-1.state",
-        "right": "idle"
+        "entity": "beam-switch-1"
       },
       "then": [
         {
-          "type": "setEnemyState",
-          "entity": "beam-1",
-          "state": "patrol"
+          "type": "objectiveProgress",
+          "objective": "activate-beams",
+          "by": 1
         },
         {
-          "type": "objectiveProgress",
-          "objective": "align-beams",
-          "by": 1
+          "type": "disable",
+          "entity": "beam-switch-1"
         }
       ]
     },
     {
-      "id": "rotate-beam-2",
+      "id": "trigger-2",
       "on": {
         "event": "interact",
-        "entity": "beam-2"
-      },
-      "if": {
-        "op": "==",
-        "left": "beam-2.state",
-        "right": "idle"
+        "entity": "beam-switch-2"
       },
       "then": [
         {
-          "type": "setEnemyState",
-          "entity": "beam-2",
-          "state": "patrol"
+          "type": "objectiveProgress",
+          "objective": "activate-beams",
+          "by": 1
         },
         {
-          "type": "objectiveProgress",
-          "objective": "align-beams",
-          "by": 1
+          "type": "disable",
+          "entity": "beam-switch-2"
         }
       ]
     },
     {
-      "id": "rotate-beam-3",
+      "id": "trigger-3",
       "on": {
         "event": "interact",
-        "entity": "beam-3"
-      },
-      "if": {
-        "op": "==",
-        "left": "beam-3.state",
-        "right": "idle"
+        "entity": "beam-switch-3"
       },
       "then": [
         {
-          "type": "setEnemyState",
-          "entity": "beam-3",
-          "state": "patrol"
+          "type": "objectiveProgress",
+          "objective": "activate-beams",
+          "by": 1
         },
         {
-          "type": "objectiveProgress",
-          "objective": "align-beams",
-          "by": 1
+          "type": "disable",
+          "entity": "beam-switch-3"
         }
       ]
     },
     {
-      "id": "check-completion",
+      "id": "win-condition",
       "on": {
-        "event": "objectiveProgress",
-        "objective": "align-beams"
-      },
-      "if": {
-        "op": "==",
-        "left": "align-beams.progress",
-        "right": 3
+        "event": "objectiveComplete",
+        "objective": "activate-beams"
       },
       "then": [
         {
@@ -186,13 +164,11 @@
           "entity": "exit-door"
         },
         {
-          "type": "showMessage",
-          "text": "The door is now unlocked."
+          "type": "win",
+          "message": "The gate is open!"
         }
       ]
     }
   ],
-  "scratch": {
-    "beamsAligned": 0
-  }
+  "scratch": {}
 }
