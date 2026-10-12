@@ -30,10 +30,11 @@ interface EditResponse {
   patch: unknown[];
 }
 
-function isTextEntry(target: EventTarget | null): boolean {
+export function isTextEntry(target: EventTarget | null): boolean {
   return (
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLButtonElement ||
     (target instanceof HTMLElement && target.isContentEditable)
   );
 }

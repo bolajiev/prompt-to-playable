@@ -52,6 +52,7 @@ export class Chat {
     const prompt = this.input.value.trim();
     if (prompt.length === 0) return;
 
+    this.input.blur();
     this.input.value = "";
     this.appendMessage("user", prompt);
     this.setBusy(true);
