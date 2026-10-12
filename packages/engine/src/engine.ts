@@ -42,6 +42,10 @@ export class Engine {
       throw new Error("Engine has no loaded game state; call load() first");
     }
 
+    if (this.state.status !== "running") {
+      return this.state;
+    }
+
     this.accumulator += dtMs;
 
     let steps = 0;

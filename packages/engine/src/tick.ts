@@ -55,6 +55,7 @@ export const DEFAULT_JUMP_SPEED = 8;
 export const DEFAULT_ENEMY_SPEED = 2.5;
 export const PATROL_REACHED_DISTANCE = 0.15;
 export const ENEMY_LOSE_SIGHT_FACTOR = 1.25;
+export const DEFAULT_INTERACT_RANGE = 2.5;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -427,6 +428,43 @@ function completedSince(
   return ids;
 }
 
+function failedSince(
+  before: Record<string, string>,
+  objectives: Objective[]
+): string[] {
+  const ids: string[] = [];
+  for (const objective of objectives) {
+    if (objective.status === "failed" && before[objective.id] === "active") {
+      ids.push(objective.id);
+    }
+  }
+  return ids;
+}
+
+function progressMap(objectives: Objective[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const objective of objectives) map[objective.id] = objective.progress;
+  return map;
+}
+
+function progressSince(
+  before: Record<string, number>,
+  objectives: Objective[]
+): GameEvent[] {
+  const events: GameEvent[] = [];
+  for (const objective of objectives) {
+    const previous = before[objective.id];
+    if (typeof previous === "number" && objective.progress > previous) {
+      events.push({
+        type: "objectiveProgress",
+        objectiveId: objective.id,
+        by: objective.progress - previous,
+      });
+    }
+  }
+  return events;
+}
+
 /** Cleanup: drop runtime state for entities that no longer exist. */
 export function cleanup(state: GameState): GameState {
   const present = new Set<string>(state.entities.map((e) => e.id));
@@ -450,6 +488,48 @@ export function emitEvents(state: GameState): GameEvent[] {
   return [{ type: "tick" }];
 }
 
+/**
+ * Interact: on the rising edge of `input.interact`, emit exactly one `interact`
+ * event for the nearest active entity tagged `"interactable"` (or with
+ * `kind === "interactable"`) within its
+ * `props.interactRange ?? DEFAULT_INTERACT_RANGE`. Ties resolve to document
+ * order, so emission stays deterministic.
+ */
+export function detectInteract(state: GameState): GameEvent[] {
+  if (!(state.input.interact && !state.prevInput.interact)) return [];
+
+  const player = state.entities.find(
+    (e) => e.kind === "player" && isActive(state, e.id)
+  );
+  if (!player) return [];
+
+  const playerPos = positionOf(state, player);
+  let target: Entity | undefined;
+  let targetDistance = Infinity;
+
+  for (const entity of state.entities) {
+    if (entity.id === player.id || !isActive(state, entity.id)) continue;
+
+    const tags = state.entityRuntime[entity.id]?.tags ?? entity.tags;
+    if (entity.kind !== "interactable" && !tags.includes("interactable")) {
+      continue;
+    }
+
+    const range =
+      typeof entity.props?.interactRange === "number"
+        ? entity.props.interactRange
+        : DEFAULT_INTERACT_RANGE;
+    const d = distance(playerPos, positionOf(state, entity));
+    if (d <= range && d < targetDistance) {
+      target = entity;
+      targetDistance = d;
+    }
+  }
+
+  if (!target) return [];
+  return [{ type: "interact", targetId: target.id, entityId: player.id }];
+}
+
 export function tick(
   state: GameState,
   dt: number,
@@ -467,25 +547,38 @@ export function tick(
   const broad = broadphase(next);
   next = broad.state;
 
-  const emitted: GameEvent[] = [...emitEvents(next), ...broad.events];
-  let pending: GameEvent[] = emitted;
+  const baseEvents: GameEvent[] = [
+    ...emitEvents(next),
+    ...broad.events,
+    ...detectInteract(next),
+  ];
+  const emitted: GameEvent[] = [...baseEvents];
+  let ruleEvents: GameEvent[] = baseEvents;
+  let applyEvents: GameEvent[] = baseEvents;
   let passes = 0;
 
-  while (pending.length > 0 && passes < MAX_RULE_PASSES) {
+  while (ruleEvents.length > 0 && passes < MAX_RULE_PASSES) {
     passes++;
 
-    const before = statusMap(next.objectives);
-    const { state: afterRules } = evaluateRules(next, pending);
-    next = updateObjectives(afterRules, pending);
+    const beforeStatus = statusMap(next.objectives);
+    const beforeProgress = progressMap(next.objectives);
+    const { state: afterRules } = evaluateRules(next, ruleEvents);
+    next = updateObjectives(afterRules, applyEvents);
 
-    const completed = completedSince(before, next.objectives);
-    if (completed.length === 0) break;
+    const progress = progressSince(beforeProgress, next.objectives);
+    const completed = completedSince(beforeStatus, next.objectives).map(
+      (objectiveId): GameEvent => ({ type: "objectiveComplete", objectiveId })
+    );
+    const failed = failedSince(beforeStatus, next.objectives).map(
+      (objectiveId): GameEvent => ({ type: "objectiveFailed", objectiveId })
+    );
 
-    pending = completed.map((objectiveId) => ({
-      type: "objectiveComplete",
-      objectiveId,
-    }));
-    emitted.push(...pending);
+    const chained: GameEvent[] = [...progress, ...completed, ...failed];
+    if (chained.length === 0) break;
+
+    emitted.push(...chained);
+    ruleEvents = chained;
+    applyEvents = [...completed, ...failed];
   }
 
   next = cleanup(next);

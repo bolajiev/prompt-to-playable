@@ -111,6 +111,7 @@ function eventEntityIds(event: GameEvent): string[] {
     case "enemyContact":
       return [event.entityId];
     case "objectiveComplete":
+    case "objectiveFailed":
     case "objectiveProgress":
       return [event.objectiveId];
     default:
@@ -134,7 +135,8 @@ function matchesTrigger(
   if (trigger.objective !== undefined) {
     if (
       (event.type !== "objectiveProgress" &&
-        event.type !== "objectiveComplete") ||
+        event.type !== "objectiveComplete" &&
+        event.type !== "objectiveFailed") ||
       event.objectiveId !== trigger.objective
     ) {
       return false;
