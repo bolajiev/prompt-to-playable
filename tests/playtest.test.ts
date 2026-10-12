@@ -87,6 +87,7 @@ describe("deterministic input-only playtest", () => {
   for (const fixture of FIXTURES) {
     test(`${fixture.file} (${fixture.archetype}) is won within ${TICK_BUDGET} ticks`, () => {
       const doc = loadFixture(fixture.file);
+      expect(doc.meta.archetype).toBe(fixture.archetype);
       const engine = createEngine();
       engine.load(doc);
 
@@ -136,8 +137,15 @@ describe("deterministic input-only playtest", () => {
     for (const file of liveFiles) {
       const { archetype } = loadFixture(file).meta;
       if (archetype !== "collect-a-thon" && archetype !== "puzzle-switch") continue;
-      const played = FIXTURES.some((fixture) => fixture.file === file);
-      expect({ file, archetype, played }).toEqual({ file, archetype, played: true });
+      const entry = FIXTURES.find((fixture) => fixture.file === file);
+      const played = entry !== undefined;
+      const label = entry?.archetype;
+      expect({ file, archetype, played, label }).toEqual({
+        file,
+        archetype,
+        played: true,
+        label: archetype,
+      });
     }
   });
 });
