@@ -108,6 +108,8 @@ function eventEntityIds(event: GameEvent): string[] {
       return [event.zoneId, event.entityId];
     case "interact":
       return [event.targetId, event.entityId];
+    case "enemyContact":
+      return [event.entityId];
     case "objectiveComplete":
     case "objectiveProgress":
       return [event.objectiveId];
@@ -205,6 +207,8 @@ export function evaluateRules(
         rotation: entity.rotation ? [...entity.rotation] : undefined,
         active: entity.active,
         state: entity.state,
+        waypointIndex: 0,
+        contactArmed: true,
         tags: [...entity.tags],
       },
     };

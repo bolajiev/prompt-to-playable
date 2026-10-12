@@ -19,6 +19,8 @@ export interface EntityRuntime {
   rotation?: Vec3;
   active: boolean;
   state?: EnemyState;
+  waypointIndex?: number;
+  contactArmed?: boolean;
   tags: string[];
 }
 
@@ -58,6 +60,8 @@ export function createState(doc: GameDoc, seed?: number): GameState {
       rotation: entity.rotation ? ([...entity.rotation] as Vec3) : undefined,
       active: entity.active,
       state: entity.state,
+      waypointIndex: 0,
+      contactArmed: true,
       tags: [...entity.tags],
     };
   }
