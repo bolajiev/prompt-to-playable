@@ -1,6 +1,11 @@
 import type { Entity, Objective } from "@prompt-to-playable/schema";
 import type { AABB, Vec3 } from "@prompt-to-playable/shared";
-import { pointInAABB } from "./collision.js";
+import {
+  collectSolids,
+  pointInAABB,
+  resolveXZ,
+  resolveY,
+} from "./collision.js";
 import type { GameEvent } from "./events.js";
 import { NEUTRAL_INPUT, sanitizeInput, type InputState } from "./input.js";
 import { updateObjectives } from "./objectives.js";
@@ -52,9 +57,9 @@ function clamp(value: number, min: number, max: number): number {
 
 /**
  * Integrate: advance the active player from sanitized input — horizontal
- * velocity, gravity, jump impulse, floor rest and world-bounds clamp. Other
- * entities stay on their runtime positions until later AI tasks. Pure
- * copy-on-write: the input state is never mutated.
+ * velocity, gravity, jump impulse, solid obstacle/platform resolution, floor
+ * rest and world-bounds clamp. Other entities stay on their runtime positions
+ * until later AI tasks. Pure copy-on-write: the input state is never mutated.
  */
 export function integrate(
   state: GameState,
@@ -72,6 +77,7 @@ export function integrate(
   const speed = player.speed ?? DEFAULT_PLAYER_SPEED;
   const size = player.size ?? DEFAULT_PLAYER_SIZE;
   const gravity = state.doc.world.gravity ?? 9.8;
+  const solids = collectSolids(state);
 
   const position: Vec3 = [...runtime.position];
   const velocity: Vec3 = runtime.velocity ? [...runtime.velocity] : [0, 0, 0];
@@ -90,16 +96,25 @@ export function integrate(
 
   position[0] += velocity[0] * dt;
   position[2] += velocity[2] * dt;
+
+  const xz = resolveXZ(position, velocity, size, solids);
+  position[0] = xz.pos[0];
+  position[2] = xz.pos[2];
+  velocity[0] = xz.vel[0];
+  velocity[2] = xz.vel[2];
+
   position[1] += velocity[1] * dt;
 
+  const y = resolveY(position, velocity, size, solids);
+  position[1] = y.pos[1];
+  velocity[1] = y.vel[1];
+  let grounded = y.grounded;
+
   const halfHeight = size[1] / 2;
-  let grounded: boolean;
-  if (position[1] <= FLOOR_Y + halfHeight) {
+  if (!grounded && position[1] <= FLOOR_Y + halfHeight) {
     position[1] = FLOOR_Y + halfHeight;
     velocity[1] = 0;
     grounded = true;
-  } else {
-    grounded = false;
   }
 
   const bounds = state.doc.world.bounds;
