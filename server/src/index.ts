@@ -2,12 +2,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Express } from "express";
 import { createDefaultEditDeps, createEditPipeline } from "./edit.js";
+import { loadEnvFile } from "./env.js";
 import { createOpenAiLlm } from "./llm.js";
 import { createDefaultPipelineDeps, createGenerationPipeline } from "./pipeline.js";
 import { createApp } from "./routes.js";
 import type { RouteHandlers } from "./routes.js";
 
 export const DEFAULT_PORT = 3000;
+
+const ENV_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", ".env");
 
 export function getApiKey(): string | undefined {
   const key = process.env.OPENAI_API_KEY;
@@ -30,6 +33,7 @@ export function createDefaultHandlers(): RouteHandlers {
 }
 
 export function startServer(handlers?: RouteHandlers): void {
+  loadEnvFile(ENV_PATH);
   const app = createApp(handlers ?? createDefaultHandlers());
   const port = Number(process.env.PORT ?? DEFAULT_PORT);
   app.listen(port, () => {

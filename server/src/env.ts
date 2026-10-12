@@ -33,6 +33,10 @@ export function loadEnvFile(path: string): boolean {
       }
     }
 
+    // Empty assignments (e.g. from a copied .env.example) must not set the
+    // key: a present-but-empty value would defeat downstream fallbacks.
+    if (value.length === 0) continue;
+
     if (process.env[key] === undefined) {
       process.env[key] = value;
     }

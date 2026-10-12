@@ -229,7 +229,7 @@ async function runEdit(
 
 export async function runSmoke(): Promise<boolean> {
   loadEnvFile(ENV_PATH);
-  const model = process.env.OPENAI_MODEL?.trim() ?? DEFAULT_LLM_MODEL;
+  const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_LLM_MODEL;
   const configured = Boolean(process.env.OPENAI_API_KEY?.trim());
   console.log(`llm:smoke model=${model} key=${configured ? "configured" : "missing"}`);
   if (!configured) {

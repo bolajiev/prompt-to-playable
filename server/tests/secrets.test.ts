@@ -131,6 +131,27 @@ describe("loadEnvFile", () => {
     expect(process.env.LLM_ENV_TEST_C).toBe("single-quoted");
   });
 
+  test("skips empty values instead of setting keys", () => {
+    const dir = trackDir("llm-env-");
+    const file = join(dir, ".env");
+    writeFileSync(
+      file,
+      ["LLM_ENV_TEST_EMPTY=", 'LLM_ENV_TEST_QUOTED_EMPTY=""', "LLM_ENV_TEST_SET=value"].join(
+        "\n"
+      ),
+      "utf8"
+    );
+
+    trackEnv("LLM_ENV_TEST_EMPTY", undefined);
+    trackEnv("LLM_ENV_TEST_QUOTED_EMPTY", undefined);
+    trackEnv("LLM_ENV_TEST_SET", undefined);
+
+    expect(loadEnvFile(file)).toBe(true);
+    expect(process.env.LLM_ENV_TEST_EMPTY).toBeUndefined();
+    expect(process.env.LLM_ENV_TEST_QUOTED_EMPTY).toBeUndefined();
+    expect(process.env.LLM_ENV_TEST_SET).toBe("value");
+  });
+
   test("returns false when the file does not exist", () => {
     expect(loadEnvFile(join(tmpdir(), "llm-env-does-not-exist.env"))).toBe(false);
   });

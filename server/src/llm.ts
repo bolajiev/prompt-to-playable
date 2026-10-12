@@ -14,10 +14,10 @@ const SYSTEM_PROMPT =
 
 export function createOpenAiLlm(options: OpenAiLlmOptions = {}): LlmCall {
   const apiKey = options.apiKey ?? process.env.OPENAI_API_KEY?.trim();
-  const model = options.model ?? process.env.OPENAI_MODEL?.trim() ?? DEFAULT_LLM_MODEL;
+  const model = options.model || process.env.OPENAI_MODEL?.trim() || DEFAULT_LLM_MODEL;
   const baseUrl = (
-    options.baseUrl ??
-    process.env.OPENAI_BASE_URL?.trim() ??
+    options.baseUrl ||
+    process.env.OPENAI_BASE_URL?.trim() ||
     "https://api.openai.com/v1"
   ).replace(/\/+$/, "");
 
