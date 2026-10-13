@@ -38,8 +38,12 @@ function positionOf(state: GameState, entity: Entity): Vec3 {
   return state.entityRuntime[entity.id]?.position ?? entity.position;
 }
 
-function entityAABB(entity: Entity, position: Vec3): AABB {
-  const size = entity.size ?? DEFAULT_ZONE_SIZE;
+function entityAABB(
+  entity: Entity,
+  position: Vec3,
+  fallback: Vec3 = DEFAULT_ZONE_SIZE
+): AABB {
+  const size = entity.size ?? fallback;
   const half: Vec3 = [size[0] / 2, size[1] / 2, size[2] / 2];
   return {
     min: [position[0] - half[0], position[1] - half[1], position[2] - half[2]],
@@ -338,6 +342,7 @@ export function broadphase(state: GameState): BroadphaseResult {
 
   const playerPos = positionOf(state, player);
   const playerBox = entityAABB(player, playerPos);
+  const playerBodyBox = entityAABB(player, playerPos, DEFAULT_PLAYER_SIZE);
   const events: GameEvent[] = [];
   let flags = state.flags;
   let entityRuntime = state.entityRuntime;
@@ -349,7 +354,7 @@ export function broadphase(state: GameState): BroadphaseResult {
 
     const inside = aabbOverlap(
       entityAABB(zone, positionOf(state, zone)),
-      playerBox
+      playerBodyBox
     );
     const key = ZONE_FLAG_PREFIX + zone.id;
     const was = flags[key] === true;
