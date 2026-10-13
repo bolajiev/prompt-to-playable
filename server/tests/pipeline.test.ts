@@ -180,6 +180,24 @@ describe("generateGame — pipeline", () => {
     expect(repairer).not.toHaveBeenCalled();
   });
 
+  test("a failing classifier surfaces as RouteError GENERATION_FAILED", async () => {
+    const error = await generateGame("a puzzle room", {
+      classifier: async () => {
+        throw new Error("LLM request failed with status 503");
+      },
+      generator: async () => validDoc(),
+      repairer: neverRepairer,
+    }).then(
+      () => null,
+      (e: unknown) => e
+    );
+
+    expect(error).toBeInstanceOf(RouteError);
+    const routeError = error as RouteError;
+    expect(routeError.code).toBe("GENERATION_FAILED");
+    expect(routeError.details.join("\n")).toContain("503");
+  });
+
   test("an invalid doc triggers one repair that returns the fixed doc", async () => {
     const broken = invalidDoc();
     const fixed = validDoc();

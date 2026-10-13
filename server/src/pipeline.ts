@@ -72,7 +72,11 @@ async function runPipeline(
   deps: GenerationPipelineDeps
 ): Promise<GameDoc> {
   const maxRepairs = deps.maxRepairs ?? MAX_REPAIR_RETRIES;
-  const archetype = await deps.classifier(prompt);
+  const archetype = await deps.classifier(prompt).catch((error: unknown) => {
+    throw new RouteError("GENERATION_FAILED", "Game classification failed", [
+      `classifier: ${messageOf(error)}`,
+    ]);
+  });
 
   const failures: string[] = [];
   let repairs = 0;
