@@ -74,29 +74,33 @@ export function lightingProfile(lighting: Lighting | undefined): LightingProfile
 }
 
 export interface GameDebugHook {
-  /** Read-only engine snapshot, refreshed on every call. */
+  /** Deep-cloned engine snapshot (JSON round-trip), refreshed on every call. */
   getState: () => GameState;
 }
 
 /**
- * Pure factory for the browser QA debug hook: a frozen, read-only accessor
- * that delegates to the given state source. It performs no DOM access and
- * never mutates engine state, so it is unit-testable without a browser.
+ * Pure factory for the browser QA debug hook: a frozen accessor that returns a
+ * deep clone of the current state via a JSON round-trip. Callers get the full
+ * snapshot but can never reach (or mutate) engine internals. It performs no
+ * DOM access and never mutates engine state, so it is unit-testable without a
+ * browser.
  */
 export function createDebugHook(source: {
   getState: () => GameState;
 }): GameDebugHook {
-  return Object.freeze({ getState: () => source.getState() });
+  return Object.freeze({
+    getState: () => JSON.parse(JSON.stringify(source.getState())) as GameState,
+  });
 }
 
 declare global {
   interface Window {
-    /** QA aid installed by App: read-only snapshot access for automation. */
+    /** QA aid installed by App: deep-cloned engine snapshots for automation. */
     __gameDebug?: GameDebugHook;
   }
 }
 
-/** Installs the read-only hook on the browser window when one exists. */
+/** Installs the deep-clone debug hook on the browser window when one exists. */
 function installDebugHook(engine: Engine): void {
   if (typeof window === "undefined") return;
   window.__gameDebug = createDebugHook(engine);

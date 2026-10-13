@@ -373,7 +373,18 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
     await page.waitForSelector("#chat-submit", { state: "visible" });
     await page.waitForSelector("#hud", { state: "visible" });
     await page.waitForSelector("#badge", { state: "visible" });
-    await page.waitForTimeout(700);
+    await page.waitForFunction(
+      () => {
+        const badge = document.querySelector("#badge");
+        const controls = document.querySelector("#controls")?.textContent ?? "";
+        return (
+          badge?.getAttribute("data-validated") === "false" &&
+          controls.includes("WASD move")
+        );
+      },
+      undefined,
+      { timeout: NAVIGATION_TIMEOUT_MS }
+    );
     const controls = ((await page.locator("#controls").textContent()) ?? "").trim();
     expectCondition(
       controls.includes("WASD move"),
