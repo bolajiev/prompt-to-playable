@@ -1,0 +1,9 @@
+# Keep secrets out of CLI uploads (.vercelignore is not .gitignore).
+.git
+.superpowers
+coverage
+**/*.tsbuildinfo
+.env*
+!.env.example
+artifacts
+docs/superpowers

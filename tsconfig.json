@@ -1,5 +1,12 @@
 {
-  "files": [],
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "composite": false,
+    "declaration": false,
+    "noEmit": true,
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
+  },
+  "files": ["api/index.ts"],
   "references": [
     { "path": "packages/shared" },
     { "path": "packages/schema" },
