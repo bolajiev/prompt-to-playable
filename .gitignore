@@ -7,3 +7,5 @@ coverage
 .vite
 .vercel
 *.tsbuildinfo
+.env*
+artifacts/

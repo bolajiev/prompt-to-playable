@@ -17,10 +17,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "eval:corpus": "tsx scripts/eval-corpus.ts",
-    "llm:smoke": "tsx scripts/llm-smoke.ts"
+    "llm:smoke": "tsx scripts/llm-smoke.ts",
+    "qa:browser": "tsx scripts/qa-browser.ts"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
+    "playwright": "^1.64.0",
     "tsx": "^4.23.15",
     "typescript": "^5.6.2",
     "vitest": "^2.1.1",

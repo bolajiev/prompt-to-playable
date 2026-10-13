@@ -43,6 +43,35 @@ export function isTextEntry(target: EventTarget | null): boolean {
   );
 }
 
+export interface GameDebugHook {
+  /** Read-only engine snapshot, refreshed on every call. */
+  getState: () => GameState;
+}
+
+/**
+ * Pure factory for the browser QA debug hook: a frozen, read-only accessor
+ * that delegates to the given state source. It performs no DOM access and
+ * never mutates engine state, so it is unit-testable without a browser.
+ */
+export function createDebugHook(source: {
+  getState: () => GameState;
+}): GameDebugHook {
+  return Object.freeze({ getState: () => source.getState() });
+}
+
+declare global {
+  interface Window {
+    /** QA aid installed by App: read-only snapshot access for automation. */
+    __gameDebug?: GameDebugHook;
+  }
+}
+
+/** Installs the read-only hook on the browser window when one exists. */
+function installDebugHook(engine: Engine): void {
+  if (typeof window === "undefined") return;
+  window.__gameDebug = createDebugHook(engine);
+}
+
 function errorMessage(payload: unknown, status: number): string {
   if (payload !== null && typeof payload === "object") {
     const value = payload as { error?: unknown; details?: unknown };
@@ -125,6 +154,7 @@ export class App {
     globalThis.addEventListener("keydown", this.handleKeyDown);
     globalThis.addEventListener("keyup", this.handleKeyUp);
     globalThis.addEventListener("blur", this.handleBlur);
+    installDebugHook(this.engine);
   }
 
   get validatedDoc(): GameDoc | null {
