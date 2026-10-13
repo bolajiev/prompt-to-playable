@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import express from "express";
 import type {
   ErrorRequestHandler,
@@ -99,9 +101,28 @@ const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
   res.status(500).json({ error: "INTERNAL_ERROR" });
 };
 
-export function createApp(handlers: RouteHandlers = {}): Express {
+export interface CreateAppOptions {
+  webDist?: string;
+}
+
+const API_PATH_PREFIXES = ["/generate", "/edit", "/healthz"];
+
+function isApiPath(pathname: string): boolean {
+  return API_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  );
+}
+
+export function createApp(
+  handlers: RouteHandlers = {},
+  options: CreateAppOptions = {}
+): Express {
   const app = express();
   app.use(express.json({ limit: "1mb" }));
+
+  app.get("/healthz", (_req, res) => {
+    res.status(200).json({ status: "ok" });
+  });
 
   app.post(
     "/generate",
@@ -196,6 +217,19 @@ export function createApp(handlers: RouteHandlers = {}): Express {
       res.status(200).json({ doc: patched.data, patch: patch.patch });
     })
   );
+
+  const webDist = options.webDist;
+  if (webDist !== undefined && existsSync(webDist)) {
+    const indexHtml = path.join(webDist, "index.html");
+    app.use(express.static(webDist));
+    app.get("*", (req, res, next) => {
+      if (isApiPath(req.path) || !existsSync(indexHtml)) {
+        next();
+        return;
+      }
+      res.sendFile(indexHtml);
+    });
+  }
 
   app.use((_req, res) => {
     res.status(404).json({ error: "NOT_FOUND", details: ["Unknown route"] });

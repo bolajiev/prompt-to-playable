@@ -10,6 +10,9 @@
   ],
   "scripts": {
     "build": "tsc -b",
+    "build:web": "npm --workspace apps/web run build",
+    "serve:prod": "node server/dist/index.js",
+    "start": "npm run build && npm run build:web && npm run serve:prod",
     "dev": "echo 'run server + web separately'",
     "test": "vitest run",
     "test:watch": "vitest",
