@@ -19,9 +19,16 @@ fail() {
 
 [ -f "$BEATS" ] || fail "missing $BEATS; run scripts/demo-record.ts first"
 
-WEBM="$(ls -t "$DEMO_DIR"/*.webm 2>/dev/null | head -n 1 || true)"
-[ -n "$WEBM" ] || fail "no .webm recording found in $DEMO_DIR"
+if [ -f "$DEMO_DIR/demo.webm" ]; then
+  WEBM="$DEMO_DIR/demo.webm"
+else
+  WEBM="$(ls -t "$DEMO_DIR"/*.webm 2>/dev/null | head -n 1 || true)"
+fi
+[ -n "$WEBM" ] && [ -f "$WEBM" ] || fail "no .webm recording found in $DEMO_DIR"
 echo "demo-encode: source $WEBM"
+
+FRAME_WIDTH="$(ffprobe -v error -select_streams v:0 -show_entries stream=width -of csv=p=0 "$WEBM" | head -n 1)"
+FRAME_WIDTH="${FRAME_WIDTH:-1280}"
 
 FONT="/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 if [ ! -f "$FONT" ]; then
@@ -35,29 +42,56 @@ mkdir -p "$CAPTIONS_DIR" "$FRAMES_DIR" "$OUT_DIR"
 
 FILTER="$(
   BEATS_FILE="$BEATS" CAPTIONS_DIR="$CAPTIONS_DIR" FONT_FILE="$FONT" \
+  FRAME_WIDTH="$FRAME_WIDTH" \
   node --input-type=module <<'NODE'
 import { readFileSync, writeFileSync } from "node:fs";
 
 const beats = JSON.parse(readFileSync(process.env.BEATS_FILE, "utf8"));
 const captions = Array.isArray(beats.captions) ? beats.captions : [];
+const frameWidth = Number(process.env.FRAME_WIDTH) || 1280;
+const fontSize = 34;
+const boxBorder = 16;
+const maxTextWidth = frameWidth - boxBorder * 2 - 64;
+const maxChars = Math.max(12, Math.floor(maxTextWidth / (fontSize * 0.62)));
+
+function wrapCaption(text) {
+  const words = String(text).split(/\s+/).filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word;
+    if (line && candidate.length > maxChars) {
+      lines.push(line);
+      line = word;
+    } else {
+      line = candidate;
+    }
+  }
+  if (line) lines.push(line);
+  return lines.length > 0 ? lines : [""];
+}
+
 const parts = [];
 let index = 0;
 for (const caption of captions) {
   const start = Math.max(0, Number(caption.startMs) / 1000);
   const end = Math.max(start + 0.5, Number(caption.endMs) / 1000);
+  const lines = wrapCaption(caption.text);
   const textFile = `${process.env.CAPTIONS_DIR}/caption-${index}.txt`;
-  writeFileSync(textFile, String(caption.text));
+  writeFileSync(textFile, lines.join("\n"));
+  const yOffset = (lines.length - 1) * (fontSize + 6);
   parts.push(
     [
       `drawtext=fontfile=${process.env.FONT_FILE}`,
       `textfile=${textFile}`,
       "x=(w-text_w)/2",
-      "y=h-92",
-      "fontsize=34",
+      `y=h-${92 + yOffset}`,
+      `fontsize=${fontSize}`,
       "fontcolor=white",
       "box=1",
       "boxcolor=black@0.55",
-      "boxborderw=16",
+      `boxborderw=${boxBorder}`,
+      "text_align=center",
       `enable='between(t,${start.toFixed(3)},${end.toFixed(3)})'`,
     ].join(":")
   );
@@ -84,6 +118,43 @@ echo "demo-encode: wrote $OUT duration=${DURATION}s size=$((SIZE_BYTES / 1024))K
 awk -v d="$DURATION" -v max="$MAX_SECONDS" 'BEGIN { if (d + 0 >= max + 0) exit 1 }' ||
   fail "duration ${DURATION}s is not under ${MAX_SECONDS}s"
 
+# Programmatic caption-width check: every wrapped line, plus the drawtext box
+# border, must fit inside the frame. Uses PIL when available (same TTF font).
+if python3 -c "import PIL" >/dev/null 2>&1; then
+  FONT_FILE="$FONT" FRAME_WIDTH="$FRAME_WIDTH" BOX_BORDER=16 FONTSIZE=34 \
+  CAPTIONS_DIR="$CAPTIONS_DIR" \
+  python3 - <<'CHECK' || fail "caption width check failed"
+import os
+import sys
+
+from PIL import ImageFont
+
+font = ImageFont.truetype(os.environ["FONT_FILE"], int(os.environ["FONTSIZE"]))
+frame_width = int(os.environ["FRAME_WIDTH"])
+box_border = int(os.environ["BOX_BORDER"])
+limit = frame_width - 2 * box_border
+problems = []
+for name in sorted(os.listdir(os.environ["CAPTIONS_DIR"])):
+    if not (name.startswith("caption-") and name.endswith(".txt")):
+        continue
+    path = os.path.join(os.environ["CAPTIONS_DIR"], name)
+    with open(path, encoding="utf-8") as handle:
+        for line in handle.read().splitlines():
+            left, _, right, _ = font.getbbox(line)
+            width = right - left
+            status = "OK" if width <= limit else "CLIPPED"
+            print(f"  {name}: line={width + 2 * box_border}px (limit {frame_width}px) {status}")
+            if width > limit:
+                problems.append((name, width, line))
+if problems:
+    for name, width, line in problems:
+        print(f"caption width check: {name} line too wide: {width}px text {line!r}", file=sys.stderr)
+    sys.exit(1)
+CHECK
+else
+  echo "demo-encode: python3/PIL not available; skipping programmatic caption width check"
+fi
+
 FRAMES_FILE="$CAPTIONS_DIR/frames.txt"
 BEATS_FILE="$BEATS" CAPTIONS_DIR="$CAPTIONS_DIR" \
   node --input-type=module <<'NODE' > "$FRAMES_FILE"
@@ -93,13 +164,7 @@ const beats = JSON.parse(readFileSync(process.env.BEATS_FILE, "utf8"));
 const captions = Array.isArray(beats.captions) ? beats.captions : [];
 const lines = [];
 if (captions.length > 0) {
-  const wanted = Math.min(4, captions.length);
-  const indices = new Set();
-  for (let i = 0; i < wanted; i += 1) {
-    indices.add(Math.round((i * (captions.length - 1)) / Math.max(1, wanted - 1)));
-  }
-  for (const index of [...indices].sort((a, b) => a - b)) {
-    const caption = captions[index];
+  for (const [index, caption] of captions.entries()) {
     const start = Number(caption.startMs) || 0;
     const end = Number(caption.endMs) || start;
     const mid = (start + end) / 2 / 1000;

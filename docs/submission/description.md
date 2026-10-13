@@ -91,8 +91,10 @@ We treat reliability as a first-class metric. A deterministic prompt-corpus harn
 
 ## API key / environment
 
-The live deployment's API key is **not** in this repository. `OPENAI_API_KEY`
-(plus optional `OPENAI_BASE_URL` and `OPENAI_MODEL`) must be supplied through
-environment variables: `server/.env` for local runs (gitignored) or the host's
-project environment for deployments. Without a key the server still boots, but
-`/generate` and `/edit` fail with a clear error. See `docs/deployment.md`.
+The live deployment's LLM API key is **not** in this repository and is supplied
+only through environment variables: `OPENAI_API_KEY` (plus optional
+`OPENAI_BASE_URL` and `OPENAI_MODEL`) in `server/.env` for local runs
+(gitignored) or the host's project environment for deployments. The live key
+should be rotated or revoked after the hackathon. Without a key the server still
+boots, but `/generate` and `/edit` fail with a clear error. See
+`docs/deployment.md`.

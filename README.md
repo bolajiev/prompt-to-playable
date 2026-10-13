@@ -186,7 +186,7 @@ the offline suite. Per-prompt results and failure classes:
 
 ## Submission notes
 
-- **Focus category:** Prompt-to-playable game / AI-assisted interactive 3D creation.
+- **Focus category:** prompt-to-world / AI-assisted interactive 3D game creation.
 - **Artifacts:** public repo, hosted browser demo, demo video < 3 min, written description (`docs/submission/description.md`).
 - **AI usage:** archetype classifier → constrained structured generator → Zod validation + ≤2 repair retries → sanity/solvability checks; conversational edits via RFC 6902 JSON Patch, re-validated before commit.
 - **Demo script:** `docs/submission/demo-script.md`.
@@ -203,7 +203,8 @@ This project is [MIT licensed](LICENSE).
 
 The app, engine, schema, and tests were written with AI-assisted code
 generation; every generated game document is validated and checked before it
-reaches the client (see "Architecture" above). The live deployment's API key is
-not in this repository — supply `OPENAI_API_KEY` (and optionally
-`OPENAI_BASE_URL`, `OPENAI_MODEL`) via environment variables as described in
+reaches the client (see "Architecture" above). The live deployment's LLM API key
+is supplied only via environment variables, is not in this repository, and
+should be rotated or revoked after the hackathon. Supply `OPENAI_API_KEY` (and
+optionally `OPENAI_BASE_URL`, `OPENAI_MODEL`) as described in
 [`docs/deployment.md`](docs/deployment.md).
