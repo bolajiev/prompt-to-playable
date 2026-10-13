@@ -4,7 +4,6 @@ import {
   DEFAULT_SOLID_SIZE,
   aabbOverlap,
   collectSolids,
-  pointInAABB,
   resolveXZ,
   resolveY,
 } from "./collision.js";
@@ -348,7 +347,10 @@ export function broadphase(state: GameState): BroadphaseResult {
   for (const zone of state.entities) {
     if (zone.kind !== "zone" || !isActive(state, zone.id)) continue;
 
-    const inside = pointInAABB(playerPos, entityAABB(zone, positionOf(state, zone)));
+    const inside = aabbOverlap(
+      entityAABB(zone, positionOf(state, zone)),
+      playerBox
+    );
     const key = ZONE_FLAG_PREFIX + zone.id;
     const was = flags[key] === true;
     if (inside === was) continue;
