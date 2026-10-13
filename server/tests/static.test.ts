@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import request from "supertest";
 import {
@@ -53,6 +53,24 @@ describe("production static serving", () => {
     expect(res.status).toBe(200);
     expect(res.type).toBe("text/html");
     expect(res.text).toBe(INDEX_HTML);
+  });
+
+  test("resolves a relative webDist against process.cwd() for SPA routes", async () => {
+    const relRoot = mkdtempSync(join(process.cwd(), "web-dist-rel-"));
+    try {
+      const relWebDist = join(basename(relRoot), "dist");
+      mkdirSync(join(relRoot, "dist"));
+      writeFileSync(join(relRoot, "dist", "index.html"), INDEX_HTML, "utf8");
+
+      const res = await request(buildApp({}, { webDist: relWebDist })).get(
+        "/some/spa/route"
+      );
+      expect(res.status).toBe(200);
+      expect(res.type).toBe("text/html");
+      expect(res.text).toBe(INDEX_HTML);
+    } finally {
+      rmSync(relRoot, { recursive: true, force: true });
+    }
   });
 
   test("keeps API routes out of the SPA fallback", async () => {

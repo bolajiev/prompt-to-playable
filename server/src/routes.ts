@@ -218,7 +218,8 @@ export function createApp(
     })
   );
 
-  const webDist = options.webDist;
+  const webDist =
+    options.webDist === undefined ? undefined : path.resolve(options.webDist);
   if (webDist !== undefined && existsSync(webDist)) {
     const indexHtml = path.join(webDist, "index.html");
     app.use(express.static(webDist));
