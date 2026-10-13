@@ -1,9 +1,13 @@
 # Prompt-to-Playable Game
 
+**Live demo:** https://prompt-to-playable-steel.vercel.app · **Repo:** https://github.com/bolajiev/prompt-to-playable
+
 Turn a plain-language prompt into a playable 3D browser game with **working logic** — then keep shaping it by chatting: *"add a second guard and a timer"*, *"raise the platforms"*, *"make the door open on a pressure plate"*.
 
 The architecture is **schema-first and data-driven**. The LLM emits a validated JSON game document; a fixed, deterministic TypeScript engine executes it. No generated code ever runs.
 
+- **Demo video (66 s, captioned):** [`docs/submission/demo.mp4`](docs/submission/demo.mp4)
+- **Deployment:** [`docs/deployment.md`](docs/deployment.md)
 - **Spec:** [`docs/superpowers/specs/2026-10-09-prompt-to-playable-game-design.md`](docs/superpowers/specs/2026-10-09-prompt-to-playable-game-design.md)
 - **Implementation plan:** [`docs/superpowers/plans/2026-10-09-prompt-to-playable-game.md`](docs/superpowers/plans/2026-10-09-prompt-to-playable-game.md)
 - **Submission description:** [`docs/submission/description.md`](docs/submission/description.md)
@@ -102,15 +106,34 @@ npm run build
 npm --workspace @prompt-to-playable/web run build
 ```
 
+For Vercel (one function for `/generate`, `/edit`, `/healthz`) and Docker/local
+production — including environment variables and verification commands — see
+[`docs/deployment.md`](docs/deployment.md).
+
 ## How to test
+
+A clean clone needs **`npm install && npm run build && npm test`**: the tests
+import the workspace packages' built `dist` output, so the build step is
+required before the first test run.
 
 ```bash
 npm install         # first time only
+npm run build       # required before tests: they import built dist
 npm test            # Vitest: unit + integration + e2e smoke + fixture playtest
 npm run test:watch  # watch mode
 ```
 
-The offline suite is **25 files / 231 tests**, needs no API key, and includes the
+Browser QA against a deployed or local URL (headless Chromium via Playwright:
+loads the app, generates a game from a prompt, verifies it renders and the
+player moves, applies a follow-up edit, and writes screenshots to
+`artifacts/qa/`):
+
+```bash
+npm run qa:browser -- https://prompt-to-playable-steel.vercel.app
+npm run qa:browser -- <url> --landing-only   # landing-page smoke, no live model calls
+```
+
+The offline suite is **32 files / 274 tests**, needs no API key, and includes the
 rules evaluator, movement/gravity/jump and obstacle/platform collision, enemy
 patrol/chase, objectives, the deterministic input-only playtest over the live
 fixtures (`tests/playtest.test.ts`: 3 auto-won games + label/coverage guards),
@@ -167,3 +190,20 @@ the offline suite. Per-prompt results and failure classes:
 - **Artifacts:** public repo, hosted browser demo, demo video < 3 min, written description (`docs/submission/description.md`).
 - **AI usage:** archetype classifier → constrained structured generator → Zod validation + ≤2 repair retries → sanity/solvability checks; conversational edits via RFC 6902 JSON Patch, re-validated before commit.
 - **Demo script:** `docs/submission/demo-script.md`.
+
+## Credits & Licenses
+
+This project is [MIT licensed](LICENSE).
+
+- **Three.js** — MIT; the 3D renderer.
+- **Zod** — MIT; runtime schema validation and inferred types.
+- **Express** — MIT; the thin Node API.
+- **Playwright** — Apache-2.0; dev-only browser QA (`npm run qa:browser`).
+- **Google Gemini** via its OpenAI-compatible endpoint — used for the live model evaluation on 2026-10-12 (`docs/llm-eval-2026-10-12.md`); the repository ships no API key.
+
+The app, engine, schema, and tests were written with AI-assisted code
+generation; every generated game document is validated and checked before it
+reaches the client (see "Architecture" above). The live deployment's API key is
+not in this repository — supply `OPENAI_API_KEY` (and optionally
+`OPENAI_BASE_URL`, `OPENAI_MODEL`) via environment variables as described in
+[`docs/deployment.md`](docs/deployment.md).
