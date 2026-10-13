@@ -87,6 +87,24 @@ export function entityTransform(
   };
 }
 
+/**
+ * Kinds rendered as translucent volumes instead of opaque solids, so entities
+ * co-located inside them (e.g. collectibles in a trigger zone) stay visible.
+ */
+export const TRANSLUCENT_KINDS: ReadonlySet<Entity["kind"]> = new Set(["zone"]);
+
+/** Face opacity for translucent kinds: readable as a region, clearly see-through. */
+export const TRANSLUCENT_OPACITY = 0.2;
+
+/**
+ * Per-kind emissive fraction of the entity color. Keeps gameplay-relevant
+ * entities (collectibles, enemies) readable even in dim lighting.
+ */
+export const EMISSIVE_STRENGTH: Readonly<Record<string, number>> = {
+  collectible: 0.35,
+  enemy: 0.2,
+};
+
 export const KIND_COLORS: Record<string, string> = {
   player: "#4ade80",
   enemy: "#f87171",

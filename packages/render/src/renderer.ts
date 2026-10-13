@@ -3,8 +3,11 @@ import type { Entity } from "@prompt-to-playable/schema";
 import * as THREE from "three";
 import {
   diffEntities,
+  EMISSIVE_STRENGTH,
   entityColor,
   entityTransform,
+  TRANSLUCENT_KINDS,
+  TRANSLUCENT_OPACITY,
   type EntityTransform,
 } from "./scene.js";
 
@@ -103,19 +106,42 @@ function geometryForKind(kind: Entity["kind"]): THREE.BufferGeometry {
   }
 }
 
+/**
+ * Material per kind: zones use translucent `MeshBasicMaterial` volumes (no
+ * depth writes) so content inside them stays visible; every other kind keeps
+ * an opaque lit `MeshStandardMaterial`. Collectibles and enemies get a slight
+ * emissive lift so they pop against dim scenes.
+ */
+function materialForEntity(entity: Entity): THREE.Material {
+  const color = new THREE.Color(entityColor(entity));
+  if (TRANSLUCENT_KINDS.has(entity.kind)) {
+    return new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: TRANSLUCENT_OPACITY,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+  }
+
+  const material = new THREE.MeshStandardMaterial({
+    color,
+    roughness: 0.6,
+    metalness: 0.1,
+  });
+  const emissive = EMISSIVE_STRENGTH[entity.kind];
+  if (emissive !== undefined) {
+    material.emissive.copy(color).multiplyScalar(emissive);
+  }
+  return material;
+}
+
 /** Materializes entities as Three.js objects attached to a target Object3D. */
 export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
   constructor(private readonly target: THREE.Object3D) {}
 
   create(entity: Entity): THREE.Object3D {
-    const mesh = new THREE.Mesh(
-      geometryForKind(entity.kind),
-      new THREE.MeshStandardMaterial({
-        color: new THREE.Color(entityColor(entity)),
-        roughness: 0.6,
-        metalness: 0.1,
-      })
-    );
+    const mesh = new THREE.Mesh(geometryForKind(entity.kind), materialForEntity(entity));
     mesh.name = entity.id;
     mesh.userData.entityId = entity.id;
     mesh.userData.kind = entity.kind;
@@ -155,13 +181,18 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
 
     const material = (view as THREE.Mesh).material;
     const color = new THREE.Color(entityColor(entity));
+    const emissive = EMISSIVE_STRENGTH[entity.kind];
+    const applyColor = (target: THREE.Material): void => {
+      const shaded = target as THREE.MeshStandardMaterial;
+      shaded.color?.set(color);
+      if (emissive !== undefined && shaded.emissive) {
+        shaded.emissive.copy(color).multiplyScalar(emissive);
+      }
+    };
     if (Array.isArray(material)) {
-      material.forEach((m) => {
-        const withColor = m as THREE.MeshStandardMaterial;
-        withColor.color?.set(color);
-      });
+      material.forEach(applyColor);
     } else if (material && "color" in material) {
-      (material as THREE.MeshStandardMaterial).color.set(color);
+      applyColor(material);
     }
   }
 
