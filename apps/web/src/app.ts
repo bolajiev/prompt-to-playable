@@ -94,6 +94,20 @@ export function isTextEntry(target: EventTarget | null): boolean {
 }
 
 /**
+ * Banner copy for a failed WebGL renderer construction. Pure (no DOM, no
+ * WebGL) so it can be unit-tested; the App only has to place the returned
+ * string in the stage overlay when browser context creation fails.
+ */
+export function webglFallbackMessage(error?: unknown): string {
+  const guidance =
+    "3D couldn't start: your browser blocked WebGL. Try Chrome/Edge with hardware acceleration enabled.";
+  if (error instanceof Error && error.message.length > 0) {
+    return `${guidance} (${error.message})`;
+  }
+  return guidance;
+}
+
+/**
  * Lighting presets and environment helpers live in `@prompt-to-playable/render`
  * (pure tables plus `applyWorldEnvironment`); re-exported here so app consumers
  * keep one import surface.
@@ -169,7 +183,8 @@ export class App {
   private readonly engine = new Engine();
   private readonly scene: THREE.Scene;
   private readonly camera: THREE.PerspectiveCamera;
-  private readonly webgl: THREE.WebGLRenderer;
+  /** Null when the browser refuses to create a WebGL context (fallback mode). */
+  private readonly webgl: THREE.WebGLRenderer | null;
   private readonly renderer: Renderer;
   private readonly hud: Hud;
   private readonly badge: ValidationBadge;
@@ -223,11 +238,20 @@ export class App {
     this.camera.position.set(6, 8, 12);
     this.camera.lookAt(0, 0, 0);
 
-    this.webgl = new THREE.WebGLRenderer({
-      canvas: elements.canvas,
-      antialias: true,
-    });
-    this.webgl.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, 2));
+    let webgl: THREE.WebGLRenderer | null = null;
+    try {
+      webgl = new THREE.WebGLRenderer({
+        canvas: elements.canvas,
+        antialias: true,
+      });
+      webgl.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, 2));
+    } catch (error) {
+      // WebGL can be blocked (hardware acceleration off, remote/headless
+      // session, driver blacklist). Keep the DOM app alive without a canvas
+      // and tell the player what happened instead of dying silently.
+      this.showWebglFallback(error);
+    }
+    this.webgl = webgl;
 
     this.renderer = new Renderer(this.scene, this.camera);
     this.hud = new Hud(elements.hud);
@@ -281,6 +305,9 @@ export class App {
 
   start(): void {
     if (this.running) return;
+    // No WebGL renderer: the loop would have nothing to draw. The chat, HUD
+    // and panels stay live, so generation and editing still work in fallback.
+    if (this.webgl === null) return;
     this.running = true;
     this.lastTime = this.now();
     this.frameHandle = this.requestFrame(this.loop);
@@ -294,7 +321,19 @@ export class App {
     }
   }
 
+  /** Visible in-stage notice when the browser refuses a WebGL context. */
+  private showWebglFallback(error: unknown): void {
+    const stage = this.dom.canvas.parentElement;
+    if (stage === null) return;
+    const banner = stage.ownerDocument.createElement("div");
+    banner.id = "webgl-fallback";
+    banner.setAttribute("role", "alert");
+    banner.textContent = webglFallbackMessage(error);
+    stage.appendChild(banner);
+  }
+
   private handleResize = (): void => {
+    if (this.webgl === null) return;
     const canvas = this.webgl.domElement;
     const width = canvas.clientWidth || globalThis.innerWidth;
     const height = canvas.clientHeight || globalThis.innerHeight;
@@ -417,7 +456,7 @@ export class App {
     const previous = this.hoveredId;
     this.hoveredId = id;
     this.renderer.setHighlight(id);
-    this.webgl.domElement.style.cursor = id === null ? "" : "pointer";
+    this.dom.canvas.style.cursor = id === null ? "" : "pointer";
     for (const event of hoverEdgeEvents(previous, id)) {
       this.engine.pushEvent(event);
     }
@@ -427,12 +466,12 @@ export class App {
   private resetHover(): void {
     this.hoveredId = null;
     this.renderer.setHighlight(null);
-    this.webgl.domElement.style.cursor = "";
+    this.dom.canvas.style.cursor = "";
   }
 
   /** Nearest entity id under a client-space point, or null. */
   private pickEntity(clientX: number, clientY: number): string | null {
-    const rect = this.webgl.domElement.getBoundingClientRect();
+    const rect = this.dom.canvas.getBoundingClientRect();
     if (rect.width === 0 || rect.height === 0) return null;
     const x = ((clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((clientY - rect.top) / rect.height) * 2 + 1;
@@ -450,6 +489,11 @@ export class App {
 
   private loop = (): void => {
     if (!this.running) return;
+    const webgl = this.webgl;
+    if (webgl === null) {
+      this.running = false;
+      return;
+    }
 
     const now = this.now();
     const dt = Math.min(now - this.lastTime, 100);
@@ -473,7 +517,7 @@ export class App {
       this.updateAudio(state);
     }
 
-    this.webgl.render(this.scene, this.camera);
+    webgl.render(this.scene, this.camera);
     this.frameHandle = this.requestFrame(this.loop);
   }
 

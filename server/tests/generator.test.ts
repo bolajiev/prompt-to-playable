@@ -26,6 +26,30 @@ function integerCheckpoints(doc: GameDoc): number[] {
     .sort((a, b) => a - b);
 }
 
+interface PlanBounds {
+  minX: number;
+  maxX: number;
+  minZ: number;
+  maxZ: number;
+}
+
+function planBounds(entity: { position: number[]; size?: number[] }): PlanBounds {
+  if (!entity.size) throw new Error("entity has no size to bound");
+  return {
+    minX: entity.position[0] - entity.size[0] / 2,
+    maxX: entity.position[0] + entity.size[0] / 2,
+    minZ: entity.position[2] - entity.size[2] / 2,
+    maxZ: entity.position[2] + entity.size[2] / 2,
+  };
+}
+
+function planOverlap(a: PlanBounds, b: PlanBounds): { x: number; z: number } {
+  return {
+    x: Math.min(a.maxX, b.maxX) - Math.max(a.minX, b.minX),
+    z: Math.min(a.maxZ, b.maxZ) - Math.max(a.minZ, b.minZ),
+  };
+}
+
 describe("kit few-shot examples", () => {
   test("every classification label has a schema-valid, sane example", () => {
     expect(Object.keys(ARCHETYPE_EXAMPLES).sort()).toEqual([...KIT_ARCHETYPES].sort());
@@ -75,6 +99,45 @@ describe("kit few-shot examples", () => {
     }
     const frontWalls = walls.filter((wall) => wall.position[2] > 0);
     expect(frontWalls.length).toBeGreaterThanOrEqual(2);
+
+    const wallById = new Map(walls.map((wall) => [wall.id, wall]));
+    const back = wallById.get("wall-back");
+    const left = wallById.get("wall-left");
+    const right = wallById.get("wall-right");
+    expect(back, "wall-back").toBeDefined();
+    expect(left, "wall-left").toBeDefined();
+    expect(right, "wall-right").toBeDefined();
+    // Walls extend one thickness past the room corners instead of ending flush
+    // with each other, so every corner seam is a real overlap, not a zero-width
+    // gap the player could squeeze through.
+    expect(back?.size?.[0]).toBeCloseTo(12.6);
+    expect(back?.position[0]).toBe(0);
+    expect(left?.size?.[2]).toBeCloseTo(10.6);
+    expect(right?.size?.[2]).toBeCloseTo(10.6);
+    expect(wallById.get("wall-front-left")?.size?.[0]).toBeCloseTo(5.3);
+    expect(wallById.get("wall-front-right")?.size?.[0]).toBeCloseTo(5.3);
+
+    const wallThickness = 0.3;
+    const cornerPairs: ReadonlyArray<readonly [string, string]> = [
+      ["wall-back", "wall-left"],
+      ["wall-back", "wall-right"],
+      ["wall-front-left", "wall-left"],
+      ["wall-front-right", "wall-right"],
+    ];
+    for (const [firstId, secondId] of cornerPairs) {
+      const first = wallById.get(firstId);
+      const second = wallById.get(secondId);
+      expect(first, firstId).toBeDefined();
+      expect(second, secondId).toBeDefined();
+      if (!first || !second) continue;
+      const shared = planOverlap(planBounds(first), planBounds(second));
+      expect(shared.x, `${firstId}/${secondId} x overlap`).toBeGreaterThanOrEqual(
+        wallThickness - 1e-9
+      );
+      expect(shared.z, `${firstId}/${secondId} z overlap`).toBeGreaterThanOrEqual(
+        wallThickness - 1e-9
+      );
+    }
 
     const door = doc.entities.find((entity) => entity.id === "front-door");
     expect(door?.kind).toBe("interactable");
@@ -185,6 +248,8 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain('"solid": true');
     expect(text).toContain("per entity AABB, never per part");
     expect(text).toContain("door-width gap");
+    expect(text).toContain("MUST OVERLAP at every corner");
+    expect(text).toContain("zero-width corner seam");
     expect(text).toContain('"props": { "door": true }');
     expect(text).toContain('"kind":"slide"');
     expect(text).toContain("openDoor");
