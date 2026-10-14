@@ -17,6 +17,12 @@ const FIXTURES_DIR = join(ROOT, "tests", "fixtures");
 
 const CALL_ATTEMPTS = 3;
 
+const USAGE =
+  "usage: npm run llm:smoke [-- --prompts <file>] [--no-edit] [--no-write]\n" +
+  "  --prompts <file>  JSON array of {slug, prompt} entries instead of the defaults\n" +
+  "  --no-edit         skip the conversational-edit stage\n" +
+  "  --no-write        validate and report only; do not write tests/fixtures/live-*.json";
+
 export interface SmokePrompt {
   slug: string;
   prompt: string;
@@ -171,7 +177,8 @@ function report(
 async function runGenerate(
   entry: SmokePrompt,
   llm: LlmCall,
-  counter: CallCounter
+  counter: CallCounter,
+  writeFixtures: boolean
 ): Promise<GameDoc | undefined> {
   const before = counter.calls;
   const started = Date.now();
@@ -193,8 +200,12 @@ async function runGenerate(
       console.error(`  fixture not written: post-check failed for "${entry.prompt}"`);
       return undefined;
     }
-    console.log(`  fixture: tests/fixtures/live-${entry.slug}.json`);
-    writeFixture(entry.slug, doc);
+    console.log(
+      writeFixtures
+        ? `  fixture: tests/fixtures/live-${entry.slug}.json`
+        : `  fixture: tests/fixtures/live-${entry.slug}.json (not written: --no-write)`
+    );
+    if (writeFixtures) writeFixture(entry.slug, doc);
     return doc;
   } catch (error) {
     report(
@@ -215,7 +226,8 @@ async function runEdit(
   base: GameDoc,
   baseSlug: string,
   llm: LlmCall,
-  counter: CallCounter
+  counter: CallCounter,
+  writeFixtures: boolean
 ): Promise<boolean> {
   const before = counter.calls;
   const started = Date.now();
@@ -238,8 +250,12 @@ async function runEdit(
       return false;
     }
     const name = `${baseSlug}-edit`;
-    console.log(`  fixture: tests/fixtures/live-${name}.json`);
-    writeFixture(name, result.doc);
+    console.log(
+      writeFixtures
+        ? `  fixture: tests/fixtures/live-${name}.json`
+        : `  fixture: tests/fixtures/live-${name}.json (not written: --no-write)`
+    );
+    if (writeFixtures) writeFixture(name, result.doc);
     return true;
   } catch (error) {
     report(
@@ -259,6 +275,7 @@ async function runEdit(
 export interface SmokeOptions {
   prompts?: readonly SmokePrompt[];
   edit?: boolean;
+  write?: boolean;
 }
 
 function parsePromptsFile(file: string): SmokePrompt[] {
@@ -286,13 +303,18 @@ function parseArgs(argv: readonly string[]): SmokeOptions {
     const arg = argv[i];
     if (arg === "--no-edit") {
       options.edit = false;
+    } else if (arg === "--no-write") {
+      options.write = false;
+    } else if (arg === "--help" || arg === "-h") {
+      console.log(USAGE);
+      process.exit(0);
     } else if (arg === "--prompts") {
       const file = argv[i + 1];
       if (file === undefined) throw new Error("--prompts requires a file path");
       options.prompts = parsePromptsFile(file);
       i += 1;
     } else {
-      throw new Error(`unknown argument: ${arg}`);
+      throw new Error(`unknown argument: ${arg}\n${USAGE}`);
     }
   }
   return options;
@@ -301,6 +323,7 @@ function parseArgs(argv: readonly string[]): SmokeOptions {
 export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
   const prompts = options.prompts ?? SMOKE_PROMPTS;
   const runEditStage = options.edit ?? true;
+  const writeFixtures = options.write ?? true;
   loadEnvFile(ENV_PATH);
   const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_LLM_MODEL;
   const configured = Boolean(process.env.OPENAI_API_KEY?.trim());
@@ -314,7 +337,7 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
   const llm = countingLlm(withTransientRetries(createOpenAiLlm(), counter), counter);
   const generated: { slug: string; doc: GameDoc }[] = [];
   for (const entry of prompts) {
-    const doc = await runGenerate(entry, llm, counter);
+    const doc = await runGenerate(entry, llm, counter, writeFixtures);
     if (doc) generated.push({ slug: entry.slug, doc });
   }
 
@@ -324,7 +347,7 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
     const base = generated[0];
     if (base) {
       const before = counter.calls;
-      edited = await runEdit(base.doc, base.slug, llm, counter);
+      edited = await runEdit(base.doc, base.slug, llm, counter, writeFixtures);
       editCalls = counter.calls - before;
     } else {
       console.error("skipping edit stage: no generated document to edit");

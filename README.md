@@ -76,12 +76,18 @@ npx tsx server/src/index.ts          # http://localhost:3000
 | `OPENAI_API_KEY` | Key for the chat-completions endpoint |
 | `OPENAI_BASE_URL` | Optional; OpenAI-compatible base URL (defaults to `https://api.openai.com/v1`) |
 | `OPENAI_MODEL` | Optional; model id (defaults to `gpt-4o-mini`) |
+| `OPENAI_SESSION_ID` | Optional; session id sent as the `X-Session-Id` header (required by the OpenCode go gateway) |
 
 Any OpenAI-compatible endpoint works (OpenAI, DeepSeek, Gemini) by setting
 `OPENAI_BASE_URL` and `OPENAI_MODEL` — e.g. Gemini at
 `https://generativelanguage.googleapis.com/v1beta/openai` with model
-`gemini-3.1-flash-lite`. The server loads `server/.env` at boot; without a key
-it still starts, but `/generate` and `/edit` fail with a clear error.
+`gemini-3.1-flash-lite`. The OpenCode gateway is also supported:
+`OPENAI_BASE_URL=https://opencode.ai/zen/go/v1`, `OPENAI_MODEL=deepseek-v4.1-flash`,
+and `OPENAI_SESSION_ID=<any stable session id string>` — the go gateway requires
+the `X-Session-Id` header, which `OPENAI_SESSION_ID` supplies; Zen/other
+OpenAI-compatible endpoints work with the same vars (base URL + model + key
+only). The server loads `server/.env` at boot; without a key it still starts,
+but `/generate` and `/edit` fail with a clear error.
 
 **Client** (in a second terminal):
 
@@ -148,8 +154,12 @@ End-to-end check against a real model, loaded from `server/.env` (see
 ```bash
 npm run llm:smoke                # 4 generations + 1 edit, writes tests/fixtures/live-*.json
 npm run llm:smoke -- --no-edit   # skip the edit stage
+npm run llm:smoke -- --no-write  # report only; leave tests/fixtures/ untouched
 npm run llm:smoke -- --prompts my-prompts.json
 ```
+
+Use `--no-write` to smoke-test without overwriting the committed fixtures;
+`npm run llm:smoke -- --help` prints all flags.
 
 Each result is classified, generated, validated, sanity-checked, and captured;
 without `server/.env` the command exits non-zero with

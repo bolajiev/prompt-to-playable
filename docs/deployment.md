@@ -19,8 +19,19 @@ Names only — never commit or print values.
 | `OPENAI_API_KEY` | yes (for generation) | Vercel project env, or `server/.env` locally | Key for the chat-completions endpoint. Without it the server still boots; `/generate` and `/edit` fail with a clear error. |
 | `OPENAI_BASE_URL` | no | same | OpenAI-compatible base URL. Default `https://api.openai.com/v1`. |
 | `OPENAI_MODEL` | no | same | Model id. Default `gpt-4o-mini`. |
+| `OPENAI_SESSION_ID` | no | same | Stable session id sent as the `X-Session-Id` header; required by the OpenCode go gateway. |
 | `PORT` | no | local/Docker only | Port for `node server/dist/index.js`. Default `3000`. |
 | `WEB_DIST` | no | local/Docker only | Static client directory for the Express process. Default `<repo>/apps/web/dist`. |
+
+Any OpenAI-compatible endpoint works with the same vars (base URL + model +
+key only). The OpenCode gateway uses
+`OPENAI_BASE_URL=https://opencode.ai/zen/go/v1` and
+`OPENAI_MODEL=deepseek-v4.1-flash`; its `go` route additionally requires a
+stable session id in `OPENAI_SESSION_ID`, which the server sends as the
+`X-Session-Id` header. Zen and other OpenAI-compatible endpoints do not need
+it. The Google AI Studio option remains valid:
+`OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai`
+with model `gemini-3.1-flash-lite`.
 
 Local values live in `server/.env` (gitignored, mode 600, excluded from Vercel
 uploads by `.vercelignore`); copy the shape from `server/.env.example`.
@@ -48,6 +59,7 @@ framework preset overrides the explicit static output.
    vercel env add OPENAI_API_KEY production
    vercel env add OPENAI_BASE_URL production   # optional
    vercel env add OPENAI_MODEL production      # optional
+   vercel env add OPENAI_SESSION_ID production # optional; required by the OpenCode go gateway
    ```
 
    Dashboard alternative: Project → Settings → Environment Variables.
