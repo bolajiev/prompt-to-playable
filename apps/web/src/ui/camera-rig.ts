@@ -1,3 +1,6 @@
+import { resolveMode } from "@prompt-to-playable/engine";
+import type { GameDoc } from "@prompt-to-playable/schema";
+
 /**
  * Third-person orbit camera rig: pure spherical math plus a tiny stateful
  * class. It contains no DOM or Three.js access, so orbit behavior is testable
@@ -76,6 +79,78 @@ export function cameraOffset(
 export function forwardFromYaw(yaw: number): [number, number] {
   const azimuth = DEFAULT_AZIMUTH + yaw;
   return [-Math.sin(azimuth), -Math.cos(azimuth)];
+}
+
+/** Camera behavior selected for a resolved game mode. */
+export type CameraMode = "orbit" | "firstPerson" | "chase";
+
+/** Inspect scenes frame their content tighter than the default orbit view. */
+export const INSPECT_DISTANCE = 10;
+export const INSPECT_PITCH = 0.35;
+
+/** First-person eye height above the player AABB center. */
+export const FIRST_PERSON_EYE_HEIGHT = 1.6;
+/** Chase camera sits this far behind the vehicle. */
+export const CHASE_DISTANCE = 8;
+/** Chase camera sits this high above the vehicle. */
+export const CHASE_HEIGHT = 4;
+
+/**
+ * Mode -> camera mapping. inspect / explore / game keep the orbit rig (with
+ * different defaults), walkthrough becomes first person and drive becomes a
+ * heading-following chase camera. Documents without an explicit `meta.mode`
+ * resolve through the regular backward-compatible inference (explore
+ * archetype -> explore, every other archetype -> game), so they stay orbit.
+ */
+export function resolveCameraMode(doc: GameDoc): CameraMode {
+  switch (resolveMode(doc)) {
+    case "walkthrough":
+      return "firstPerson";
+    case "drive":
+      return "chase";
+    default:
+      return "orbit";
+  }
+}
+
+/** Camera eye position for first person: player center + eye height. */
+export function firstPersonEye(
+  position: readonly [number, number, number]
+): [number, number, number] {
+  return [position[0], position[1] + FIRST_PERSON_EYE_HEIGHT, position[2]];
+}
+
+/**
+ * First-person look target one unit from the eye along the rig yaw/pitch.
+ * `pitch > 0` (drag up) looks up; yaw 0 aims along the default ground forward.
+ */
+export function firstPersonLookAt(
+  eye: readonly [number, number, number],
+  yaw: number,
+  pitch: number
+): [number, number, number] {
+  const [fx, fz] = forwardFromYaw(yaw);
+  const horizontal = Math.cos(pitch);
+  return [
+    eye[0] + fx * horizontal,
+    eye[1] + Math.sin(pitch),
+    eye[2] + fz * horizontal,
+  ];
+}
+
+/**
+ * Chase camera position behind a vehicle whose heading points along
+ * `[sin(heading), 0, cos(heading)]` (engine convention, 0 = +Z).
+ */
+export function chaseCameraPosition(
+  position: readonly [number, number, number],
+  heading: number
+): [number, number, number] {
+  return [
+    position[0] - Math.sin(heading) * CHASE_DISTANCE,
+    position[1] + CHASE_HEIGHT,
+    position[2] - Math.cos(heading) * CHASE_DISTANCE,
+  ];
 }
 
 export interface CameraRigOptions {

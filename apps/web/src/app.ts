@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { Engine, type GameState } from "@prompt-to-playable/engine";
+import { Engine, resolveMode, type GameState } from "@prompt-to-playable/engine";
 import { applyWorldEnvironment, Renderer } from "@prompt-to-playable/render";
 import type { GameDoc } from "@prompt-to-playable/schema";
 import { Chat, isAbortError } from "./ui/chat.js";
@@ -13,12 +13,26 @@ import {
   toAudioCueState,
   type AudioCueState,
 } from "./ui/audio.js";
-import { CameraRig } from "./ui/camera-rig.js";
+import {
+  CameraRig,
+  chaseCameraPosition,
+  clampDistance,
+  clampPitch,
+  firstPersonEye,
+  firstPersonLookAt,
+  INSPECT_DISTANCE,
+  INSPECT_PITCH,
+  resolveCameraMode,
+  type CameraMode,
+} from "./ui/camera-rig.js";
 import {
   createKeyboardState,
   PREVENT_DEFAULT_CODES,
   toWorldInput,
 } from "./ui/input.js";
+import { hudForMode } from "./ui/mode-hud.js";
+import { Panels } from "./ui/panels.js";
+import { isClickGesture, pickEntityId, type PointerSample } from "./ui/picking.js";
 
 export interface AppElements {
   canvas: HTMLCanvasElement;
@@ -33,6 +47,17 @@ export interface AppElements {
   progressStage: HTMLElement;
   progressTime: HTMLElement;
   progressCancel: HTMLButtonElement;
+  /** Mode-specific control hint pill (also the static fallback before a load). */
+  controls: HTMLElement;
+  /** First-person reticle, hidden outside walkthrough mode. */
+  crosshair: HTMLElement;
+  /** Speed / lap / time cluster, hidden outside drive mode. */
+  driveHud: HTMLElement;
+  driveSpeed: HTMLElement;
+  driveLap: HTMLElement;
+  driveTime: HTMLElement;
+  /** Overlay for `state.ui.panels` cards. */
+  panels: HTMLElement;
 }
 
 export interface AppOptions {
@@ -141,9 +166,12 @@ export class App {
   private readonly chat: Chat;
   private readonly onboarding: Onboarding;
   private readonly progress: GenerationProgress;
+  private readonly panels: Panels;
   private readonly keyboard = createKeyboardState();
   private readonly cameraRig = new CameraRig();
   private readonly audio = new AudioPlayer();
+  private readonly raycaster = new THREE.Raycaster();
+  private readonly dom: AppElements;
   private previousCueState: AudioCueState | null = null;
 
   private readonly fetchImpl: typeof fetch;
@@ -161,8 +189,13 @@ export class App {
   private dragPointerId: number | null = null;
   private lastPointerX = 0;
   private lastPointerY = 0;
+  private cameraMode: CameraMode = "orbit";
+  private hoveredId: string | null = null;
+  private gestureStart: PointerSample | null = null;
+  private modeLines: string | null = null;
 
   constructor(elements: AppElements, options: AppOptions = {}) {
+    this.dom = elements;
     this.apiBase = options.apiBase ?? "";
     this.fetchImpl = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.now = options.now ?? (() => performance.now());
@@ -203,6 +236,9 @@ export class App {
       { examples: elements.examples, emptyState: elements.emptyState },
       { onPick: (prompt) => this.chat.send(prompt) }
     );
+    this.panels = new Panels(elements.panels, {
+      onClose: (id) => this.closePanel(id),
+    });
 
     this.handleResize();
     globalThis.addEventListener("resize", this.handleResize);
@@ -216,6 +252,7 @@ export class App {
     elements.canvas.addEventListener("pointermove", this.handlePointerMove);
     elements.canvas.addEventListener("pointerup", this.handlePointerUp);
     elements.canvas.addEventListener("pointercancel", this.handlePointerUp);
+    elements.canvas.addEventListener("pointerleave", this.handlePointerLeave);
     elements.canvas.addEventListener("wheel", this.handleWheel, {
       passive: false,
     });
@@ -279,7 +316,13 @@ export class App {
     this.dragPointerId = event.pointerId;
     this.lastPointerX = event.clientX;
     this.lastPointerY = event.clientY;
+    this.gestureStart = {
+      x: event.clientX,
+      y: event.clientY,
+      time: this.now(),
+    };
     this.cameraRig.beginDrag();
+    this.clearHover();
     try {
       event.target instanceof Element &&
         event.target.setPointerCapture?.(event.pointerId);
@@ -289,14 +332,17 @@ export class App {
   };
 
   private handlePointerMove = (event: PointerEvent): void => {
-    if (this.dragPointerId === null || event.pointerId !== this.dragPointerId) {
+    if (this.dragPointerId !== null) {
+      if (event.pointerId !== this.dragPointerId) return;
+      const dx = event.clientX - this.lastPointerX;
+      const dy = event.clientY - this.lastPointerY;
+      this.lastPointerX = event.clientX;
+      this.lastPointerY = event.clientY;
+      // The chase camera owns its orientation; orbit/first-person drag looks.
+      if (this.cameraMode !== "chase") this.cameraRig.drag(dx, dy);
       return;
     }
-    const dx = event.clientX - this.lastPointerX;
-    const dy = event.clientY - this.lastPointerY;
-    this.lastPointerX = event.clientX;
-    this.lastPointerY = event.clientY;
-    this.cameraRig.drag(dx, dy);
+    this.updateHover(event);
   };
 
   private handlePointerUp = (event: PointerEvent): void => {
@@ -305,12 +351,59 @@ export class App {
     }
     this.dragPointerId = null;
     this.cameraRig.endDrag();
+    const down = this.gestureStart;
+    this.gestureStart = null;
+    if (down === null || this.lastValidatedDoc === null) return;
+    const up = { x: event.clientX, y: event.clientY, time: this.now() };
+    if (!isClickGesture(down, up)) return;
+    const id = this.pickEntity(event.clientX, event.clientY);
+    if (id !== null) this.engine.pushEvent({ type: "click", targetId: id });
+  };
+
+  private handlePointerLeave = (): void => {
+    if (this.dragPointerId === null) this.clearHover();
   };
 
   private handleWheel = (event: WheelEvent): void => {
     event.preventDefault();
+    if (this.cameraMode === "chase") return;
     this.cameraRig.zoom(event.deltaY);
   };
+
+  /** Highlights the entity under an idle pointer (hover only, no dragging). */
+  private updateHover(event: PointerEvent): void {
+    if (this.lastValidatedDoc === null) return;
+    const id = this.pickEntity(event.clientX, event.clientY);
+    if (id === this.hoveredId) return;
+    this.hoveredId = id;
+    this.renderer.setHighlight(id);
+    this.webgl.domElement.style.cursor = id === null ? "" : "pointer";
+  }
+
+  private clearHover(): void {
+    if (this.hoveredId === null) return;
+    this.hoveredId = null;
+    this.renderer.setHighlight(null);
+    this.webgl.domElement.style.cursor = "";
+  }
+
+  /** Nearest entity id under a client-space point, or null. */
+  private pickEntity(clientX: number, clientY: number): string | null {
+    const rect = this.webgl.domElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    const x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    const y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    return pickEntityId(this.raycaster, this.camera, this.scene.children, {
+      x,
+      y,
+    });
+  }
+
+  private closePanel(id: string): void {
+    if (this.lastValidatedDoc === null) return;
+    this.engine.closePanel(id);
+    this.panels.update(this.engine.getState().ui.panels);
+  }
 
   private loop = (): void => {
     if (!this.running) return;
@@ -322,20 +415,54 @@ export class App {
     if (this.lastValidatedDoc !== null) {
       let state = this.engine.getState();
       if (state.status === "running") {
-        const input = toWorldInput(
-          this.keyboard.toInput(),
-          this.cameraRig.forwardGround()
-        );
+        const raw = this.keyboard.toInput();
+        const input = this.usesVehicleControls(state)
+          ? raw
+          : toWorldInput(raw, this.cameraRig.forwardGround());
         state = this.engine.step(dt, input);
       }
       this.renderer.reconcile(state);
       this.hud.update(state);
+      this.panels.update(state.ui.panels);
+      this.updateModeHud(state);
       this.updateCamera(state, dt / 1000);
       this.updateAudio(state);
     }
 
     this.webgl.render(this.scene, this.camera);
     this.frameHandle = this.requestFrame(this.loop);
+  }
+
+  /** Mode-specific control hint, crosshair and drive readouts. */
+  private updateModeHud(state: GameState): void {
+    const mode = resolveMode(state.doc);
+    const view = hudForMode(mode, state);
+
+    const lines = view.lines.join(" · ");
+    if (lines !== this.modeLines) {
+      this.modeLines = lines;
+      this.dom.controls.textContent = lines;
+    }
+    this.dom.crosshair.hidden = !view.crosshair;
+
+    const driving = mode === "drive";
+    this.dom.driveHud.hidden = !driving;
+    if (!driving) return;
+    this.dom.driveSpeed.textContent = `${view.speedKmh ?? 0} km/h`;
+    this.dom.driveLap.textContent =
+      view.lap === undefined ? "Lap —" : `Lap ${view.lap}`;
+    this.dom.driveTime.textContent = `${(view.time ?? 0).toFixed(1)}s`;
+  }
+
+  /**
+   * Vehicles consume raw throttle/steer (`moveZ`/`moveX`) and own their
+   * heading, so their input must not be rotated into world space. Every other
+   * player kind moves camera-relative.
+   */
+  private usesVehicleControls(state: GameState): boolean {
+    if (this.cameraMode === "chase") return true;
+    const player = state.entities.find((entity) => entity.kind === "player");
+    return player?.props?.vehicle === true;
   };
 
   private updateAudio(state: GameState): void {
@@ -345,12 +472,54 @@ export class App {
     if (cue !== null) this.audio.play(cue);
   }
 
+  /**
+   * Mode-dependent camera update. Every mode drives the camera with
+   * `position.lerp` so the renderer's lose-shake offsets (applied during
+   * `reconcile` and undone at the next one) compose without accumulating.
+   *
+   * - orbit: existing rig behavior (inspect keeps its closer defaults);
+   * - firstPerson: eye at the player + eye height, looking along rig yaw/pitch;
+   * - chase: fixed distance behind the vehicle heading, no orbit drag.
+   */
   private updateCamera(state: GameState, dtSeconds: number): void {
-    this.cameraRig.update(dtSeconds);
     const player = state.entities.find((entity) => entity.kind === "player");
-    if (!player) return;
-    const position = state.entityRuntime[player.id]?.position ?? player.position;
-    const target = new THREE.Vector3(position[0], position[1], position[2]);
+    const runtime = player ? state.entityRuntime[player.id] : undefined;
+    const origin: [number, number, number] = [0, 0, 0];
+    const position = runtime?.position ?? player?.position ?? origin;
+    const px = position[0];
+    const py = position[1];
+    const pz = position[2];
+
+    if (this.cameraMode === "firstPerson") {
+      if (!player) return;
+      const eye = firstPersonEye([px, py, pz]);
+      const look = firstPersonLookAt(
+        eye,
+        this.cameraRig.yaw,
+        this.cameraRig.pitch
+      );
+      this.camera.position.lerp(
+        new THREE.Vector3(eye[0], eye[1], eye[2]),
+        0.4
+      );
+      this.camera.lookAt(look[0], look[1], look[2]);
+      return;
+    }
+
+    if (this.cameraMode === "chase") {
+      if (!player) return;
+      const heading = runtime?.heading ?? player.rotation?.[1] ?? 0;
+      const desired = chaseCameraPosition([px, py, pz], heading);
+      this.camera.position.lerp(
+        new THREE.Vector3(desired[0], desired[1], desired[2]),
+        0.15
+      );
+      this.camera.lookAt(px, py + 1, pz);
+      return;
+    }
+
+    this.cameraRig.update(dtSeconds);
+    const target = new THREE.Vector3(px, py, pz);
     const desired = this.cameraRig.desiredPosition(position);
     this.camera.position.lerp(
       new THREE.Vector3(desired[0], desired[1], desired[2]),
@@ -404,10 +573,24 @@ export class App {
     this.engine.load(doc);
     applyWorldEnvironment(this.scene, doc.world);
     this.cameraRig.reset();
+    const mode = resolveMode(doc);
+    this.cameraMode = resolveCameraMode(doc);
+    if (mode === "inspect") {
+      this.cameraRig.distance = clampDistance(INSPECT_DISTANCE);
+      this.cameraRig.pitch = clampPitch(INSPECT_PITCH);
+    } else if (this.cameraMode === "firstPerson") {
+      // Orbit's default pitch looks down at the player; first person starts
+      // level and lets the drag adjust from there.
+      this.cameraRig.pitch = 0;
+    }
+    this.modeLines = null;
     this.previousCueState = null;
+    this.clearHover();
     const state = this.engine.getState();
     this.badge.setValidated(true);
     this.hud.update(state);
+    this.panels.update(state.ui.panels);
+    this.updateModeHud(state);
     this.renderer.reconcile(state);
     this.lastTime = this.now();
     this.onboarding.complete();
@@ -465,6 +648,13 @@ export function resolveElements(root: ParentNode): AppElements {
   const progressStage = root.querySelector<HTMLElement>("#progress-stage");
   const progressTime = root.querySelector<HTMLElement>("#progress-time");
   const progressCancel = root.querySelector<HTMLButtonElement>("#progress-cancel");
+  const controls = root.querySelector<HTMLElement>("#controls");
+  const crosshair = root.querySelector<HTMLElement>("#crosshair");
+  const driveHud = root.querySelector<HTMLElement>("#drive-hud");
+  const driveSpeed = root.querySelector<HTMLElement>("#drive-speed");
+  const driveLap = root.querySelector<HTMLElement>("#drive-lap");
+  const driveTime = root.querySelector<HTMLElement>("#drive-time");
+  const panels = root.querySelector<HTMLElement>("#panels");
 
   const missing: string[] = [];
   if (!canvas) missing.push("#game");
@@ -479,6 +669,13 @@ export function resolveElements(root: ParentNode): AppElements {
   if (!progressStage) missing.push("#progress-stage");
   if (!progressTime) missing.push("#progress-time");
   if (!progressCancel) missing.push("#progress-cancel");
+  if (!controls) missing.push("#controls");
+  if (!crosshair) missing.push("#crosshair");
+  if (!driveHud) missing.push("#drive-hud");
+  if (!driveSpeed) missing.push("#drive-speed");
+  if (!driveLap) missing.push("#drive-lap");
+  if (!driveTime) missing.push("#drive-time");
+  if (!panels) missing.push("#panels");
   if (
     missing.length > 0 ||
     !canvas ||
@@ -492,7 +689,14 @@ export function resolveElements(root: ParentNode): AppElements {
     !progress ||
     !progressStage ||
     !progressTime ||
-    !progressCancel
+    !progressCancel ||
+    !controls ||
+    !crosshair ||
+    !driveHud ||
+    !driveSpeed ||
+    !driveLap ||
+    !driveTime ||
+    !panels
   ) {
     throw new Error(`Missing required DOM elements: ${missing.join(", ")}`);
   }
@@ -510,6 +714,13 @@ export function resolveElements(root: ParentNode): AppElements {
     progressStage,
     progressTime,
     progressCancel,
+    controls,
+    crosshair,
+    driveHud,
+    driveSpeed,
+    driveLap,
+    driveTime,
+    panels,
   };
 }
 

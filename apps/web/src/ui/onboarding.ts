@@ -3,7 +3,11 @@ export type ExampleKind =
   | "puzzle-switch"
   | "platformer-lite"
   | "stealth-chase"
-  | "explore";
+  | "explore"
+  | "inspect"
+  | "walkthrough"
+  | "drive"
+  | "animated";
 
 export interface ExamplePrompt {
   readonly id: string;
@@ -13,8 +17,9 @@ export interface ExamplePrompt {
 }
 
 /**
- * One example per supported game archetype plus an explore-style scene prompt.
- * Pure data so the chip row, tests and docs share a single source.
+ * One example per supported game archetype plus an explore-style scene prompt,
+ * then one prompt per interactive kit (inspect, walkthrough, drive, animated
+ * parts). Pure data so the chip row, tests and docs share a single source.
  */
 export const EXAMPLE_PROMPTS: readonly ExamplePrompt[] = [
   {
@@ -46,6 +51,30 @@ export const EXAMPLE_PROMPTS: readonly ExamplePrompt[] = [
     kind: "explore",
     label: "Explore a clearing",
     prompt: "a quiet forest clearing with a campfire at dusk",
+  },
+  {
+    id: "pcb",
+    kind: "inspect",
+    label: "Inspect a 3D PCB",
+    prompt: "a 3D PCB I can click and inspect",
+  },
+  {
+    id: "house",
+    kind: "walkthrough",
+    label: "Walk through a house",
+    prompt: "a house I can walk through",
+  },
+  {
+    id: "race",
+    kind: "drive",
+    label: "Race a car",
+    prompt: "a car racing game",
+  },
+  {
+    id: "robot",
+    kind: "animated",
+    label: "Animated robot",
+    prompt: "a robot with animated arms",
   },
 ];
 

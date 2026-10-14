@@ -74,6 +74,108 @@
         border: 1px solid var(--border);
         pointer-events: none;
       }
+      #crosshair {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 18px;
+        height: 18px;
+        margin: -9px 0 0 -9px;
+        pointer-events: none;
+      }
+      #crosshair::before,
+      #crosshair::after {
+        content: "";
+        position: absolute;
+        background: rgba(226, 232, 240, 0.85);
+        box-shadow: 0 0 2px rgba(5, 7, 15, 0.8);
+      }
+      #crosshair::before {
+        left: 8px;
+        top: 0;
+        width: 2px;
+        height: 18px;
+      }
+      #crosshair::after {
+        left: 0;
+        top: 8px;
+        width: 18px;
+        height: 2px;
+      }
+      #crosshair[hidden] {
+        display: none;
+      }
+      #drive-hud {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        display: flex;
+        gap: 12px;
+        padding: 4px 12px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid var(--border);
+        pointer-events: none;
+      }
+      #drive-hud[hidden] {
+        display: none;
+      }
+      #drive-lap {
+        color: var(--muted);
+      }
+      #panels {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        width: min(300px, 70%);
+        max-height: 70%;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #panels[hidden] {
+        display: none;
+      }
+      .panel-card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 10px 12px;
+      }
+      .panel-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .panel-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 700;
+      }
+      button.panel-close {
+        padding: 0 7px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted);
+        font-size: 14px;
+        font-weight: 700;
+        line-height: 1.4;
+      }
+      button.panel-close:hover {
+        color: var(--text);
+        border-color: var(--accent);
+      }
+      .panel-body {
+        margin: 6px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+        white-space: pre-wrap;
+      }
       #empty-state {
         position: absolute;
         inset: 0;
@@ -355,6 +457,13 @@
         <canvas id="game"></canvas>
         <span id="badge">unvalidated</span>
         <span id="controls">WASD move · Space jump · E interact</span>
+        <div id="crosshair" hidden aria-hidden="true"></div>
+        <div id="drive-hud" hidden>
+          <span id="drive-speed">0 km/h</span>
+          <span id="drive-lap">Lap —</span>
+          <span id="drive-time">0.0s</span>
+        </div>
+        <div id="panels" hidden aria-live="polite"></div>
         <div id="empty-state">
           <h2>Make a game by talking</h2>
           <ol>

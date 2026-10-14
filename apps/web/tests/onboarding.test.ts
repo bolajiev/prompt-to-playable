@@ -7,8 +7,8 @@ import {
 import { FakeDocument, FakeNode } from "./fakes.js";
 
 describe("example prompt list", () => {
-  test("covers one game archetype each plus an explore scene", () => {
-    expect(EXAMPLE_PROMPTS).toHaveLength(5);
+  test("covers each game archetype, an explore scene and each interactive kit", () => {
+    expect(EXAMPLE_PROMPTS).toHaveLength(9);
     expect(new Set(EXAMPLE_PROMPTS.map((example) => example.kind)).size).toBe(
       EXAMPLE_PROMPTS.length
     );
@@ -18,6 +18,10 @@ describe("example prompt list", () => {
       "a platforming course with moving hazards to reach the door",
       "sneak past patrolling guards to the exit",
       "a quiet forest clearing with a campfire at dusk",
+      "a 3D PCB I can click and inspect",
+      "a house I can walk through",
+      "a car racing game",
+      "a robot with animated arms",
     ]);
   });
 

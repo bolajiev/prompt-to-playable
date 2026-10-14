@@ -1,19 +1,29 @@
 import { describe, expect, test } from "vitest";
 import { NEUTRAL_INPUT } from "@prompt-to-playable/engine";
+import type { GameDoc } from "@prompt-to-playable/schema";
 import {
   cameraOffset,
   CameraRig,
+  CHASE_DISTANCE,
+  CHASE_HEIGHT,
+  chaseCameraPosition,
   clampDistance,
   clampPitch,
   DEFAULT_CAMERA_OFFSET,
   DEFAULT_DISTANCE,
   DEFAULT_PITCH,
+  FIRST_PERSON_EYE_HEIGHT,
+  firstPersonEye,
+  firstPersonLookAt,
   forwardFromYaw,
+  INSPECT_DISTANCE,
+  INSPECT_PITCH,
   MAX_DISTANCE,
   MAX_PITCH,
   MIN_DISTANCE,
   MIN_PITCH,
   PITCH_SENSITIVITY,
+  resolveCameraMode,
   YAW_RETURN_SECONDS,
   YAW_SENSITIVITY,
   ZOOM_SENSITIVITY,
@@ -206,5 +216,106 @@ describe("CameraRig orbit control", () => {
       return [offset[0], offset[1], offset[2]];
     };
     expect(run()).toEqual(run());
+  });
+});
+
+function doc(meta: { mode?: string; archetype?: string }): GameDoc {
+  return { meta } as unknown as GameDoc;
+}
+
+describe("resolveCameraMode", () => {
+  test("explicit modes map to their camera behavior", () => {
+    expect(resolveCameraMode(doc({ mode: "walkthrough" }))).toBe("firstPerson");
+    expect(resolveCameraMode(doc({ mode: "drive" }))).toBe("chase");
+    expect(resolveCameraMode(doc({ mode: "inspect" }))).toBe("orbit");
+    expect(resolveCameraMode(doc({ mode: "explore" }))).toBe("orbit");
+    expect(resolveCameraMode(doc({ mode: "game" }))).toBe("orbit");
+  });
+
+  test("documents without a mode fall back to the inferred mode", () => {
+    expect(resolveCameraMode(doc({ archetype: "explore" }))).toBe("orbit");
+    expect(resolveCameraMode(doc({ archetype: "collect-a-thon" }))).toBe(
+      "orbit"
+    );
+    expect(resolveCameraMode(doc({ archetype: "stealth-chase" }))).toBe(
+      "orbit"
+    );
+  });
+
+  test("explicit mode wins over the archetype", () => {
+    expect(
+      resolveCameraMode(doc({ mode: "walkthrough", archetype: "explore" }))
+    ).toBe("firstPerson");
+    expect(
+      resolveCameraMode(doc({ mode: "drive", archetype: "collect-a-thon" }))
+    ).toBe("chase");
+  });
+
+  test("inspect defaults stay inside the orbit clamp range", () => {
+    expect(INSPECT_DISTANCE).toBeGreaterThanOrEqual(MIN_DISTANCE);
+    expect(INSPECT_DISTANCE).toBeLessThanOrEqual(MAX_DISTANCE);
+    expect(INSPECT_PITCH).toBeGreaterThanOrEqual(MIN_PITCH);
+    expect(INSPECT_PITCH).toBeLessThanOrEqual(MAX_PITCH);
+  });
+});
+
+describe("first-person camera math", () => {
+  test("the eye sits one eye-height above the player center", () => {
+    expect(firstPersonEye([1, 2, 3])).toEqual([1, 2 + FIRST_PERSON_EYE_HEIGHT, 3]);
+  });
+
+  test("yaw 0 and level pitch aim along the default ground forward", () => {
+    const eye = firstPersonEye([0, 0, 0]);
+    const target = firstPersonLookAt(eye, 0, 0);
+    const [fx, fz] = forwardFromYaw(0);
+    expect(target[0]).toBeCloseTo(fx, 10);
+    expect(target[1]).toBeCloseTo(eye[1], 10);
+    expect(target[2]).toBeCloseTo(fz, 10);
+    expect(
+      Math.hypot(target[0] - eye[0], target[2] - eye[2])
+    ).toBeCloseTo(1, 10);
+  });
+
+  test("positive pitch looks up and shortens the ground projection", () => {
+    const eye = firstPersonEye([0, 0, 0]);
+    const level = firstPersonLookAt(eye, 0, 0);
+    const up = firstPersonLookAt(eye, 0, 0.5);
+    expect(up[1]).toBeGreaterThan(level[1]);
+    expect(up[1] - eye[1]).toBeCloseTo(Math.sin(0.5), 10);
+    expect(
+      Math.hypot(up[0] - eye[0], up[2] - eye[2])
+    ).toBeCloseTo(Math.cos(0.5), 10);
+  });
+
+  test("yaw turns the look direction around the eye", () => {
+    const eye: [number, number, number] = [0, 0, 0];
+    const straight = firstPersonLookAt(eye, 0, 0);
+    const turned = firstPersonLookAt(eye, Math.PI / 2, 0);
+    const [fx, fz] = forwardFromYaw(Math.PI / 2);
+    expect(turned[0]).toBeCloseTo(fx, 10);
+    expect(turned[2]).toBeCloseTo(fz, 10);
+    expect(
+      Math.hypot(turned[0] - straight[0], turned[2] - straight[2])
+    ).toBeGreaterThan(1);
+  });
+});
+
+describe("chase camera math", () => {
+  test("heading 0 places the camera behind +Z at the chase height", () => {
+    expect(chaseCameraPosition([2, 0, 3], 0)).toEqual([
+      2,
+      CHASE_HEIGHT,
+      3 - CHASE_DISTANCE,
+    ]);
+  });
+
+  test("the camera stays behind the heading direction", () => {
+    const position = chaseCameraPosition([0, 0, 0], Math.PI / 2);
+    expect(position[0]).toBeCloseTo(-CHASE_DISTANCE, 10);
+    expect(position[1]).toBe(CHASE_HEIGHT);
+    expect(position[2]).toBeCloseTo(0, 10);
+
+    const offset = Math.hypot(position[0], position[2]);
+    expect(offset).toBeCloseTo(CHASE_DISTANCE, 10);
   });
 });
