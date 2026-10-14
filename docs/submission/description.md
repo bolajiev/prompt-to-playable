@@ -95,7 +95,7 @@ Three of the captured 2026-10-12 documents are auto-won by input-only steering i
 - **Express** — MIT; thin Node API.
 - **Playwright** — Apache-2.0; dev-only browser QA (`npm run qa:browser -- <url>`).
 - **Google Gemini** via its OpenAI-compatible endpoint — used for the live model evaluation on 2026-10-12; no API key is included in the repository.
-- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14; no key or endpoint is recorded in the repository.
+- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14; no API key is recorded in the repository; endpoint details are limited to the public gateway URL.
 - **AI-assisted code generation:** the app, engine, schema, and tests were written with AI assistance; runtime behavior is verified by the test suite and by schema/sanity checks on every AI-generated game document.
 
 ## API key / environment

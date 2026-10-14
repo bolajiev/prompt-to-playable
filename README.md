@@ -229,7 +229,7 @@ This project is [MIT licensed](LICENSE).
 - **Express** — MIT; the thin Node API.
 - **Playwright** — Apache-2.0; dev-only browser QA (`npm run qa:browser`).
 - **Google Gemini** via its OpenAI-compatible endpoint — used for the live model evaluation on 2026-10-12 (`docs/llm-eval-2026-10-12.md`); the repository ships no API key.
-- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14 (`docs/llm-eval-2026-10-14.md`); no key or endpoint is recorded in the repository.
+- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14 (`docs/llm-eval-2026-10-14.md`); no API key is recorded in the repository; endpoint details are limited to the public gateway URL.
 
 The app, engine, schema, and tests were written with AI-assisted code
 generation; every generated game document is validated and checked before it

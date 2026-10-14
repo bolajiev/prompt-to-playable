@@ -98,12 +98,21 @@ export class EntityReconciler<TView> {
     }
   }
 
-  dispose(): void {
+  /**
+   * Detaches and disposes every view, leaving the reconciler reusable. Call
+   * when the document identity changes: ids may be reused with different
+   * kinds/shapes, so views must be rebuilt rather than patched in place.
+   */
+  clear(): void {
     for (const view of this.views.values()) {
       this.adapter.detach(view);
       this.adapter.dispose(view);
     }
     this.views.clear();
+  }
+
+  dispose(): void {
+    this.clear();
   }
 }
 
@@ -454,6 +463,7 @@ export class Renderer {
       this.particles?.clear();
       this.loseShakeAge = null;
       this.undoCameraShake();
+      this.reconciler.clear();
       this.trackedDoc = state.doc;
     }
 

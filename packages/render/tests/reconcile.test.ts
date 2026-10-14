@@ -214,4 +214,29 @@ describe("Renderer", () => {
     renderer.dispose();
     expect(scene.children.length).toBe(0);
   });
+
+  test("rebuilds a view when a new document reuses an id with a new shape", async () => {
+    const THREE = await import("three");
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+    const renderer = new Renderer(scene, camera);
+
+    renderer.reconcile(createState(validDoc([player(), ent("x")]), 1));
+    const plain = scene.getObjectByName("x");
+    expect(plain).toBeInstanceOf(THREE.Mesh);
+    expect(plain).not.toBeInstanceOf(THREE.Group);
+
+    const shaped: Entity = { ...ent("x"), props: { shape: "tree" } };
+    renderer.reconcile(createState(validDoc([player(), shaped]), 1));
+
+    const rebuilt = scene.getObjectByName("x");
+    expect(rebuilt).toBeInstanceOf(THREE.Group);
+    expect(rebuilt!.children.length).toBeGreaterThan(1);
+    expect(rebuilt).not.toBe(plain);
+    expect(renderer.entityCount).toBe(2);
+    expect(scene.children.map((c) => c.name).sort()).toEqual(["player", "x"]);
+
+    renderer.dispose();
+    expect(scene.children.length).toBe(0);
+  });
 });

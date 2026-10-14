@@ -175,9 +175,9 @@ describe("shaped props in the renderer", () => {
     renderer.reconcile(
       createState(validDoc([prop("tree", { shape: "tree" }, "forestgreen")]), 1)
     );
-    const group = scene.getObjectByName("tree") as THREE.Group;
-    expect(group).toBeInstanceOf(THREE.Group);
-    expect(group.children.length).toBe(SHAPE_CHILD_COUNT.tree);
+    const first = scene.getObjectByName("tree") as THREE.Group;
+    expect(first).toBeInstanceOf(THREE.Group);
+    expect(first.children.length).toBe(SHAPE_CHILD_COUNT.tree);
 
     renderer.reconcile(
       createState(
@@ -192,6 +192,10 @@ describe("shaped props in the renderer", () => {
       )
     );
 
+    const group = scene.getObjectByName("tree") as THREE.Group;
+    expect(group).toBeInstanceOf(THREE.Group);
+    expect(group).not.toBe(first);
+    expect(group.children.length).toBe(SHAPE_CHILD_COUNT.tree);
     expect(group.position.toArray()).toEqual([2, 1, -3]);
     expect(group.scale.toArray()).toEqual([2, 4, 2]);
     renderer.dispose();
@@ -199,14 +203,21 @@ describe("shaped props in the renderer", () => {
 
   test("update re-tints every tagged child material after a color change", () => {
     const { scene, renderer } = newRenderer();
-    renderer.reconcile(
-      createState(validDoc([prop("fire", { shape: "campfire" }, "red")]), 1)
+    const state = createState(
+      validDoc([prop("fire", { shape: "campfire" }, "red")]),
+      1
     );
+    renderer.reconcile(state);
     const group = scene.getObjectByName("fire") as THREE.Group;
 
-    renderer.reconcile(
-      createState(validDoc([prop("fire", { shape: "campfire" }, "blue")]), 1)
-    );
+    const blueFire = prop("fire", { shape: "campfire" }, "blue");
+    renderer.reconcile({
+      ...state,
+      entities: state.entities.map((entity) =>
+        entity.id === blueFire.id ? blueFire : entity
+      ),
+    });
+    expect(scene.getObjectByName("fire")).toBe(group);
 
     const materials = group.children.map(
       (child) => (child as THREE.Mesh).material as THREE.MeshStandardMaterial
