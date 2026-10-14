@@ -14,6 +14,7 @@ import {
   type AnimationRuntime,
   type EntityRuntime,
   type GameState,
+  type GameUiState,
   type PanelState,
 } from "./state.js";
 
@@ -413,10 +414,17 @@ export function evaluateRules(
       case "animate":
         animate(action);
         break;
-      case "cameraFocus":
-        ui = { ...ui, focus: action.entity };
+      case "cameraFocus": {
+        if (action.entity === undefined) {
+          const cleared: GameUiState = { ...ui };
+          delete cleared.focus;
+          ui = cleared;
+        } else {
+          ui = { ...ui, focus: action.entity };
+        }
         changed = true;
         break;
+      }
       case "showPanel":
         showPanel(action);
         break;

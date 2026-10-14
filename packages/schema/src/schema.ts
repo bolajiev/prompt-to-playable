@@ -269,7 +269,7 @@ export const ActionSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("cameraFocus"),
-    entity: z.string().min(1),
+    entity: z.string().min(1).optional(),
   }),
   z.object({
     type: z.literal("showPanel"),

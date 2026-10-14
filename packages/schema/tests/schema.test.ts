@@ -220,6 +220,23 @@ describe("GameSchema v1.1 additions", () => {
     expect(part?.size).toEqual([1, 1, 1]);
   });
 
+  test("cameraFocus entity is optional (omitted clears focus)", () => {
+    const doc = v11Doc();
+    (doc.rules[0] as { then: unknown[] }).then[3] = { type: "cameraFocus" };
+    const res = validateGame(doc);
+    expect(res.ok).toBe(true);
+    expect(res.data?.rules[0]?.then[3]).toEqual({ type: "cameraFocus" });
+  });
+
+  test("cameraFocus with a non-string entity fails", () => {
+    const doc = v11Doc();
+    (doc.rules[0] as { then: unknown[] }).then[3] = {
+      type: "cameraFocus",
+      entity: 7,
+    };
+    expect(isGame(doc)).toBe(false);
+  });
+
   test("bad part shape fails", () => {
     const doc = v11Doc();
     (doc.entities[1]!.parts as Array<Record<string, unknown>>)[0]!.shape =

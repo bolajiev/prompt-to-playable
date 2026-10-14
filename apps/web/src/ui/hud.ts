@@ -1,4 +1,5 @@
-import type { GameState } from "@prompt-to-playable/engine";
+import { resolveMode, type GameState } from "@prompt-to-playable/engine";
+import type { GameMode } from "@prompt-to-playable/schema";
 
 const STATUS_LABEL: Record<string, string> = {
   active: "in progress",
@@ -10,9 +11,16 @@ const STATUS_LABEL: Record<string, string> = {
 export const EXPLORE_HINT =
   "Explore freely — WASD move · Space jump · drag to orbit";
 
-/** Pure explore-HUD decision: zero objectives means a free-roam scene. */
-export function exploreHint(objectiveCount: number): string | null {
-  return objectiveCount === 0 ? EXPLORE_HINT : null;
+/**
+ * Pure explore-HUD decision: only explore-mode scenes with zero objectives are
+ * free-roam. inspect / walkthrough / drive / game get their control copy from
+ * `hudForMode` instead of this sidebar hint.
+ */
+export function exploreHint(
+  mode: GameMode,
+  objectiveCount: number
+): string | null {
+  return mode === "explore" && objectiveCount === 0 ? EXPLORE_HINT : null;
 }
 
 function formatSeconds(value: number): string {
@@ -77,7 +85,7 @@ export class Hud {
     meta.textContent = `Time: ${formatSeconds(state.time)}`;
     this.root.append(meta);
 
-    const hint = exploreHint(state.objectives.length);
+    const hint = exploreHint(resolveMode(state.doc), state.objectives.length);
     if (hint !== null) {
       const explore = doc.createElement("p");
       explore.className = "hud-empty explore-hint";

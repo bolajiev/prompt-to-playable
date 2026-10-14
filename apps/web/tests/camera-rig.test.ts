@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { NEUTRAL_INPUT } from "@prompt-to-playable/engine";
 import type { GameDoc } from "@prompt-to-playable/schema";
 import {
+  applyCameraFocus,
   cameraOffset,
   CameraRig,
   CHASE_DISTANCE,
@@ -15,6 +16,7 @@ import {
   FIRST_PERSON_EYE_HEIGHT,
   firstPersonEye,
   firstPersonLookAt,
+  FOCUS_DISTANCE,
   forwardFromYaw,
   INSPECT_DISTANCE,
   INSPECT_PITCH,
@@ -24,10 +26,12 @@ import {
   MIN_PITCH,
   PITCH_SENSITIVITY,
   resolveCameraMode,
+  usesVehicleInput,
   YAW_RETURN_SECONDS,
   YAW_SENSITIVITY,
   ZOOM_SENSITIVITY,
   type CameraRigOptions,
+  type FocusCameraState,
 } from "../src/ui/camera-rig.js";
 import { toWorldInput } from "../src/ui/input.js";
 
@@ -256,6 +260,104 @@ describe("resolveCameraMode", () => {
     expect(INSPECT_DISTANCE).toBeLessThanOrEqual(MAX_DISTANCE);
     expect(INSPECT_PITCH).toBeGreaterThanOrEqual(MIN_PITCH);
     expect(INSPECT_PITCH).toBeLessThanOrEqual(MAX_PITCH);
+  });
+});
+
+describe("vehicle chase predicate", () => {
+  test("a props.vehicle player uses the chase camera in any mode", () => {
+    expect(resolveCameraMode(doc({ mode: "explore" }), true)).toBe("chase");
+    expect(resolveCameraMode(doc({ mode: "inspect" }), true)).toBe("chase");
+    expect(resolveCameraMode(doc({ mode: "drive" }), false)).toBe("chase");
+    expect(
+      resolveCameraMode(doc({ archetype: "collect-a-thon" }), true)
+    ).toBe("chase");
+    expect(resolveCameraMode(doc({ mode: "explore" }), false)).toBe("orbit");
+  });
+
+  test("vehicle input matches chase camera or a props.vehicle player", () => {
+    expect(usesVehicleInput("chase", undefined)).toBe(true);
+    expect(usesVehicleInput("orbit", true)).toBe(true);
+    expect(usesVehicleInput("orbit", false)).toBe(false);
+    expect(usesVehicleInput("firstPerson", undefined)).toBe(false);
+  });
+});
+
+describe("camera focus consumption", () => {
+  const idle: FocusCameraState = { active: false, savedDistance: null };
+
+  test("focusing an entity returns its position and eases toward FOCUS_DISTANCE", () => {
+    const first = applyCameraFocus(idle, "board", [3, 1, 2], 12, 0.1);
+    expect(first.target).toEqual([3, 1, 2]);
+    expect(first.state).toEqual({ active: true, savedDistance: 12 });
+    expect(first.distance).toBeLessThan(12);
+    expect(first.distance).toBeGreaterThan(FOCUS_DISTANCE);
+
+    let step = first;
+    for (let i = 0; i < 200; i++) {
+      step = applyCameraFocus(
+        step.state,
+        "board",
+        [3, 1, 2],
+        step.distance,
+        1 / 60
+      );
+    }
+    expect(step.distance).toBeCloseTo(FOCUS_DISTANCE, 4);
+    expect(step.distance).toBeGreaterThanOrEqual(FOCUS_DISTANCE);
+  });
+
+  test("a focused distance never overshoots when approached from below", () => {
+    const step = applyCameraFocus(
+      { active: true, savedDistance: 12 },
+      "board",
+      [0, 0, 0],
+      FOCUS_DISTANCE - 2,
+      1 / 60
+    );
+    expect(step.distance).toBeGreaterThan(FOCUS_DISTANCE - 2);
+    expect(step.distance).toBeLessThanOrEqual(FOCUS_DISTANCE);
+  });
+
+  test("clearing the focus restores the pre-focus distance and target", () => {
+    const focused = applyCameraFocus(idle, "board", [3, 1, 2], 14, 0.5);
+    expect(focused.state).toEqual({ active: true, savedDistance: 14 });
+
+    const cleared = applyCameraFocus(
+      focused.state,
+      undefined,
+      undefined,
+      focused.distance,
+      1 / 60
+    );
+    expect(cleared.target).toBeNull();
+    expect(cleared.state).toEqual({ active: false, savedDistance: null });
+    expect(cleared.distance).toBe(14);
+
+    const still = applyCameraFocus(cleared.state, undefined, undefined, 10, 0.5);
+    expect(still.distance).toBe(10);
+    expect(still.target).toBeNull();
+  });
+
+  test("an unknown focus id clears like an omitted focus", () => {
+    const focused = applyCameraFocus(idle, "board", [1, 0, 0], 10, 0.2);
+    const missing = applyCameraFocus(
+      focused.state,
+      "ghost",
+      undefined,
+      focused.distance,
+      0.2
+    );
+    expect(missing.target).toBeNull();
+    expect(missing.distance).toBe(10);
+    expect(missing.state).toEqual({ active: false, savedDistance: null });
+  });
+
+  test("non-positive or non-finite dt leaves the distance untouched", () => {
+    for (const dt of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const step = applyCameraFocus(idle, "board", [0, 1, 0], 12, dt);
+      expect(step.distance).toBe(12);
+      expect(step.target).toEqual([0, 1, 0]);
+    }
   });
 });
 

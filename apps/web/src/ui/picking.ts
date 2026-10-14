@@ -38,7 +38,8 @@ export function isClickGesture(
  * (parts groups, label sprites, the highlight ring) resolve to the owning
  * entity's id. Hits without any `userData.entityId` ancestor (ground, lights,
  * particles, effects) are skipped, so scenery in front of an entity is
- * harmless.
+ * harmless. Hits whose object or any ancestor is hidden (`visible === false`)
+ * are skipped entirely, so invisible entities are never pickable.
  */
 export function intersectEntity(
   raycaster: THREE.Raycaster,
@@ -47,11 +48,20 @@ export function intersectEntity(
   const hits = raycaster.intersectObjects(objects as THREE.Object3D[], true);
   for (const hit of hits) {
     let object: THREE.Object3D | null = hit.object;
+    let hidden = false;
+    let entityId: string | null = null;
     while (object !== null) {
+      if (object.visible === false) {
+        hidden = true;
+        break;
+      }
       const id = object.userData?.entityId;
-      if (typeof id === "string" && id.length > 0) return id;
+      if (entityId === null && typeof id === "string" && id.length > 0) {
+        entityId = id;
+      }
       object = object.parent;
     }
+    if (!hidden && entityId !== null) return entityId;
   }
   return null;
 }
@@ -74,4 +84,42 @@ export function pickEntityId(
 ): string | null {
   raycaster.setFromCamera(new THREE.Vector2(ndc.x, ndc.y), camera);
   return intersectEntity(raycaster, objects);
+}
+
+/** Engine hover edge produced by a hovered-id change. */
+export interface HoverEdgeEvent {
+  type: "hoverEnter" | "hoverLeave";
+  targetId: string;
+}
+
+/**
+ * Hover-edge events for a hovered-id transition: leave for the previous id,
+ * then enter for the next. Identical ids produce no events (change-only
+ * throttling); `null` means nothing is hovered.
+ */
+export function hoverEdgeEvents(
+  previous: string | null,
+  next: string | null
+): HoverEdgeEvent[] {
+  if (previous === next) return [];
+  const events: HoverEdgeEvent[] = [];
+  if (previous !== null) events.push({ type: "hoverLeave", targetId: previous });
+  if (next !== null) events.push({ type: "hoverEnter", targetId: next });
+  return events;
+}
+
+/** Outcome of ending a pointer gesture. */
+export type GestureOutcome = "click" | "drag" | "cancel";
+
+/**
+ * Pure release decision: a cancelled gesture (pointercancel) always aborts
+ * without a click; otherwise `isClickGesture` separates clicks from drags.
+ */
+export function gestureOutcome(
+  down: PointerSample | null | undefined,
+  up: PointerSample | null | undefined,
+  cancelled = false
+): GestureOutcome {
+  if (cancelled) return "cancel";
+  return isClickGesture(down, up) ? "click" : "drag";
 }

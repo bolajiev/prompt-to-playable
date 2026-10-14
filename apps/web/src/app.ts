@@ -14,6 +14,7 @@ import {
   type AudioCueState,
 } from "./ui/audio.js";
 import {
+  applyCameraFocus,
   CameraRig,
   chaseCameraPosition,
   clampDistance,
@@ -23,7 +24,9 @@ import {
   INSPECT_DISTANCE,
   INSPECT_PITCH,
   resolveCameraMode,
+  usesVehicleInput,
   type CameraMode,
+  type FocusCameraState,
 } from "./ui/camera-rig.js";
 import {
   createKeyboardState,
@@ -32,7 +35,12 @@ import {
 } from "./ui/input.js";
 import { hudForMode } from "./ui/mode-hud.js";
 import { Panels } from "./ui/panels.js";
-import { isClickGesture, pickEntityId, type PointerSample } from "./ui/picking.js";
+import {
+  gestureOutcome,
+  hoverEdgeEvents,
+  pickEntityId,
+  type PointerSample,
+} from "./ui/picking.js";
 
 export interface AppElements {
   canvas: HTMLCanvasElement;
@@ -193,6 +201,7 @@ export class App {
   private hoveredId: string | null = null;
   private gestureStart: PointerSample | null = null;
   private modeLines: string | null = null;
+  private focusState: FocusCameraState = { active: false, savedDistance: null };
 
   constructor(elements: AppElements, options: AppOptions = {}) {
     this.dom = elements;
@@ -251,7 +260,7 @@ export class App {
     elements.canvas.addEventListener("pointerdown", this.handlePointerDown);
     elements.canvas.addEventListener("pointermove", this.handlePointerMove);
     elements.canvas.addEventListener("pointerup", this.handlePointerUp);
-    elements.canvas.addEventListener("pointercancel", this.handlePointerUp);
+    elements.canvas.addEventListener("pointercancel", this.handlePointerCancel);
     elements.canvas.addEventListener("pointerleave", this.handlePointerLeave);
     elements.canvas.addEventListener("wheel", this.handleWheel, {
       passive: false,
@@ -346,6 +355,18 @@ export class App {
   };
 
   private handlePointerUp = (event: PointerEvent): void => {
+    this.endPointerGesture(event, false);
+  };
+
+  private handlePointerCancel = (event: PointerEvent): void => {
+    this.endPointerGesture(event, true);
+  };
+
+  /**
+   * Shared release path for pointerup and pointercancel. Cancelled gestures
+   * abort the press without ever pushing a click.
+   */
+  private endPointerGesture(event: PointerEvent, cancelled: boolean): void {
     if (this.dragPointerId === null || event.pointerId !== this.dragPointerId) {
       return;
     }
@@ -353,9 +374,9 @@ export class App {
     this.cameraRig.endDrag();
     const down = this.gestureStart;
     this.gestureStart = null;
-    if (down === null || this.lastValidatedDoc === null) return;
+    if (this.lastValidatedDoc === null) return;
     const up = { x: event.clientX, y: event.clientY, time: this.now() };
-    if (!isClickGesture(down, up)) return;
+    if (gestureOutcome(down, up, cancelled) !== "click") return;
     const id = this.pickEntity(event.clientX, event.clientY);
     if (id !== null) this.engine.pushEvent({ type: "click", targetId: id });
   };
@@ -373,15 +394,32 @@ export class App {
   /** Highlights the entity under an idle pointer (hover only, no dragging). */
   private updateHover(event: PointerEvent): void {
     if (this.lastValidatedDoc === null) return;
-    const id = this.pickEntity(event.clientX, event.clientY);
-    if (id === this.hoveredId) return;
-    this.hoveredId = id;
-    this.renderer.setHighlight(id);
-    this.webgl.domElement.style.cursor = id === null ? "" : "pointer";
+    this.setHovered(this.pickEntity(event.clientX, event.clientY));
   }
 
   private clearHover(): void {
-    if (this.hoveredId === null) return;
+    this.setHovered(null);
+  }
+
+  /**
+   * Single hover transition point: updates the highlight and cursor, then
+   * pushes hoverLeave (previous) and hoverEnter (next) to the engine.
+   * Change-only throttling keeps the queue quiet while the pointer moves
+   * within one entity.
+   */
+  private setHovered(id: string | null): void {
+    if (id === this.hoveredId) return;
+    const previous = this.hoveredId;
+    this.hoveredId = id;
+    this.renderer.setHighlight(id);
+    this.webgl.domElement.style.cursor = id === null ? "" : "pointer";
+    for (const event of hoverEdgeEvents(previous, id)) {
+      this.engine.pushEvent(event);
+    }
+  }
+
+  /** Drops hover visuals without hover edges (a reload resets engine state). */
+  private resetHover(): void {
     this.hoveredId = null;
     this.renderer.setHighlight(null);
     this.webgl.domElement.style.cursor = "";
@@ -460,10 +498,9 @@ export class App {
    * player kind moves camera-relative.
    */
   private usesVehicleControls(state: GameState): boolean {
-    if (this.cameraMode === "chase") return true;
     const player = state.entities.find((entity) => entity.kind === "player");
-    return player?.props?.vehicle === true;
-  };
+    return usesVehicleInput(this.cameraMode, player?.props?.vehicle === true);
+  }
 
   private updateAudio(state: GameState): void {
     const next = toAudioCueState(state);
@@ -477,7 +514,9 @@ export class App {
    * `position.lerp` so the renderer's lose-shake offsets (applied during
    * `reconcile` and undone at the next one) compose without accumulating.
    *
-   * - orbit: existing rig behavior (inspect keeps its closer defaults);
+   * - orbit: existing rig behavior (inspect keeps its closer defaults; an
+   *   active `ui.focus` frames that entity and eases the distance toward
+   *   `FOCUS_DISTANCE`, restoring the pre-focus distance when cleared);
    * - firstPerson: eye at the player + eye height, looking along rig yaw/pitch;
    * - chase: fixed distance behind the vehicle heading, no orbit drag.
    */
@@ -519,8 +558,29 @@ export class App {
     }
 
     this.cameraRig.update(dtSeconds);
-    const target = new THREE.Vector3(px, py, pz);
-    const desired = this.cameraRig.desiredPosition(position);
+    const focusEntity =
+      state.ui.focus === undefined
+        ? undefined
+        : state.entities.find((entity) => entity.id === state.ui.focus);
+    const focusPosition = focusEntity
+      ? state.entityRuntime[focusEntity.id]?.position ?? focusEntity.position
+      : undefined;
+    const focus = applyCameraFocus(
+      this.focusState,
+      state.ui.focus,
+      focusPosition,
+      this.cameraRig.distance,
+      dtSeconds
+    );
+    this.focusState = focus.state;
+    this.cameraRig.distance = focus.distance;
+    const targetPosition: [number, number, number] = focus.target ?? [px, py, pz];
+    const target = new THREE.Vector3(
+      targetPosition[0],
+      targetPosition[1],
+      targetPosition[2]
+    );
+    const desired = this.cameraRig.desiredPosition(targetPosition);
     this.camera.position.lerp(
       new THREE.Vector3(desired[0], desired[1], desired[2]),
       0.1
@@ -573,8 +633,10 @@ export class App {
     this.engine.load(doc);
     applyWorldEnvironment(this.scene, doc.world);
     this.cameraRig.reset();
+    this.focusState = { active: false, savedDistance: null };
     const mode = resolveMode(doc);
-    this.cameraMode = resolveCameraMode(doc);
+    const player = doc.entities.find((entity) => entity.kind === "player");
+    this.cameraMode = resolveCameraMode(doc, player?.props?.vehicle === true);
     if (mode === "inspect") {
       this.cameraRig.distance = clampDistance(INSPECT_DISTANCE);
       this.cameraRig.pitch = clampPitch(INSPECT_PITCH);
@@ -585,7 +647,7 @@ export class App {
     }
     this.modeLines = null;
     this.previousCueState = null;
-    this.clearHover();
+    this.resetHover();
     const state = this.engine.getState();
     this.badge.setValidated(true);
     this.hud.update(state);

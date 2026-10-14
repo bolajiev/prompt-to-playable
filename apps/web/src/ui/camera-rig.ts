@@ -95,14 +95,22 @@ export const CHASE_DISTANCE = 8;
 /** Chase camera sits this high above the vehicle. */
 export const CHASE_HEIGHT = 4;
 
+/** Orbit distance the camera eases toward while a camera focus is active. */
+export const FOCUS_DISTANCE = 8;
+/** Exponential ease rate (per second) of the focus distance. */
+export const FOCUS_DISTANCE_RATE = 5;
+
 /**
  * Mode -> camera mapping. inspect / explore / game keep the orbit rig (with
  * different defaults), walkthrough becomes first person and drive becomes a
- * heading-following chase camera. Documents without an explicit `meta.mode`
- * resolve through the regular backward-compatible inference (explore
- * archetype -> explore, every other archetype -> game), so they stay orbit.
+ * heading-following chase camera. A player flagged `props.vehicle` uses the
+ * chase camera in every mode, matching the engine's vehicle controller.
+ * Documents without an explicit `meta.mode` resolve through the regular
+ * backward-compatible inference (explore archetype -> explore, every other
+ * archetype -> game), so they stay orbit.
  */
-export function resolveCameraMode(doc: GameDoc): CameraMode {
+export function resolveCameraMode(doc: GameDoc, vehicle = false): CameraMode {
+  if (vehicle) return "chase";
   switch (resolveMode(doc)) {
     case "walkthrough":
       return "firstPerson";
@@ -111,6 +119,17 @@ export function resolveCameraMode(doc: GameDoc): CameraMode {
     default:
       return "orbit";
   }
+}
+
+/**
+ * Vehicle input predicate: chase camera (drive mode or `props.vehicle`) or a
+ * player flagged `props.vehicle` consumes raw throttle/steer.
+ */
+export function usesVehicleInput(
+  cameraMode: CameraMode,
+  vehicle: boolean | undefined
+): boolean {
+  return cameraMode === "chase" || vehicle === true;
 }
 
 /** Camera eye position for first person: player center + eye height. */
@@ -151,6 +170,67 @@ export function chaseCameraPosition(
     position[1] + CHASE_HEIGHT,
     position[2] - Math.cos(heading) * CHASE_DISTANCE,
   ];
+}
+
+/** Orbit focus bookkeeping carried across frames by `applyCameraFocus`. */
+export interface FocusCameraState {
+  /** True while a focus id is set and its position is known. */
+  active: boolean;
+  /** Rig distance to restore when the focus clears. */
+  savedDistance: number | null;
+}
+
+/** One frame of focus consumption: next state, rig distance and look target. */
+export interface FocusCameraStep {
+  state: FocusCameraState;
+  /** Rig distance for this frame (eases toward `FOCUS_DISTANCE`). */
+  distance: number;
+  /** World point to orbit/look at, or null for normal player follow. */
+  target: [number, number, number] | null;
+}
+
+/**
+ * Pure focus consumption step for the orbit camera. A defined focus id plus a
+ * known position keeps the focus active and eases the rig distance toward
+ * `FOCUS_DISTANCE`; the first focused frame remembers the pre-focus distance.
+ * Clearing the focus (or an unknown entity id) restores that distance and
+ * returns `target: null`, so the caller resumes player follow. Non-positive
+ * or non-finite `dtSeconds` leaves the distance untouched.
+ */
+export function applyCameraFocus(
+  state: FocusCameraState,
+  focusId: string | undefined,
+  position: readonly [number, number, number] | undefined,
+  distance: number,
+  dtSeconds: number
+): FocusCameraStep {
+  if (focusId === undefined || position === undefined) {
+    return {
+      state: { active: false, savedDistance: null },
+      distance:
+        state.active && state.savedDistance !== null
+          ? state.savedDistance
+          : distance,
+      target: null,
+    };
+  }
+
+  const savedDistance =
+    state.active && state.savedDistance !== null
+      ? state.savedDistance
+      : distance;
+  const eased =
+    dtSeconds > 0 && Number.isFinite(dtSeconds)
+      ? distance +
+        (FOCUS_DISTANCE - distance) *
+          (1 - Math.exp(-FOCUS_DISTANCE_RATE * dtSeconds))
+      : distance;
+
+  return {
+    state: { active: true, savedDistance },
+    distance: eased,
+    target: [position[0], position[1], position[2]],
+  };
 }
 
 export interface CameraRigOptions {

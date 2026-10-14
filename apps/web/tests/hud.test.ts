@@ -4,17 +4,24 @@ import { EXPLORE_HINT, exploreHint, Hud } from "../src/ui/hud.js";
 import { FakeDocument, FakeNode } from "./fakes.js";
 
 describe("explore HUD decision", () => {
-  test("zero objectives means free roam", () => {
-    expect(exploreHint(0)).toBe(EXPLORE_HINT);
+  test("explore mode with zero objectives means free roam", () => {
+    expect(exploreHint("explore", 0)).toBe(EXPLORE_HINT);
     expect(EXPLORE_HINT).toContain("Explore freely");
     expect(EXPLORE_HINT).toContain("WASD move");
     expect(EXPLORE_HINT).toContain("Space jump");
     expect(EXPLORE_HINT).toContain("drag to orbit");
   });
 
+  test("inspect, walkthrough, drive and game never get the explore hint", () => {
+    expect(exploreHint("inspect", 0)).toBeNull();
+    expect(exploreHint("walkthrough", 0)).toBeNull();
+    expect(exploreHint("drive", 0)).toBeNull();
+    expect(exploreHint("game", 0)).toBeNull();
+  });
+
   test("any objective keeps the objective list", () => {
-    expect(exploreHint(1)).toBeNull();
-    expect(exploreHint(3)).toBeNull();
+    expect(exploreHint("explore", 1)).toBeNull();
+    expect(exploreHint("explore", 3)).toBeNull();
   });
 });
 
@@ -26,6 +33,19 @@ function stateWith(objectives: unknown[]): GameState {
     entities: [],
     entityRuntime: {},
     doc: { meta: { title: "Quiet Clearing", archetype: "explore" } },
+  } as unknown as GameState;
+}
+
+function inspectState(): GameState {
+  return {
+    status: "running",
+    time: 0,
+    objectives: [],
+    entities: [],
+    entityRuntime: {},
+    doc: {
+      meta: { title: "PCB Viewer", archetype: "collect-a-thon", mode: "inspect" },
+    },
   } as unknown as GameState;
 }
 
@@ -67,6 +87,11 @@ describe("Hud explore rendering", () => {
     expect(list?.children).toHaveLength(1);
     expect(list?.children[0].className).toBe("objective active");
     expect(list?.children[0].children[0]?.textContent).toBe("Collect crystals");
+    expect(root.find("explore-hint")).toBeUndefined();
+  });
+
+  test("inspect scenes with zero objectives get no explore hint", () => {
+    const root = renderHud(inspectState());
     expect(root.find("explore-hint")).toBeUndefined();
   });
 });

@@ -149,6 +149,53 @@ describe("v5 actions", () => {
     expect(state.ui.focus).toBe("crystal");
     expect(state.entityRuntime.crystal.active).toBe(true);
     expect(state.entityRuntime.crystal.position).toEqual([2, 1, 0]);
+
+    engine.closePanel("crystal-0");
+    const closed = engine.getState();
+    expect(closed.ui.panels).toHaveLength(0);
+    expect(closed.ui.focus).toBe("crystal");
+  });
+
+  test("cameraFocus with no entity clears state.ui.focus", () => {
+    const doc = parseDoc({
+      version: "1.0.0",
+      meta: { title: "Focus Room", archetype: "collect-a-thon", seed: 4 },
+      world: { bounds: [20, 10, 20] },
+      entities: [
+        { id: "player", kind: "player", position: [0, 1, 0] },
+        { id: "crystal", kind: "interactable", position: [2, 1, 0] },
+        { id: "lever", kind: "interactable", position: [-2, 1, 0] },
+      ],
+      objectives: [],
+      rules: [
+        {
+          id: "focus",
+          on: { event: "click", entity: "crystal" },
+          then: [{ type: "cameraFocus", entity: "crystal" }],
+        },
+        {
+          id: "clear",
+          on: { event: "click", entity: "lever" },
+          then: [{ type: "cameraFocus" }],
+        },
+      ],
+      scratch: {},
+    });
+    const engine = createEngine();
+    engine.load(doc, 1);
+
+    engine.pushEvent({ type: "click", targetId: "crystal" });
+    let state = engine.step(16.666);
+    expect(state.ui.focus).toBe("crystal");
+
+    engine.pushEvent({ type: "click", targetId: "lever" });
+    state = engine.step(16.666);
+    expect(state.ui.focus).toBeUndefined();
+    expect("focus" in state.ui).toBe(false);
+
+    engine.pushEvent({ type: "click", targetId: "crystal" });
+    state = engine.step(16.666);
+    expect(state.ui.focus).toBe("crystal");
   });
 
   test("showPanel without entity uses a deterministic panel-<n> id", () => {

@@ -3,6 +3,8 @@ import * as THREE from "three";
 import {
   CLICK_DURATION_LIMIT_MS,
   CLICK_MOVE_TOLERANCE_PX,
+  gestureOutcome,
+  hoverEdgeEvents,
   intersectEntity,
   isClickGesture,
   pickEntityId,
@@ -114,6 +116,79 @@ describe("intersectEntity", () => {
     expect(intersectEntity(raycaster, [ground])).toBeNull();
     expect(intersectEntity(raycaster, [ground, entity])).toBe("goal");
     expect(intersectEntity(raycaster, [])).toBeNull();
+  });
+});
+
+describe("intersectEntity visibility", () => {
+  test("skips hidden entities even when they are nearest", () => {
+    const raycaster = raycasterFor(cameraAt(10));
+    const hidden = entityMesh("hidden", 0);
+    hidden.visible = false;
+    const visible = entityMesh("visible", -5);
+
+    expect(intersectEntity(raycaster, [hidden, visible])).toBe("visible");
+    expect(intersectEntity(raycaster, [hidden])).toBeNull();
+  });
+
+  test("skips hits nested under a hidden ancestor", () => {
+    const raycaster = raycasterFor(cameraAt(10));
+    const root = new THREE.Group();
+    root.userData.entityId = "robot";
+    root.visible = false;
+    root.add(entityMesh(null, 0));
+    root.updateMatrixWorld(true);
+    const visible = entityMesh("goal", -5);
+
+    expect(intersectEntity(raycaster, [root, visible])).toBe("goal");
+    expect(intersectEntity(raycaster, [root])).toBeNull();
+  });
+
+  test("skips a hidden child mesh of a visible entity", () => {
+    const raycaster = raycasterFor(cameraAt(10));
+    const root = new THREE.Group();
+    root.userData.entityId = "robot";
+    const child = entityMesh(null, 0);
+    child.visible = false;
+    root.add(child);
+    root.updateMatrixWorld(true);
+
+    expect(intersectEntity(raycaster, [root])).toBeNull();
+  });
+});
+
+describe("hoverEdgeEvents", () => {
+  test("no change yields no events", () => {
+    expect(hoverEdgeEvents(null, null)).toEqual([]);
+    expect(hoverEdgeEvents("a", "a")).toEqual([]);
+  });
+
+  test("entering, leaving and switching entities", () => {
+    expect(hoverEdgeEvents(null, "a")).toEqual([
+      { type: "hoverEnter", targetId: "a" },
+    ]);
+    expect(hoverEdgeEvents("a", null)).toEqual([
+      { type: "hoverLeave", targetId: "a" },
+    ]);
+    expect(hoverEdgeEvents("a", "b")).toEqual([
+      { type: "hoverLeave", targetId: "a" },
+      { type: "hoverEnter", targetId: "b" },
+    ]);
+  });
+});
+
+describe("gestureOutcome", () => {
+  test("still, short releases are clicks; moves and missing starts are drags", () => {
+    expect(gestureOutcome(sample(1, 1, 0), sample(1, 1, 50))).toBe("click");
+    expect(gestureOutcome(sample(1, 1, 0), sample(30, 1, 50))).toBe("drag");
+    expect(gestureOutcome(sample(1, 1, 0), sample(1, 1, 999))).toBe("drag");
+    expect(gestureOutcome(null, sample(1, 1, 50))).toBe("drag");
+  });
+
+  test("a cancelled gesture never becomes a click", () => {
+    expect(gestureOutcome(sample(1, 1, 0), sample(1, 1, 50), true)).toBe(
+      "cancel"
+    );
+    expect(gestureOutcome(null, null, true)).toBe("cancel");
   });
 });
 
