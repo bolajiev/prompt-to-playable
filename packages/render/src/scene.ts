@@ -37,10 +37,19 @@ export function diffEntities(
   return { create, update, remove };
 }
 
+/** Minimal structural view of an engine animation entry (renderer reads pulse). */
+export interface AnimationRuntimeTransform {
+  kind: string;
+  pulse?: number;
+}
+
 export interface EntityRuntimeTransform {
   position?: Vec3;
   rotation?: Vec3;
   active?: boolean;
+  visible?: boolean;
+  color?: string;
+  animations?: readonly AnimationRuntimeTransform[];
 }
 
 export interface EntityTransform {
@@ -48,6 +57,10 @@ export interface EntityTransform {
   rotation: Vec3;
   scale: Vec3;
   visible: boolean;
+  /** Runtime color override; when set it replaces the entity/kind color. */
+  color?: string;
+  /** Latest pulse animation value (0..1); undefined when not pulsing. */
+  pulse?: number;
 }
 
 /**
@@ -68,7 +81,9 @@ export function kindDefaultScale(kind: Entity["kind"]): Vec3 {
  * Map an engine entity (plus optional runtime overrides) to renderer transform
  * data. Returns fresh arrays so the renderer can never alias engine state.
  * Scale is the entity's absolute full extents, so meshes built from unit
- * geometry match the physics AABB exactly.
+ * geometry match the physics AABB exactly. Visibility combines the authored
+ * `active` flag with the runtime `visible` flag (setVisible action), and the
+ * runtime color / latest pulse value ride along for material and scale work.
  */
 export function entityTransform(
   entity: Entity,
@@ -79,11 +94,22 @@ export function entityTransform(
   const scale = entity.size ?? entity.scale ?? kindDefaultScale(entity.kind);
   const active = runtime?.active ?? entity.active;
 
+  let pulse: number | undefined;
+  if (runtime?.animations) {
+    for (const animation of runtime.animations) {
+      if (animation.kind === "pulse" && typeof animation.pulse === "number") {
+        pulse = animation.pulse;
+      }
+    }
+  }
+
   return {
     position: [...position] as Vec3,
     rotation: [...rotation] as Vec3,
     scale: [...scale] as Vec3,
-    visible: active !== false,
+    visible: active !== false && runtime?.visible !== false,
+    color: runtime?.color,
+    pulse,
   };
 }
 
@@ -121,7 +147,8 @@ export const KIND_COLORS: Record<string, string> = {
   spawn: "#e879f9",
 };
 
-export function entityColor(entity: Entity): string {
+export function entityColor(entity: Entity, override?: string): string {
+  if (override) return override;
   if (entity.color) return entity.color;
   return KIND_COLORS[entity.kind] ?? "#cccccc";
 }

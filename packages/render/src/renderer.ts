@@ -18,6 +18,8 @@ import {
   walkBob,
 } from "./animation.js";
 import { ParticleSystem, type ParticleBurstKind } from "./particles.js";
+import { buildLabelSprite } from "./labels.js";
+import { applyPartsColor, buildPartsObject, hasParts } from "./parts.js";
 import {
   diffEntities,
   EMISSIVE_STRENGTH,
@@ -60,6 +62,11 @@ export class EntityReconciler<TView> {
 
   has(id: string): boolean {
     return this.views.has(id);
+  }
+
+  /** Current view for an entity id, if any (read-only handle for the owner). */
+  get(id: string): TView | undefined {
+    return this.views.get(id);
   }
 
   reconcile(state: GameState): void {
@@ -184,6 +191,11 @@ export const COLLECTIBLE_PULSE_MAX = 1.3;
 export const INTERACTABLE_IDLE_PULSE = 0.15;
 export const INTERACTABLE_RANGE_PULSE = 0.9;
 
+/** Root scale boost while an entity is highlighted (hover / focus). */
+export const HIGHLIGHT_SCALE = 1.06;
+/** Root scale amplitude per unit of a `pulse` animation value (0..1). */
+export const PULSE_SCALE_AMPLITUDE = 0.06;
+
 /** Read-only per-frame inputs used to animate entity views. */
 export interface AnimationContext {
   /** Engine time in seconds; drives all phase functions. */
@@ -198,6 +210,12 @@ function distance(a: Vec3, b: Vec3): number {
   return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 }
 
+/** Clamp a runtime pulse value to 0..1; missing/non-finite reads as 0. */
+function clampPulse(value: number | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  return Math.min(1, Math.max(0, value));
+}
+
 /**
  * Materializes entities as Three.js objects. Animation is applied to the ROOT
  * object only (position bob, yaw/roll rotation, emissive modulation), so
@@ -208,20 +226,35 @@ function distance(a: Vec3, b: Vec3): number {
  */
 export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
   context: AnimationContext = { time: 0, dt: 0, playerPosition: null };
+  /** Entity id currently boosted by the hover/focus highlight, if any. */
+  highlightId: string | null = null;
 
   constructor(private readonly target: THREE.Object3D) {}
 
   create(entity: Entity): THREE.Object3D {
-    const shape =
-      entity.kind === "prop" ? resolvePropShape(entity.props) : "box";
-    const view: THREE.Object3D =
-      shape === "box"
-        ? new THREE.Mesh(geometryForKind(entity.kind), materialForEntity(entity))
-        : createShapeObject(shape, entityColor(entity));
+    let view: THREE.Object3D;
+    if (hasParts(entity)) {
+      view = buildPartsObject(entity);
+    } else {
+      const shape =
+        entity.kind === "prop" ? resolvePropShape(entity.props) : "box";
+      view =
+        shape === "box"
+          ? new THREE.Mesh(
+              geometryForKind(entity.kind),
+              materialForEntity(entity)
+            )
+          : createShapeObject(shape, entityColor(entity));
+    }
     view.name = entity.id;
     view.userData.entityId = entity.id;
     view.userData.kind = entity.kind;
     if (entity.kind === "interactable") this.attachHighlightRing(view);
+    if (entity.label) {
+      const sprite = buildLabelSprite(entity.label);
+      sprite.userData.entityId = entity.id;
+      view.add(sprite);
+    }
     return view;
   }
 
@@ -300,15 +333,23 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
       transform.position[2]
     );
     view.rotation.set(transform.rotation[0], yaw, roll);
-    view.scale.set(
+    view.userData.baseScale = [
       transform.scale[0],
       transform.scale[1],
-      transform.scale[2]
-    );
+      transform.scale[2],
+    ] as Vec3;
+    view.userData.pulseScale =
+      1 + PULSE_SCALE_AMPLITUDE * clampPulse(transform.pulse);
+    this.applyViewScale(view);
     view.visible = transform.visible;
     view.userData.kind = entity.kind;
 
-    const color = new THREE.Color(entityColor(entity));
+    if (view.userData.partsObject === true) {
+      applyPartsColor(view, transform.color ?? null);
+      return;
+    }
+
+    const color = new THREE.Color(entityColor(entity, transform.color));
     if (view.userData.propShape !== undefined) {
       applyShapeColor(view, color);
     } else {
@@ -331,6 +372,12 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
 
   dispose(view: THREE.Object3D): void {
     view.traverse((object) => {
+      if ((object as THREE.Sprite).isSprite) {
+        const sprite = object as THREE.Sprite;
+        sprite.material.map?.dispose();
+        sprite.material.dispose();
+        return;
+      }
       const mesh = object as THREE.Mesh;
       mesh.geometry?.dispose?.();
       const material = mesh.material;
@@ -340,6 +387,26 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
         material?.dispose?.();
       }
     });
+  }
+
+  /**
+   * Re-apply the stored base scale with the current pulse and highlight
+   * factors. Called by `Renderer.setHighlight` for an immediate visual flip
+   * without waiting for the next reconcile.
+   */
+  refreshHighlight(view: THREE.Object3D): void {
+    this.applyViewScale(view);
+  }
+
+  /** Root scale = base extents x pulse factor x highlight factor. */
+  private applyViewScale(view: THREE.Object3D): void {
+    const base = view.userData.baseScale as Vec3 | undefined;
+    if (!base) return;
+    const pulseScale = (view.userData.pulseScale as number | undefined) ?? 1;
+    const highlightScale =
+      view.userData.entityId === this.highlightId ? HIGHLIGHT_SCALE : 1;
+    const factor = pulseScale * highlightScale;
+    view.scale.set(base[0] * factor, base[1] * factor, base[2] * factor);
   }
 
   /** Frame-rate independent yaw easing factor from the current delta. */
@@ -437,6 +504,7 @@ export class Renderer {
   private lastTime: number | null = null;
   private loseShakeAge: number | null = null;
   private appliedShake: Vec3 | null = null;
+  private highlightId: string | null = null;
 
   constructor(scene: THREE.Scene, camera: THREE.Camera) {
     this.camera = camera;
@@ -453,6 +521,34 @@ export class Renderer {
     return this.particles?.activeCount ?? 0;
   }
 
+  /** Entity id currently highlighted, if any. */
+  get highlightedId(): string | null {
+    return this.highlightId;
+  }
+
+  /**
+   * Highlight an entity by id (hover / focus) or clear with `null`. The
+   * highlighted view is boosted to `HIGHLIGHT_SCALE` on its root; the effect
+   * is derived from the stored base scale, so repeated calls with the same id
+   * are idempotent and never accumulate. Unknown ids are remembered and apply
+   * when the entity appears.
+   */
+  setHighlight(id: string | null): void {
+    const next = id ?? null;
+    if (next === this.highlightId) return;
+    const previous = this.highlightId;
+    this.highlightId = next;
+    this.adapter.highlightId = next;
+    if (previous !== null) {
+      const view = this.reconciler.get(previous);
+      if (view) this.adapter.refreshHighlight(view);
+    }
+    if (next !== null) {
+      const view = this.reconciler.get(next);
+      if (view) this.adapter.refreshHighlight(view);
+    }
+  }
+
   reconcile(state: GameState): void {
     const sameDoc = this.trackedDoc === state.doc;
     const dt = this.frameDelta(state, sameDoc);
@@ -464,6 +560,8 @@ export class Renderer {
       this.loseShakeAge = null;
       this.undoCameraShake();
       this.reconciler.clear();
+      this.highlightId = null;
+      this.adapter.highlightId = null;
       this.trackedDoc = state.doc;
     }
 
