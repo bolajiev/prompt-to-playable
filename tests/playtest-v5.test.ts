@@ -8,7 +8,7 @@ import type { Action, Entity, GameDoc, Vec3 } from "@prompt-to-playable/schema";
 
 const FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 
-export const TICK_BUDGET = 8000;
+export const TICK_BUDGET = 6000;
 export const DOOR_STOP_DISTANCE = 0.4;
 export const STUCK_TICKS = 30;
 export const REVERSE_TICKS = 60;
@@ -116,6 +116,10 @@ describe("live kit fixtures are playable offline", () => {
       const colorAction = actionsOf(doc, "click", clicked.id).find(
         (action) => action.type === "setColor"
       );
+      expect(
+        colorAction?.type,
+        `click rule for ${clicked.id} should include a setColor action`
+      ).toBe("setColor");
       if (colorAction?.type === "setColor") {
         expect(panelState.entityRuntime[clicked.id]?.color).toBe(colorAction.color);
       }
@@ -135,9 +139,37 @@ describe("live kit fixtures are playable offline", () => {
     expect(door).toBeDefined();
     if (!player || !door) return;
 
+    const playerStart: Vec3 = [
+      ...engine.getState().entityRuntime[player.id].position,
+    ] as Vec3;
     const before = [...engine.getState().entityRuntime[door.id].position] as Vec3;
-    const reached = approach(engine, player.id, door.position, TICK_BUDGET);
-    expect(reached).toBe(true);
+
+    const moveBudget = Math.floor(TICK_BUDGET / 2);
+    const awayTarget: Vec3 = [
+      playerStart[0],
+      playerStart[1],
+      playerStart[2] + 3.2,
+    ];
+    const walkedAway = approach(engine, player.id, awayTarget, moveBudget);
+    expect(walkedAway).toBe(true);
+    const awayPosition: Vec3 = [
+      ...engine.getState().entityRuntime[player.id].position,
+    ] as Vec3;
+    expect(xzDistance(awayPosition, playerStart)).toBeGreaterThan(1.0);
+    expect(xzDistance(awayPosition, door.position)).toBeGreaterThanOrEqual(2.5);
+
+    const returned = approach(engine, player.id, door.position, moveBudget);
+    expect(returned).toBe(true);
+    const backPosition: Vec3 = [
+      ...engine.getState().entityRuntime[player.id].position,
+    ] as Vec3;
+    const doorRange =
+      typeof door.props?.interactRange === "number"
+        ? door.props.interactRange
+        : 2.5;
+    expect(xzDistance(backPosition, door.position)).toBeLessThanOrEqual(
+      doorRange
+    );
 
     const pressInteract = (): void => {
       engine.step(FIXED_DT_MS, { interact: false });
@@ -178,6 +210,7 @@ describe("live kit fixtures are playable offline", () => {
       "second interact should slide the door back toward closed"
     ).toBeLessThan(openTravel / 2);
     expect(state.scratch.doorOpen).toBe(0);
+    expect(state.ticks).toBeLessThanOrEqual(TICK_BUDGET);
   });
 
   test(`drive: throttle and checkpoint pursuit wins within ${TICK_BUDGET} ticks`, () => {
