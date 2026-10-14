@@ -234,3 +234,335 @@ describe("sanityCheck — explore scenes", () => {
     expect(hasWinPath(winnable)).toBe(true);
   });
 });
+
+function kitFixture(raw: Record<string, unknown>): GameDoc {
+  const res = validateGame(raw);
+  if (!res.ok || !res.data) throw new Error("kit fixture fails schema validation");
+  return res.data;
+}
+
+function inspectFixture(): GameDoc {
+  return kitFixture({
+    version: "1.0.0",
+    meta: { title: "Inspect Board", archetype: "explore", mode: "inspect" },
+    world: { bounds: [16, 10, 16], lighting: "indoor" },
+    entities: [
+      { id: "player", kind: "player", position: [0, 3, 8] },
+      {
+        id: "board",
+        kind: "prop",
+        position: [0, 1.6, 0],
+        parts: [{ shape: "box", size: [6, 0.3, 4] }],
+        label: { text: "Main board" },
+      },
+      {
+        id: "chip",
+        kind: "prop",
+        position: [1, 2, 0],
+        parts: [{ shape: "box", size: [1, 0.4, 1] }],
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "inspect-board",
+        on: { event: "click", entity: "board" },
+        then: [
+          { type: "showPanel", title: "Board", body: "The main board." },
+          { type: "setColor", entity: "board", color: "cyan" },
+        ],
+      },
+    ],
+    scratch: {},
+  });
+}
+
+function walkthroughFixture(): GameDoc {
+  return kitFixture({
+    version: "1.0.0",
+    meta: { title: "Walk House", archetype: "explore", mode: "walkthrough" },
+    world: { bounds: [18, 8, 18], lighting: "indoor" },
+    entities: [
+      { id: "player", kind: "player", position: [0, 1, 3] },
+      { id: "door", kind: "interactable", position: [0, 1.5, 5], props: { door: true } },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "open-door",
+        on: { event: "interact", entity: "door" },
+        then: [
+          { type: "animate", entity: "door", kind: "slide", to: [2, 1.5, 5] },
+          { type: "openDoor", entity: "door" },
+        ],
+      },
+    ],
+    scratch: {},
+  });
+}
+
+function driveFixture(): GameDoc {
+  return kitFixture({
+    version: "1.0.0",
+    meta: { title: "Kit Race", archetype: "collect-a-thon", mode: "drive" },
+    world: { bounds: [40, 10, 40] },
+    entities: [
+      {
+        id: "player",
+        kind: "player",
+        position: [0, 1, -18],
+        props: { vehicle: true, maxSpeed: 16 },
+      },
+      {
+        id: "cp-1",
+        kind: "zone",
+        position: [0, 1, -8],
+        size: [7, 3, 7],
+        props: { checkpointIndex: 0 },
+      },
+      {
+        id: "cp-2",
+        kind: "zone",
+        position: [0, 1, 0],
+        size: [7, 3, 7],
+        props: { checkpointIndex: 1 },
+      },
+      {
+        id: "cp-3",
+        kind: "zone",
+        position: [0, 1, 8],
+        size: [7, 3, 7],
+        props: { checkpointIndex: 2 },
+      },
+    ],
+    objectives: [
+      {
+        id: "pass-checkpoints",
+        type: "collect",
+        targets: ["cp-1", "cp-2", "cp-3"],
+        count: 3,
+      },
+    ],
+    rules: [
+      {
+        id: "gate-1",
+        on: { event: "playerEnter", zone: "cp-1" },
+        then: [
+          { type: "incVar", key: "cp" },
+          { type: "objectiveProgress", objective: "pass-checkpoints", by: 1 },
+        ],
+      },
+      {
+        id: "gate-2",
+        on: { event: "playerEnter", zone: "cp-2" },
+        if: { op: "==", left: { var: "cp" }, right: 1 },
+        then: [
+          { type: "incVar", key: "cp" },
+          { type: "objectiveProgress", objective: "pass-checkpoints", by: 1 },
+        ],
+      },
+      {
+        id: "gate-3",
+        on: { event: "playerEnter", zone: "cp-3" },
+        if: { op: "==", left: { var: "cp" }, right: 2 },
+        then: [
+          { type: "incVar", key: "cp" },
+          { type: "objectiveProgress", objective: "pass-checkpoints", by: 1 },
+        ],
+      },
+      {
+        id: "race-won",
+        on: { event: "objectiveComplete", objective: "pass-checkpoints" },
+        then: [{ type: "win", message: "Checkered flag!" }],
+      },
+    ],
+    scratch: { cp: 0 },
+  });
+}
+
+describe("sanityCheck — inspect kit", () => {
+  test("accepts a labeled assembly with a click rule and needs no win path", () => {
+    const doc = inspectFixture();
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(requiresWinPath(doc)).toBe(false);
+  });
+
+  test("rejects an inspect scene without parts or labels", () => {
+    const doc = inspectFixture();
+    for (const entity of doc.entities) {
+      entity.parts = undefined;
+      entity.label = undefined;
+    }
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-inspect-content");
+  });
+
+  test("rejects an inspect scene without a click rule", () => {
+    const doc = inspectFixture();
+    doc.rules = [];
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-click-rule");
+  });
+
+  test("still reports out-of-bounds and orphan refs for inspect scenes", () => {
+    const doc = inspectFixture();
+    (doc.entities.find((e) => e.id === "board") as NonNullable<GameDoc["entities"][number]>).position = [
+      99, 1.6, 0,
+    ];
+    doc.rules = [
+      {
+        id: "ghost-click",
+        on: { event: "click", entity: "ghost" },
+        then: [{ type: "hidePanel" }],
+      },
+    ];
+    const result = sanityCheck(doc);
+    expect(codes(result)).toContain("out-of-bounds");
+    expect(codes(result)).toContain("missing-rule-reference");
+  });
+});
+
+describe("sanityCheck — walkthrough kit", () => {
+  test("accepts a player plus an interactable and needs no win path", () => {
+    const doc = walkthroughFixture();
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(requiresWinPath(doc)).toBe(false);
+  });
+
+  test("rejects a walkthrough without any interactable", () => {
+    const doc = walkthroughFixture();
+    doc.entities = doc.entities.filter((entity) => entity.id !== "door");
+    doc.rules = [];
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-interactable");
+  });
+
+  test("rejects a walkthrough without a player", () => {
+    const doc = walkthroughFixture();
+    doc.entities = doc.entities.filter((entity) => entity.kind !== "player");
+    expect(codes(sanityCheck(doc))).toContain("no-player");
+  });
+});
+
+describe("sanityCheck — drive kit", () => {
+  test("accepts an ordered checkpoint race with a vehicle and a win path", () => {
+    const doc = driveFixture();
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(requiresWinPath(doc)).toBe(true);
+    expect(hasWinPath(doc)).toBe(true);
+  });
+
+  test("rejects a drive scene whose player is not a vehicle", () => {
+    const doc = driveFixture();
+    const player = doc.entities.find((entity) => entity.kind === "player");
+    if (player) player.props = { maxSpeed: 16 };
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("not-a-vehicle");
+  });
+
+  test("rejects a drive scene with fewer than three checkpoints", () => {
+    const doc = driveFixture();
+    doc.entities = doc.entities.filter((entity) => entity.id !== "cp-3");
+    doc.objectives = [
+      {
+        id: "pass-checkpoints",
+        type: "collect",
+        targets: ["cp-1", "cp-2"],
+        count: 2,
+      },
+    ];
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-checkpoints");
+  });
+
+  test("rejects non-contiguous checkpoint indexes", () => {
+    const doc = driveFixture();
+    const last = doc.entities.find((entity) => entity.id === "cp-3");
+    if (last) last.props = { checkpointIndex: 3 };
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("invalid-checkpoint-index");
+  });
+
+  test("rejects a drive scene without a win path", () => {
+    const doc = driveFixture();
+    doc.rules = doc.rules.filter(
+      (rule) => !rule.then.some((action) => action.type === "win")
+    );
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-win-path");
+    expect(requiresWinPath(doc)).toBe(true);
+  });
+
+  test("explicit drive mode beats the free-roam explore archetype", () => {
+    const doc = driveFixture();
+    doc.meta.archetype = "explore";
+    const result = sanityCheck(doc);
+    expect(codes(result)).not.toContain("missing-checkpoints");
+    expect(requiresWinPath(doc)).toBe(true);
+  });
+});
+
+describe("sanityCheck — new interaction action refs", () => {
+  test("reports unknown entities for setVisible, setColor, animate and panels", () => {
+    const doc = docWith({});
+    doc.rules = [
+      {
+        id: "r1",
+        on: { event: "tick" },
+        then: [{ type: "animate", entity: "ghost-a", kind: "spin" }],
+      },
+      {
+        id: "r2",
+        on: { event: "tick" },
+        then: [{ type: "setVisible", entity: "ghost-b", visible: false }],
+      },
+      {
+        id: "r3",
+        on: { event: "tick" },
+        then: [{ type: "setColor", entity: "ghost-c", color: "cyan" }],
+      },
+      {
+        id: "r4",
+        on: { event: "tick" },
+        then: [{ type: "showPanel", title: "T", body: "B", entity: "ghost-d" }],
+      },
+      {
+        id: "r5",
+        on: { event: "tick" },
+        then: [{ type: "cameraFocus", entity: "ghost-e" }],
+      },
+    ];
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    const missing = result.errors.filter(
+      (issue) => issue.code === "missing-rule-reference"
+    );
+    expect(missing).toHaveLength(5);
+    for (const ghost of ["ghost-a", "ghost-b", "ghost-c", "ghost-d", "ghost-e"]) {
+      expect(result.errors.some((issue) => issue.message.includes(ghost))).toBe(true);
+    }
+  });
+
+  test("accepts entity-less panel and focus actions", () => {
+    const doc = docWith({});
+    doc.rules = [
+      {
+        id: "r1",
+        on: { event: "tick" },
+        then: [
+          { type: "showPanel", title: "Info", body: "No entity." },
+          { type: "hidePanel" },
+          { type: "cameraFocus" },
+        ],
+      },
+    ];
+    expect(sanityCheck(doc).ok).toBe(true);
+  });
+});

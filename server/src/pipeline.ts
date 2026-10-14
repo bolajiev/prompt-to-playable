@@ -1,5 +1,6 @@
-import type { Archetype, GameDoc } from "@prompt-to-playable/schema";
+import type { GameDoc } from "@prompt-to-playable/schema";
 import { classify } from "./classifier.js";
+import type { KitArchetype } from "./classifier.js";
 import { generate, parseGameDoc } from "./generator.js";
 import type { LlmCall } from "./llm.js";
 import { MAX_REPAIR_RETRIES, buildRepairPrompt } from "./repair.js";
@@ -8,8 +9,11 @@ import { RouteError } from "./routes.js";
 import { sanityCheck } from "./sanity.js";
 import { validateDoc } from "./validate.js";
 
-export type ClassifierFn = (prompt: string) => Promise<Archetype>;
-export type GeneratorFn = (prompt: string, archetype: Archetype) => Promise<unknown>;
+export type ClassifierFn = (prompt: string) => Promise<KitArchetype>;
+export type GeneratorFn = (
+  prompt: string,
+  archetype: KitArchetype
+) => Promise<unknown>;
 export type RepairerFn = (
   doc: unknown,
   errors: readonly RepairError[],

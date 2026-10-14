@@ -4,7 +4,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { validateGame } from "@prompt-to-playable/schema";
 import type { Archetype, Vec3 } from "@prompt-to-playable/schema";
 import type { LlmCall } from "../server/src/llm.js";
-import { isExplorePrompt } from "../server/src/classifier.js";
+import {
+  isDrivePrompt,
+  isExplorePrompt,
+  isInspectPrompt,
+  isWalkthroughPrompt,
+} from "../server/src/classifier.js";
+import type { KitArchetype } from "../server/src/classifier.js";
 import {
   createDefaultPipelineDeps,
   generateGame,
@@ -21,7 +27,7 @@ export const MIN_CORPUS_SIZE = 20;
 export interface CorpusEntry {
   id: string;
   prompt: string;
-  archetype: Archetype;
+  archetype: KitArchetype;
   title: string;
 }
 
@@ -33,7 +39,7 @@ export interface Corpus {
 export interface PromptOutcome {
   id: string;
   prompt: string;
-  archetype: Archetype;
+  archetype: KitArchetype;
   valid: boolean;
   solvable: boolean;
   repairs: number;
@@ -70,17 +76,20 @@ const DEFAULT_CORPUS_PATH = resolve(
   "corpus.json"
 );
 
-const ARCHETYPE_SET = new Set<Archetype>([
+const ARCHETYPE_SET = new Set<KitArchetype>([
   "collect-a-thon",
   "puzzle-switch",
   "platformer-lite",
   "stealth-chase",
   "explore",
+  "inspect",
+  "walkthrough",
+  "drive",
 ]);
 
-function asArchetype(value: unknown, context: string): Archetype {
-  if (typeof value === "string" && ARCHETYPE_SET.has(value as Archetype)) {
-    return value as Archetype;
+function asArchetype(value: unknown, context: string): KitArchetype {
+  if (typeof value === "string" && ARCHETYPE_SET.has(value as KitArchetype)) {
+    return value as KitArchetype;
   }
   throw new Error(`corpus entry ${context} has invalid archetype: ${String(value)}`);
 }
@@ -165,21 +174,45 @@ function hashSeed(value: string): number {
   return hash >>> 0;
 }
 
-const DIFFICULTY: Record<Archetype, number> = {
+const DIFFICULTY: Record<KitArchetype, number> = {
   "collect-a-thon": 0.4,
   "puzzle-switch": 0.5,
   "platformer-lite": 0.5,
   "stealth-chase": 0.6,
   explore: 0,
+  inspect: 0,
+  walkthrough: 0,
+  drive: 0.6,
+};
+
+/** Schema archetype stored in meta.archetype for every classification label. */
+const SCHEMA_ARCHETYPE: Record<KitArchetype, Archetype> = {
+  "collect-a-thon": "collect-a-thon",
+  "puzzle-switch": "puzzle-switch",
+  "platformer-lite": "platformer-lite",
+  "stealth-chase": "stealth-chase",
+  explore: "explore",
+  inspect: "explore",
+  walkthrough: "explore",
+  drive: "collect-a-thon",
+};
+
+const KIT_MODE: Partial<Record<KitArchetype, "inspect" | "walkthrough" | "drive">> = {
+  inspect: "inspect",
+  walkthrough: "walkthrough",
+  drive: "drive",
 };
 
 function metaOf(entry: CorpusEntry): Record<string, unknown> {
-  return {
+  const meta: Record<string, unknown> = {
     title: entry.title,
-    archetype: entry.archetype,
+    archetype: SCHEMA_ARCHETYPE[entry.archetype],
     difficulty: DIFFICULTY[entry.archetype],
     seed: hashSeed(entry.id),
   };
+  const mode = KIT_MODE[entry.archetype];
+  if (mode !== undefined) meta.mode = mode;
+  return meta;
 }
 
 const COLLECT_POSITIONS: readonly Vec3[] = [
@@ -557,6 +590,430 @@ function exploreDoc(entry: CorpusEntry): Record<string, unknown> {
   };
 }
 
+function inspectDoc(entry: CorpusEntry): Record<string, unknown> {
+  return {
+    version: "1.0.0",
+    meta: metaOf(entry),
+    world: { bounds: [16, 10, 16], lighting: "indoor", skybox: "lab" },
+    entities: [
+      { id: "player", kind: "player", name: "Observer", position: [0, 4, 11] },
+      {
+        id: "mainboard",
+        kind: "prop",
+        name: "PCB mainboard",
+        position: [0, 1.6, 0],
+        size: [7, 0.4, 5],
+        color: "#1b7a4f",
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [7, 0.35, 5],
+            color: "#1b7a4f",
+            material: { roughness: 0.75, texture: "circuit" },
+          },
+        ],
+        label: { text: "PCB-01 mainboard", offset: [0, 1.1, 0], size: 0.55 },
+      },
+      {
+        id: "cpu-chip",
+        kind: "prop",
+        name: "CPU chip",
+        position: [-1.8, 1.8, 0.4],
+        size: [1.5, 0.6, 1.5],
+        color: "#2f3640",
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0.2, 0],
+            size: [1.5, 0.4, 1.5],
+            color: "#2f3640",
+            material: { metalness: 0.7, roughness: 0.35 },
+          },
+          {
+            shape: "cylinder",
+            offset: [0, 0.5, 0],
+            size: [0.5, 0.08, 0.5],
+            color: "#d4af37",
+            material: { metalness: 0.9, roughness: 0.3 },
+          },
+        ],
+        label: { text: "CPU-8 core", offset: [0, 1.1, 0], size: 0.5 },
+      },
+      {
+        id: "power-connector",
+        kind: "prop",
+        name: "Power connector",
+        position: [2.4, 2, -1.4],
+        size: [1.6, 1, 1],
+        color: "#e9c46a",
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [1.6, 0.9, 1],
+            color: "#e9c46a",
+            material: { roughness: 0.6 },
+          },
+          {
+            shape: "cylinder",
+            offset: [0, 0.7, 0],
+            size: [0.14, 0.9, 0.14],
+            color: "#d4af37",
+            material: { metalness: 0.95, roughness: 0.2 },
+          },
+        ],
+        label: { text: "J1 power", offset: [0, 1.3, 0], size: 0.45 },
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "inspect-mainboard",
+        on: { event: "click", entity: "mainboard" },
+        then: [
+          { type: "setColor", entity: "mainboard", color: "#35c98f" },
+          {
+            type: "showPanel",
+            title: "PCB-01 mainboard",
+            body: "The main circuit board. Click the CPU or the power connector too.",
+            entity: "mainboard",
+          },
+        ],
+      },
+      {
+        id: "inspect-cpu",
+        on: { event: "click", entity: "cpu-chip" },
+        then: [
+          { type: "setColor", entity: "cpu-chip", color: "#4cc9f0" },
+          {
+            type: "showPanel",
+            title: "CPU-8 core",
+            body: "Eight cores under a gold lid.",
+            entity: "cpu-chip",
+          },
+        ],
+      },
+    ],
+    scratch: { promptId: entry.id },
+  };
+}
+
+function walkthroughDoc(entry: CorpusEntry): Record<string, unknown> {
+  return {
+    version: "1.0.0",
+    meta: metaOf(entry),
+    world: { bounds: [18, 8, 18], lighting: "indoor", skybox: "outdoor" },
+    entities: [
+      { id: "player", kind: "player", name: "Visitor", position: [0, 1, 3] },
+      {
+        id: "cottage",
+        kind: "prop",
+        name: "Cottage shell",
+        position: [0, 0, 0],
+        size: [12, 5, 10],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, -0.1, 0],
+            size: [12, 0.2, 10],
+            color: "#b08a5a",
+            material: { roughness: 0.9, texture: "wood" },
+          },
+          {
+            shape: "box",
+            offset: [0, 2, -5],
+            size: [12, 4, 0.2],
+            color: "#f2e3c6",
+            material: { roughness: 0.9, texture: "brick" },
+          },
+          {
+            shape: "box",
+            offset: [-6, 2, 0],
+            size: [0.2, 4, 10],
+            color: "#f2e3c6",
+            material: { roughness: 0.9, texture: "brick" },
+          },
+          {
+            shape: "box",
+            offset: [6, 2, 0],
+            size: [0.2, 4, 10],
+            color: "#f2e3c6",
+            material: { roughness: 0.9, texture: "brick" },
+          },
+          {
+            shape: "box",
+            offset: [-4, 2, 5],
+            size: [4, 4, 0.2],
+            color: "#f2e3c6",
+            material: { roughness: 0.9, texture: "brick" },
+          },
+          {
+            shape: "box",
+            offset: [4, 2, 5],
+            size: [4, 4, 0.2],
+            color: "#f2e3c6",
+            material: { roughness: 0.9, texture: "brick" },
+          },
+          {
+            shape: "box",
+            offset: [0, 4.2, 0],
+            size: [12.6, 0.3, 10.6],
+            color: "#8a5a44",
+            material: { roughness: 0.85, texture: "wood" },
+          },
+        ],
+      },
+      {
+        id: "front-door",
+        kind: "interactable",
+        name: "Front door",
+        position: [0, 1.5, 5],
+        size: [2, 3, 0.25],
+        color: "#7b4b2a",
+        props: { door: true, interactRange: 3.5 },
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [2, 3, 0.2],
+            color: "#7b4b2a",
+            material: { roughness: 0.8, texture: "wood" },
+          },
+        ],
+        label: { text: "Front door", offset: [0, 2, 0], size: 0.45 },
+      },
+      {
+        id: "floor-lamp",
+        kind: "interactable",
+        name: "Floor lamp",
+        position: [-3, 1.5, 3.5],
+        size: [1, 3, 1],
+        props: { interactRange: 3.5 },
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [0.18, 3, 0.18],
+            color: "#4a4a4a",
+            material: { metalness: 0.6, roughness: 0.5 },
+          },
+          {
+            shape: "cone",
+            offset: [0, 1.7, 0],
+            size: [1.2, 0.9, 1.2],
+            color: "#f4d58d",
+            material: { emissive: "#f4d58d" },
+          },
+        ],
+        label: { text: "Floor lamp", offset: [0, 2.6, 0], size: 0.4 },
+      },
+      {
+        id: "lamp-glow",
+        kind: "prop",
+        name: "Lamp glow",
+        position: [-3, 3.4, 3.5],
+        size: [0.7, 0.7, 0.7],
+        color: "#ffe9a8",
+        parts: [
+          {
+            shape: "sphere",
+            offset: [0, 0, 0],
+            size: [0.7, 0.7, 0.7],
+            color: "#ffe9a8",
+            material: { emissive: "#ffdf7e" },
+          },
+        ],
+      },
+      {
+        id: "dining-table",
+        kind: "prop",
+        name: "Dining table",
+        position: [2.5, 0.8, 0],
+        size: [3, 1.6, 1.6],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0.7, 0],
+            size: [3, 0.15, 1.6],
+            color: "#9c6b45",
+            material: { roughness: 0.8, texture: "wood" },
+          },
+          {
+            shape: "cylinder",
+            offset: [-1.2, -0.1, -0.5],
+            size: [0.15, 1.4, 0.15],
+            color: "#7b4b2a",
+          },
+          {
+            shape: "cylinder",
+            offset: [1.2, -0.1, 0.5],
+            size: [0.15, 1.4, 0.15],
+            color: "#7b4b2a",
+          },
+        ],
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "open-front-door",
+        on: { event: "interact", entity: "front-door" },
+        then: [
+          {
+            type: "animate",
+            entity: "front-door",
+            kind: "slide",
+            to: [2.1, 1.5, 5],
+            duration: 900,
+          },
+          { type: "openDoor", entity: "front-door" },
+        ],
+      },
+      {
+        id: "lamp-off",
+        on: { event: "interact", entity: "floor-lamp" },
+        if: { op: "==", left: { var: "lampOn" }, right: 1 },
+        then: [
+          { type: "setVisible", entity: "lamp-glow", visible: false },
+          { type: "setColor", entity: "floor-lamp", color: "#8d8d8d" },
+          { type: "setVar", key: "lampOn", value: 0 },
+        ],
+      },
+      {
+        id: "lamp-on",
+        on: { event: "interact", entity: "floor-lamp" },
+        if: { op: "==", left: { var: "lampOn" }, right: 0 },
+        then: [
+          { type: "setVisible", entity: "lamp-glow", visible: true },
+          { type: "setColor", entity: "floor-lamp", color: "#ffd166" },
+          { type: "setVar", key: "lampOn", value: 1 },
+        ],
+      },
+    ],
+    scratch: { promptId: entry.id, lampOn: 1 },
+  };
+}
+
+function driveDoc(entry: CorpusEntry): Record<string, unknown> {
+  const checkpoints = [0, 1, 2, 3].map((index) => ({
+    id: `checkpoint-${index + 1}`,
+    kind: "zone",
+    name: `Checkpoint ${index + 1}`,
+    position: [0, 1, -12 + index * 8],
+    size: [7, 3, 7],
+    props: { checkpointIndex: index },
+  }));
+  return {
+    version: "1.0.0",
+    meta: metaOf(entry),
+    world: { bounds: [40, 10, 40] },
+    entities: [
+      {
+        id: "player",
+        kind: "player",
+        name: "Racer",
+        position: [0, 1, -18],
+        props: { vehicle: true, maxSpeed: 16, accel: 9 },
+      },
+      {
+        id: "road",
+        kind: "prop",
+        name: "Asphalt road",
+        position: [0, 0, 0],
+        size: [11, 0.3, 40],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [10, 0.2, 40],
+            color: "#3c3f45",
+            material: { roughness: 0.95, texture: "grid" },
+          },
+          {
+            shape: "box",
+            offset: [-5.3, 0.15, 0],
+            size: [0.6, 0.3, 40],
+            color: "#e8e2d0",
+            material: { roughness: 0.8 },
+          },
+          {
+            shape: "box",
+            offset: [5.3, 0.15, 0],
+            size: [0.6, 0.3, 40],
+            color: "#e8e2d0",
+            material: { roughness: 0.8 },
+          },
+        ],
+      },
+      ...checkpoints,
+    ],
+    objectives: [
+      {
+        id: "pass-checkpoints",
+        type: "collect",
+        description: "Pass all four checkpoints in order",
+        targets: checkpoints.map((checkpoint) => checkpoint.id),
+        count: 4,
+      },
+      {
+        id: "beat-the-clock",
+        type: "timeLimit",
+        description: "Finish the race before the clock runs out",
+        time: 90,
+      },
+    ],
+    rules: [
+      {
+        id: "checkpoint-1",
+        on: { event: "playerEnter", zone: "checkpoint-1" },
+        then: [
+          { type: "incVar", key: "cp" },
+          { type: "objectiveProgress", objective: "pass-checkpoints", by: 1 },
+          { type: "showMessage", text: "Checkpoint 1/4" },
+        ],
+      },
+      {
+        id: "checkpoint-2",
+        on: { event: "playerEnter", zone: "checkpoint-2" },
+        if: { op: "==", left: { var: "cp" }, right: 1 },
+        then: [
+          { type: "incVar", key: "cp" },
+          { type: "objectiveProgress", objective: "pass-checkpoints", by: 1 },
+          { type: "showMessage", text: "Checkpoint 2/4" },
+        ],
+      },
+      {
+        id: "checkpoint-3",
+        on: { event: "playerEnter", zone: "checkpoint-3" },
+        if: { op: "==", left: { var: "cp" }, right: 2 },
+        then: [
+          { type: "incVar", key: "cp" },
+          { type: "objectiveProgress", objective: "pass-checkpoints", by: 1 },
+          { type: "showMessage", text: "Checkpoint 3/4" },
+        ],
+      },
+      {
+        id: "checkpoint-4",
+        on: { event: "playerEnter", zone: "checkpoint-4" },
+        if: { op: "==", left: { var: "cp" }, right: 3 },
+        then: [
+          { type: "incVar", key: "cp" },
+          { type: "setVar", key: "lap", value: 1 },
+          { type: "objectiveProgress", objective: "pass-checkpoints", by: 1 },
+          { type: "showMessage", text: "Lap complete!" },
+        ],
+      },
+      {
+        id: "race-won",
+        on: { event: "objectiveComplete", objective: "pass-checkpoints" },
+        then: [{ type: "win", message: "Checkered flag!" }],
+      },
+    ],
+    scratch: { promptId: entry.id, cp: 0, lap: 0 },
+  };
+}
+
 export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
   switch (entry.archetype) {
     case "collect-a-thon":
@@ -569,6 +1026,12 @@ export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
       return stealthDoc(entry);
     case "explore":
       return exploreDoc(entry);
+    case "inspect":
+      return inspectDoc(entry);
+    case "walkthrough":
+      return walkthroughDoc(entry);
+    case "drive":
+      return driveDoc(entry);
   }
 }
 
@@ -578,7 +1041,16 @@ const REPAIR_DOC_START = "Failed document (for reference):";
 const GENERATE_PROMPT_START = "Player prompt:";
 const GENERATE_PROMPT_END = "\n\nReturn JSON:";
 
-export function classifyByKeywords(prompt: string): Archetype {
+export function classifyByKeywords(prompt: string): KitArchetype {
+  if (isInspectPrompt(prompt)) {
+    return "inspect";
+  }
+  if (isDrivePrompt(prompt)) {
+    return "drive";
+  }
+  if (isWalkthroughPrompt(prompt)) {
+    return "walkthrough";
+  }
   if (/stealth|sneak|guard|patrol|searchlight|escape|evade|hide|sentry/i.test(prompt)) {
     return "stealth-chase";
   }

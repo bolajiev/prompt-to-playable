@@ -54,17 +54,66 @@ export interface EditPromptInput {
 
 const SUPPORTED_OPS = "add, remove, replace";
 
-function isExploreDoc(doc: unknown): boolean {
-  if (typeof doc !== "object" || doc === null) return false;
+interface EditDocProfile {
+  archetype: string | undefined;
+  mode: string | undefined;
+}
+
+function profileOf(doc: unknown): EditDocProfile {
+  if (typeof doc !== "object" || doc === null) {
+    return { archetype: undefined, mode: undefined };
+  }
   const meta = (doc as { meta?: unknown }).meta;
-  if (typeof meta !== "object" || meta === null) return false;
-  return (meta as { archetype?: unknown }).archetype === "explore";
+  if (typeof meta !== "object" || meta === null) {
+    return { archetype: undefined, mode: undefined };
+  }
+  const archetype = (meta as { archetype?: unknown }).archetype;
+  const mode = (meta as { mode?: unknown }).mode;
+  return {
+    archetype: typeof archetype === "string" ? archetype : undefined,
+    mode: typeof mode === "string" ? mode : undefined,
+  };
+}
+
+/**
+ * Kit-specific edit constraints. `mode` wins when present; otherwise explore
+ * scenes are detected by archetype (matching the engine's resolveMode).
+ */
+function kitConstraints(profile: EditDocProfile): string[] {
+  if (profile.mode === "inspect") {
+    return [
+      "- This is an inspect showcase: keep objectives empty, never add zones or",
+      "  win/lose actions, keep at least one entity with parts or a label, and keep",
+      "  the click rules that open panels, highlight parts or focus the camera.",
+    ];
+  }
+  if (profile.mode === "walkthrough") {
+    return [
+      "- This is a walkthrough interior: keep objectives empty, never add zones or",
+      "  win/lose actions, keep the player and at least one interactable (door or",
+      "  lamp) with its interact rules intact.",
+    ];
+  }
+  if (profile.mode === "drive") {
+    return [
+      "- This is a drive race: keep player props.vehicle true, keep at least three",
+      "  checkpoint zone entities with distinct integer props.checkpointIndex",
+      "  values covering 0..n-1 in order, and keep a rule that can win the race.",
+    ];
+  }
+  if (profile.archetype === "explore") {
+    return [
+      "- This is an explore scene: keep objectives empty and never add win/lose",
+      "  actions or zone entities; new decorative entities are welcome.",
+    ];
+  }
+  return ["- Keep the game winnable."];
 }
 
 export function buildEditPrompt(input: EditPromptInput): string {
   const history = input.history ?? [];
   const errors = input.errors ?? [];
-  const isExplore = isExploreDoc(input.doc);
+  const profile = profileOf(input.doc);
   const lines: string[] = [
     "You edit an existing game document.",
     "",
@@ -78,17 +127,21 @@ export function buildEditPrompt(input: EditPromptInput): string {
     '  { "op": "remove", "path": "/entities/2" }',
     'Use JSON Pointer paths (RFC 6901); array indexes are zero-based and "-" appends.',
     "",
+    "Document vocabulary you may use in added or replaced values:",
+    '- entities support "parts": [ { "shape", "offset", "size", optional "rotation",',
+    '  "color", "material": { "texture", "metalness", "roughness", "emissive",',
+    '  "opacity" } } ] and "label": { "text", optional "offset", optional "size" }',
+    "  for assemblies and captions.",
+    '- actions support setVisible, setColor, animate (spin|bob|pulse|slide|orbit),',
+    "  cameraFocus, showPanel and hidePanel; rules may trigger on click, hoverEnter",
+    "  and hoverLeave. Never animate the player or an enemy entity.",
+    "",
     "Constraints:",
     "- Make the smallest patch that satisfies the request.",
     "- Keep every position and patrol point inside world.bounds.",
     "- Keep every entity/objective id referenced by objectives or rules defined.",
     "- Keep exactly one player entity.",
-    ...(isExplore
-      ? [
-          "- This is an explore scene: keep objectives empty and never add win/lose",
-          "  actions; new decorative entities are welcome.",
-        ]
-      : ["- Keep the game winnable."]),
+    ...kitConstraints(profile),
     "",
     "Current document:",
     JSON.stringify(input.doc, null, 2),

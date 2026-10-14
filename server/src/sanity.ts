@@ -3,6 +3,7 @@ import type {
   Condition,
   Entity,
   GameDoc,
+  GameMode,
   Objective,
   Rule,
   Vec3,
@@ -13,7 +14,16 @@ export type SanityCode =
   | "missing-objective-target"
   | "missing-rule-reference"
   | "out-of-bounds"
-  | "unreachable-target";
+  | "unreachable-target"
+  | "missing-inspect-content"
+  | "missing-click-rule"
+  | "missing-interactable"
+  | "missing-checkpoints"
+  | "invalid-checkpoint-index"
+  | "not-a-vehicle"
+  | "missing-win-path";
+
+export type Kit = GameMode;
 
 export interface SanityIssue {
   code: SanityCode;
@@ -93,6 +103,18 @@ function actionRefs(action: Action, basePath: string): { entity: IdRef[]; object
       entity.push({ id: action.entity, path: `${basePath}.entity` });
       break;
     case "damage":
+      if (action.entity !== undefined) {
+        entity.push({ id: action.entity, path: `${basePath}.entity` });
+      }
+      break;
+    case "setVisible":
+    case "setColor":
+    case "animate":
+      entity.push({ id: action.entity, path: `${basePath}.entity` });
+      break;
+    case "cameraFocus":
+    case "showPanel":
+    case "hidePanel":
       if (action.entity !== undefined) {
         entity.push({ id: action.entity, path: `${basePath}.entity` });
       }
@@ -379,6 +401,120 @@ function reachabilityIssues(doc: GameDoc): SanityIssue[] {
   return issues;
 }
 
+/**
+ * Resolve the interactive kit a document belongs to: the explicit `meta.mode`
+ * when present, otherwise inferred the same way the engine does (archetype
+ * "explore" -> explore, every other archetype -> game). Unknown mode values
+ * cannot reach here because the schema constrains the enum.
+ */
+export function resolveKit(doc: GameDoc): Kit {
+  if (doc.meta.mode !== undefined) return doc.meta.mode;
+  return doc.meta.archetype === "explore" ? "explore" : "game";
+}
+
+/** inspect: a clickable showcase needs parts/labels and at least one click rule. */
+function inspectIssues(doc: GameDoc): SanityIssue[] {
+  const issues: SanityIssue[] = [];
+  const hasContent = doc.entities.some(
+    (entity) => (entity.parts?.length ?? 0) > 0 || entity.label !== undefined
+  );
+  if (!hasContent) {
+    issues.push({
+      code: "missing-inspect-content",
+      path: "entities",
+      message:
+        "Inspect scene needs at least one entity with 'parts' or a 'label' to look at",
+    });
+  }
+  if (!doc.rules.some((rule) => rule.on.event === "click")) {
+    issues.push({
+      code: "missing-click-rule",
+      path: "rules",
+      message: "Inspect scene needs at least one rule triggered by an on.click event",
+    });
+  }
+  return issues;
+}
+
+/** walkthrough: the player must be able to interact with something. */
+function walkthroughIssues(doc: GameDoc): SanityIssue[] {
+  const hasInteractable = doc.entities.some(
+    (entity) => entity.kind === "interactable" || entity.tags.includes("interactable")
+  );
+  if (hasInteractable) return [];
+  return [
+    {
+      code: "missing-interactable",
+      path: "entities",
+      message: "Walkthrough needs at least one interactable entity to open or toggle",
+    },
+  ];
+}
+
+function checkpointIndexes(doc: GameDoc): { zones: Entity[]; indexes: number[] } {
+  const zones = doc.entities.filter(
+    (entity) =>
+      entity.kind === "zone" &&
+      typeof entity.props?.checkpointIndex === "number" &&
+      Number.isInteger(entity.props.checkpointIndex)
+  );
+  const indexes = zones
+    .map((zone) => zone.props?.checkpointIndex as number)
+    .sort((a, b) => a - b);
+  return { zones, indexes };
+}
+
+/**
+ * drive: a vehicle player, at least three checkpoint zones with distinct
+ * integer checkpointIndex values covering 0..n-1, and a win path.
+ */
+function driveIssues(doc: GameDoc): SanityIssue[] {
+  const issues: SanityIssue[] = [];
+  const player = doc.entities.find((e) => e.kind === "player" || e.id === PLAYER_ID);
+  if (player !== undefined && player.props?.vehicle !== true) {
+    issues.push({
+      code: "not-a-vehicle",
+      path: `entities[${player.id}].props.vehicle`,
+      message: "Drive scene needs the player to have props.vehicle set to true",
+    });
+  }
+
+  const { zones, indexes } = checkpointIndexes(doc);
+  if (zones.length < 3) {
+    issues.push({
+      code: "missing-checkpoints",
+      path: "entities",
+      message: `Drive scene needs at least 3 checkpoint zones with props.checkpointIndex (found ${zones.length})`,
+    });
+  } else {
+    const ordered = indexes.every((index, position) => index === position);
+    if (!ordered) {
+      issues.push({
+        code: "invalid-checkpoint-index",
+        path: "entities",
+        message: `Checkpoint indexes must be distinct integers covering 0..${zones.length - 1} (found ${JSON.stringify(indexes)})`,
+      });
+    }
+  }
+
+  if (!hasWinPath(doc)) {
+    issues.push({
+      code: "missing-win-path",
+      path: "rules",
+      message: "Drive scene needs a rule with a win action to finish the race",
+    });
+  }
+  return issues;
+}
+
+function kitIssues(doc: GameDoc): SanityIssue[] {
+  const kit = resolveKit(doc);
+  if (kit === "inspect") return inspectIssues(doc);
+  if (kit === "walkthrough") return walkthroughIssues(doc);
+  if (kit === "drive") return driveIssues(doc);
+  return [];
+}
+
 export function sanityCheck(doc: GameDoc): SanityResult {
   const errors: SanityIssue[] = [];
 
@@ -426,6 +562,7 @@ export function sanityCheck(doc: GameDoc): SanityResult {
 
   errors.push(...boundsIssues(doc));
   errors.push(...reachabilityIssues(doc));
+  errors.push(...kitIssues(doc));
 
   return { ok: errors.length === 0, errors };
 }
@@ -438,12 +575,14 @@ export function hasWinPath(doc: GameDoc): boolean {
 }
 
 /**
- * Goal games must ship a win path. Explore scenes are free-roam by design:
- * they carry no objectives and need no win condition, while player, bounds
- * and reference checks still apply.
+ * Goal games (and races, which are goal games with a vehicle) must ship a win
+ * path. Explore scenes, inspect showcases and walkthroughs are free-roam by
+ * design: they carry no objectives and need no win condition, while player,
+ * bounds and reference checks still apply.
  */
 export function requiresWinPath(doc: GameDoc): boolean {
-  return doc.meta.archetype !== "explore";
+  const kit = resolveKit(doc);
+  return kit === "game" || kit === "drive";
 }
 
 export const SANITY_CODES = [
@@ -452,4 +591,11 @@ export const SANITY_CODES = [
   "missing-rule-reference",
   "out-of-bounds",
   "unreachable-target",
+  "missing-inspect-content",
+  "missing-click-rule",
+  "missing-interactable",
+  "missing-checkpoints",
+  "invalid-checkpoint-index",
+  "not-a-vehicle",
+  "missing-win-path",
 ] as const;
