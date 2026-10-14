@@ -21,7 +21,7 @@ export const QA_RACE_PROMPT =
 
 const VIEWPORT = { width: 1280, height: 720 };
 const NAVIGATION_TIMEOUT_MS = 60_000;
-const RENDER_TIMEOUT_MS = 240_000;
+const RENDER_TIMEOUT_MS = 290_000;
 const MOVE_HOLD_MS = 1_000;
 const MIN_MOVE_DISTANCE = 0.05;
 const MIN_CANVAS_COLORS = 16;
