@@ -1,7 +1,9 @@
 import type { EnemyState, Entity, Objective } from "@prompt-to-playable/schema";
 import type { AABB, Vec3 } from "@prompt-to-playable/shared";
 import {
+  DEFAULT_PLAYER_SIZE,
   DEFAULT_SOLID_SIZE,
+  FLOOR_Y,
   aabbOverlap,
   collectSolids,
   resolveXZ,
@@ -11,7 +13,10 @@ import type { GameEvent } from "./events.js";
 import { NEUTRAL_INPUT, sanitizeInput, type InputState } from "./input.js";
 import { updateObjectives } from "./objectives.js";
 import { evaluateRules } from "./rules.js";
-import type { EntityRuntime, GameState } from "./state.js";
+import type { AnimationRuntime, EntityRuntime, GameState } from "./state.js";
+import { stepVehicle } from "./vehicle.js";
+
+export { DEFAULT_PLAYER_SIZE, FLOOR_Y } from "./collision.js";
 
 export const SYSTEM_ORDER = [
   "integrate",
@@ -51,14 +56,20 @@ function entityAABB(
   };
 }
 
-export const FLOOR_Y = 0;
-export const DEFAULT_PLAYER_SIZE: Vec3 = [0.6, 1.8, 0.6];
 export const DEFAULT_PLAYER_SPEED = 6;
 export const DEFAULT_JUMP_SPEED = 8;
 export const DEFAULT_ENEMY_SPEED = 2.5;
 export const PATROL_REACHED_DISTANCE = 0.15;
 export const ENEMY_LOSE_SIGHT_FACTOR = 1.25;
 export const DEFAULT_INTERACT_RANGE = 2.5;
+
+export const ANIMATION_DEFAULT_SPEED = 1;
+export const ANIMATION_BOB_DEFAULT_AMPLITUDE = 0.5;
+export const ANIMATION_ORBIT_DEFAULT_AMPLITUDE = 1;
+export const ANIMATION_SLIDE_DEFAULT_DURATION_MS = 1000;
+export const ANIMATION_DEFAULT_AXIS: Vec3 = [0, 1, 0];
+
+const TWO_PI = Math.PI * 2;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -260,10 +271,106 @@ function integrateEnemy(
 }
 
 /**
- * Integrate: advance the active player from sanitized input and every active
- * enemy through its AI, then resolve gravity, solids, floor rest and world
- * bounds. Pure copy-on-write: inputs and previous runtime records are never
- * mutated.
+ * Advance one entity's animation entries by `dt` seconds and derive the
+ * runtime pose. `elapsed` is seconds; `slide.duration` is milliseconds.
+ *
+ * - spin: `rotation = baseRot + axis * speed * elapsed` (rad/s).
+ * - bob: `y = basePos.y + amplitude * sin(2π * speed * elapsed)` (Hz).
+ * - orbit: circular XZ path of `amplitude` around `basePos` (Hz).
+ * - slide: lerp `basePos -> to` over `duration` ms, then snap exactly to `to`
+ *   and drop the entry (final position is kept afterwards).
+ * - pulse: entry is kept forever and `pulse` (0..1 sine) is exposed for the
+ *   renderer.
+ *
+ * `movePosition` is false for player/enemy actors: their physics owns the
+ * position, so only rotation/pulse effects apply. Animated non-actors skip
+ * gravity entirely (their position is authored by the animation), so sliding
+ * doors never fall. Kinds apply in entry order; a later entry wins the axes
+ * it writes.
+ */
+function advanceAnimations(
+  runtime: EntityRuntime,
+  dt: number,
+  movePosition: boolean
+): EntityRuntime {
+  const animations = runtime.animations;
+  if (animations.length === 0) return runtime;
+
+  const position: Vec3 = [...runtime.position];
+  const rotation: Vec3 = runtime.rotation ? [...runtime.rotation] : [0, 0, 0];
+  const remaining: AnimationRuntime[] = [];
+  let rotationTouched = false;
+
+  for (const animation of animations) {
+    const elapsed = animation.elapsed + dt;
+    const updated: AnimationRuntime = { ...animation, elapsed };
+    const speed = animation.speed ?? ANIMATION_DEFAULT_SPEED;
+
+    switch (animation.kind) {
+      case "spin": {
+        const axis = animation.axis ?? ANIMATION_DEFAULT_AXIS;
+        rotation[0] = updated.baseRot[0] + axis[0] * speed * elapsed;
+        rotation[1] = updated.baseRot[1] + axis[1] * speed * elapsed;
+        rotation[2] = updated.baseRot[2] + axis[2] * speed * elapsed;
+        rotationTouched = true;
+        remaining.push(updated);
+        break;
+      }
+      case "bob": {
+        const amplitude = animation.amplitude ?? ANIMATION_BOB_DEFAULT_AMPLITUDE;
+        position[1] =
+          updated.basePos[1] + amplitude * Math.sin(TWO_PI * speed * elapsed);
+        remaining.push(updated);
+        break;
+      }
+      case "orbit": {
+        const radius = animation.amplitude ?? ANIMATION_ORBIT_DEFAULT_AMPLITUDE;
+        const angle = TWO_PI * speed * elapsed;
+        position[0] = updated.basePos[0] + radius * Math.cos(angle);
+        position[2] = updated.basePos[2] + radius * Math.sin(angle);
+        remaining.push(updated);
+        break;
+      }
+      case "slide": {
+        const durationMs =
+          animation.duration ?? ANIMATION_SLIDE_DEFAULT_DURATION_MS;
+        const target = animation.to ?? updated.basePos;
+        const t = durationMs <= 0 ? 1 : Math.min(1, (elapsed * 1000) / durationMs);
+        if (t >= 1) {
+          position[0] = target[0];
+          position[1] = target[1];
+          position[2] = target[2];
+        } else {
+          position[0] = updated.basePos[0] + (target[0] - updated.basePos[0]) * t;
+          position[1] = updated.basePos[1] + (target[1] - updated.basePos[1]) * t;
+          position[2] = updated.basePos[2] + (target[2] - updated.basePos[2]) * t;
+          remaining.push(updated);
+        }
+        break;
+      }
+      case "pulse": {
+        updated.pulse = 0.5 + 0.5 * Math.sin(TWO_PI * speed * elapsed);
+        remaining.push(updated);
+        break;
+      }
+    }
+  }
+
+  return {
+    ...runtime,
+    animations: remaining,
+    rotation: rotationTouched ? rotation : runtime.rotation,
+    position: movePosition ? position : runtime.position,
+  };
+}
+
+/**
+ * Integrate: advance the active player (walker or vehicle) from sanitized
+ * input and every active enemy through its AI, then resolve gravity, solids,
+ * floor rest and world bounds. Afterwards animation entries are advanced and
+ * applied to runtime poses so broadphase sees real (e.g. sliding-door)
+ * positions. Pure copy-on-write: inputs and previous runtime records are
+ * never mutated.
  */
 export function integrate(
   state: GameState,
@@ -283,17 +390,21 @@ export function integrate(
   const playerRuntime = player ? entityRuntime[player.id] : undefined;
 
   if (player && playerRuntime) {
+    const isVehicle =
+      state.doc.meta.mode === "drive" || player.props?.vehicle === true;
     entityRuntime = {
       ...entityRuntime,
-      [player.id]: integratePlayer(
-        player,
-        playerRuntime,
-        dt,
-        input,
-        solids,
-        gravity,
-        bounds
-      ),
+      [player.id]: isVehicle
+        ? stepVehicle(playerRuntime, player, input, dt, solids, state.doc.world)
+        : integratePlayer(
+            player,
+            playerRuntime,
+            dt,
+            input,
+            solids,
+            gravity,
+            bounds
+          ),
     };
     changed = true;
   }
@@ -317,6 +428,17 @@ export function integrate(
         bounds
       ),
     };
+    changed = true;
+  }
+
+  for (const entity of state.entities) {
+    const runtime = entityRuntime[entity.id];
+    if (!runtime || runtime.animations.length === 0) continue;
+
+    const isActor = entity.kind === "player" || entity.kind === "enemy";
+    const updated = advanceAnimations(runtime, dt, !isActor);
+    if (updated === runtime) continue;
+    entityRuntime = { ...entityRuntime, [entity.id]: updated };
     changed = true;
   }
 
@@ -540,7 +662,8 @@ export function detectInteract(state: GameState): GameEvent[] {
 export function tick(
   state: GameState,
   dt: number,
-  input: Partial<InputState> = NEUTRAL_INPUT
+  input: Partial<InputState> = NEUTRAL_INPUT,
+  externalEvents: GameEvent[] = []
 ): GameState {
   const sanitized = sanitizeInput(input);
   let next: GameState = {
@@ -556,6 +679,7 @@ export function tick(
 
   const baseEvents: GameEvent[] = [
     ...emitEvents(next),
+    ...externalEvents,
     ...broad.events,
     ...detectInteract(next),
   ];

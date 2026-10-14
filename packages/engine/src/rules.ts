@@ -9,7 +9,13 @@ import type {
   ValueRef,
 } from "@prompt-to-playable/schema";
 import type { GameEvent } from "./events.js";
-import type { EntityRuntime, GameState } from "./state.js";
+import {
+  createEntityRuntime,
+  type AnimationRuntime,
+  type EntityRuntime,
+  type GameState,
+  type PanelState,
+} from "./state.js";
 
 export interface RuleEvaluation {
   state: GameState;
@@ -108,6 +114,10 @@ function eventEntityIds(event: GameEvent): string[] {
       return [event.zoneId, event.entityId];
     case "interact":
       return [event.targetId, event.entityId];
+    case "click":
+    case "hoverEnter":
+    case "hoverLeave":
+      return [event.targetId];
     case "enemyContact":
       return [event.entityId];
     case "objectiveComplete":
@@ -166,6 +176,7 @@ export function evaluateRules(
   let objectives = state.objectives;
   let scratch = state.scratch;
   let status = state.status;
+  let ui = state.ui;
   let changed = false;
 
   const view = (): GameState => ({
@@ -175,6 +186,7 @@ export function evaluateRules(
     objectives,
     scratch,
     status,
+    ui,
   });
 
   const updateRuntime = (id: string, patch: Partial<EntityRuntime>): void => {
@@ -202,21 +214,62 @@ export function evaluateRules(
   const spawn = (entity: Entity): void => {
     entityRuntime = {
       ...entityRuntime,
-      [entity.id]: {
-        position: [...entity.position],
-        velocity: [0, 0, 0],
-        grounded: false,
-        rotation: entity.rotation ? [...entity.rotation] : undefined,
-        active: entity.active,
-        state: entity.state,
-        waypointIndex: 0,
-        contactArmed: true,
-        tags: [...entity.tags],
-      },
+      [entity.id]: createEntityRuntime(entity),
     };
     entities = entities.some((e) => e.id === entity.id)
       ? entities.map((e) => (e.id === entity.id ? entity : e))
       : [...entities, entity];
+    changed = true;
+  };
+
+  const animate = (action: Extract<Action, { type: "animate" }>): void => {
+    const current = entityRuntime[action.entity];
+    if (!current) return;
+
+    const animation: AnimationRuntime = {
+      kind: action.kind,
+      elapsed: 0,
+      basePos: [...current.position],
+      baseRot: current.rotation ? [...current.rotation] : [0, 0, 0],
+    };
+    if (action.axis) animation.axis = [...action.axis];
+    if (action.amplitude !== undefined) animation.amplitude = action.amplitude;
+    if (action.speed !== undefined) animation.speed = action.speed;
+    if (action.to) animation.to = [...action.to];
+    if (action.duration !== undefined) animation.duration = action.duration;
+
+    const animations = [
+      ...current.animations.filter((a) => a.kind !== action.kind),
+      animation,
+    ];
+    updateRuntime(action.entity, { animations });
+  };
+
+  const showPanel = (action: Extract<Action, { type: "showPanel" }>): void => {
+    const panel: PanelState = {
+      id: `${action.entity ?? "panel"}-${ui.nextPanelId}`,
+      title: action.title,
+      body: action.body,
+    };
+    if (action.entity !== undefined) panel.entity = action.entity;
+    ui = {
+      ...ui,
+      panels: [...ui.panels, panel],
+      nextPanelId: ui.nextPanelId + 1,
+    };
+    changed = true;
+  };
+
+  const hidePanel = (action: Extract<Action, { type: "hidePanel" }>): void => {
+    if (action.entity === undefined) {
+      if (ui.panels.length === 0) return;
+      ui = { ...ui, panels: [] };
+      changed = true;
+      return;
+    }
+    const panels = ui.panels.filter((panel) => panel.entity !== action.entity);
+    if (panels.length === ui.panels.length) return;
+    ui = { ...ui, panels };
     changed = true;
   };
 
@@ -351,6 +404,25 @@ export function evaluateRules(
         if (current) setActive(action.target, !current.active);
         break;
       }
+      case "setVisible":
+        updateRuntime(action.entity, { visible: action.visible });
+        break;
+      case "setColor":
+        updateRuntime(action.entity, { color: action.color });
+        break;
+      case "animate":
+        animate(action);
+        break;
+      case "cameraFocus":
+        ui = { ...ui, focus: action.entity };
+        changed = true;
+        break;
+      case "showPanel":
+        showPanel(action);
+        break;
+      case "hidePanel":
+        hidePanel(action);
+        break;
     }
   };
 
@@ -367,7 +439,7 @@ export function evaluateRules(
   }
 
   const nextState: GameState = changed
-    ? { ...state, entities, entityRuntime, objectives, scratch, status }
+    ? { ...state, entities, entityRuntime, objectives, scratch, status, ui }
     : state;
 
   return { state: nextState, actions };

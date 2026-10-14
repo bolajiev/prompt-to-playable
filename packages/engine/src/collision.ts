@@ -13,6 +13,8 @@ export interface Box {
 }
 
 export const DEFAULT_SOLID_SIZE: Vec3 = [1, 1, 1];
+export const DEFAULT_PLAYER_SIZE: Vec3 = [0.6, 1.8, 0.6];
+export const FLOOR_Y = 0;
 
 export function pointInAABB(p: Vec3, box: AABB): boolean {
   return (
@@ -104,7 +106,9 @@ function penetration(position: Vec3, size: Vec3, solid: AABB): Vec3 | null {
 /**
  * Axis-separated horizontal pushout: resolve X then Z against every solid.
  * Contacts where the vertical overlap is the smallest (landing / head bumps)
- * are left to `resolveY`.
+ * are left to `resolveY`. Each axis defers when the other horizontal axis has
+ * the shallower penetration, so a head-on hit resolves along the approach
+ * direction instead of shoving the body sideways along the deep axis.
  */
 export function resolveXZ(
   pos: Vec3,
@@ -116,10 +120,12 @@ export function resolveXZ(
   const velocity: Vec3 = [...vel];
 
   for (const axis of [0, 2] as const) {
+    const other = axis === 0 ? 2 : 0;
     for (const solid of solids) {
       const pen = penetration(position, size, solid);
       if (!pen) continue;
       if (pen[1] < pen[0] && pen[1] < pen[2]) continue;
+      if (pen[other] < pen[axis]) continue;
 
       const half = size[axis] / 2;
       if (velocity[axis] > 0) {
