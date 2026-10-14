@@ -437,13 +437,18 @@ export function evaluateRules(
   const actions: Action[] = [];
   const rules = state.doc.rules;
 
+  const matched: Rule[] = [];
   for (const event of events) {
     for (const rule of rules) {
       if (!matchesTrigger(rule.on, event, view())) continue;
       if (!evaluateCondition(rule.if, view())) continue;
-      actions.push(...rule.then);
-      for (const action of rule.then) applyAction(action);
+      matched.push(rule);
     }
+  }
+
+  for (const rule of matched) {
+    actions.push(...rule.then);
+    for (const action of rule.then) applyAction(action);
   }
 
   const nextState: GameState = changed

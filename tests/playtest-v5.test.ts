@@ -139,17 +139,15 @@ describe("live kit fixtures are playable offline", () => {
     const reached = approach(engine, player.id, door.position, TICK_BUDGET);
     expect(reached).toBe(true);
 
-    engine.step(FIXED_DT_MS, { interact: false });
-    engine.step(FIXED_DT_MS, { interact: true });
-    let state = engine.step(FIXED_DT_MS, { interact: false });
-    for (let tick = 0; tick < 120; tick += 1) {
-      state = engine.step(FIXED_DT_MS);
-    }
+    const pressInteract = (): void => {
+      engine.step(FIXED_DT_MS, { interact: false });
+      engine.step(FIXED_DT_MS, { interact: true });
+      engine.step(FIXED_DT_MS, { interact: false });
+      for (let tick = 0; tick < 120; tick += 1) {
+        engine.step(FIXED_DT_MS);
+      }
+    };
 
-    const after = state.entityRuntime[door.id];
-    expect(after).toBeDefined();
-    const moved = after ? xzDistance(after.position, before) : 0;
-    const opened = after?.tags.includes("open") ?? false;
     const doorActions = actionsOf(doc, "interact", door.id);
     expect(
       doorActions.some(
@@ -158,10 +156,28 @@ describe("live kit fixtures are playable offline", () => {
           (action.type === "animate" && action.kind === "slide")
       )
     ).toBe(true);
+
+    pressInteract();
+    let state = engine.getState();
+    const afterOpen = state.entityRuntime[door.id];
+    expect(afterOpen).toBeDefined();
+    const openTravel = afterOpen ? xzDistance(afterOpen.position, before) : 0;
     expect(
-      moved > 0.5 || opened,
-      "pressing interact should slide the door or apply the open tag"
-    ).toBe(true);
+      openTravel,
+      "first interact should slide the door toward its open position"
+    ).toBeGreaterThan(0.5);
+    expect(state.scratch.doorOpen).toBe(1);
+
+    pressInteract();
+    state = engine.getState();
+    const afterClose = state.entityRuntime[door.id];
+    expect(afterClose).toBeDefined();
+    const closeTravel = afterClose ? xzDistance(afterClose.position, before) : 0;
+    expect(
+      closeTravel,
+      "second interact should slide the door back toward closed"
+    ).toBeLessThan(openTravel / 2);
+    expect(state.scratch.doorOpen).toBe(0);
   });
 
   test(`drive: throttle and checkpoint pursuit wins within ${TICK_BUDGET} ticks`, () => {
