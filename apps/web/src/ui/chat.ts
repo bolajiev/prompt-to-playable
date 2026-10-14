@@ -85,11 +85,15 @@ export class Chat {
     this.input.placeholder = busy ? "Generating…" : "Describe a game…";
   }
 
-  /** Fills the input from an example chip without submitting. */
-  fill(text: string): void {
-    if (this.busy) return;
-    this.input.value = text;
-    this.input.focus();
+  /**
+   * One-click path for example chips: fills the input and submits immediately.
+   * Keyboard typing keeps using the form submit handler unchanged.
+   */
+  send(text: string): void {
+    const prompt = text.trim();
+    if (this.busy || prompt.length === 0) return;
+    this.input.value = prompt;
+    void this.submit();
   }
 
   appendMessage(role: ChatRole, text: string): void {

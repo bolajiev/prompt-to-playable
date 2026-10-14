@@ -67,3 +67,65 @@ describe("chat submit focus", () => {
     expect(harness.input.blur).not.toHaveBeenCalled();
   });
 });
+
+function flush(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+describe("chat one-click send", () => {
+  test("send fills the input and submits immediately", async () => {
+    const submitted: string[] = [];
+    const harness = createHarness(async (prompt) => {
+      submitted.push(prompt);
+    });
+
+    harness.chat.send("a quiet forest clearing with a campfire at dusk");
+
+    expect(submitted).toEqual(["a quiet forest clearing with a campfire at dusk"]);
+    expect(harness.input.value).toBe("");
+    expect(harness.lines).toHaveLength(1);
+    expect(harness.lines[0]?.className).toBe("line user");
+    expect(harness.lines[0]?.textContent).toBe(
+      "a quiet forest clearing with a campfire at dusk"
+    );
+    await flush();
+    expect(harness.chat.isBusy).toBe(false);
+  });
+
+  test("send is a no-op while busy and for blank text", async () => {
+    let release: () => void = () => {};
+    const submitted: string[] = [];
+    const harness = createHarness(
+      (prompt) =>
+        new Promise<void>((resolve) => {
+          submitted.push(prompt);
+          release = resolve;
+        })
+    );
+
+    harness.input.value = "first prompt";
+    harness.submit();
+    expect(harness.chat.isBusy).toBe(true);
+
+    harness.chat.send("second prompt");
+    harness.chat.send("   ");
+    expect(submitted).toEqual(["first prompt"]);
+
+    release();
+    await flush();
+    expect(harness.chat.isBusy).toBe(false);
+  });
+
+  test("keyboard typing still submits the typed value through the form", async () => {
+    const submitted: string[] = [];
+    const harness = createHarness(async (prompt) => {
+      submitted.push(prompt);
+    });
+
+    harness.input.value = "  build a platformer  ";
+    harness.submit();
+
+    expect(submitted).toEqual(["build a platformer"]);
+    await flush();
+  });
+});

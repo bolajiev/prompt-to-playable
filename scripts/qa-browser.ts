@@ -11,6 +11,7 @@ const DEFAULT_OUT_DIR = join(ROOT, "artifacts", "qa");
 export const QA_PROMPT =
   "a small room where I collect 3 glowing crystals while avoiding one guard";
 export const QA_EDIT_PROMPT = "add a second guard";
+export const QA_EXPLORE_PROMPT = "a quiet forest clearing with a campfire at dusk";
 
 const VIEWPORT = { width: 1280, height: 720 };
 const NAVIGATION_TIMEOUT_MS = 60_000;
@@ -24,6 +25,11 @@ export interface QaOptions {
   outDir?: string;
   /** Stop after the landing beat (browser/element smoke check, no live calls). */
   landingOnly?: boolean;
+  /**
+   * Extra fifth beat: reload, generate an explore scene from QA_EXPLORE_PROMPT,
+   * then assert the free-roam HUD hint, a lit canvas and zero new console errors.
+   */
+  explore?: boolean;
 }
 
 export interface QaBeat {
@@ -501,15 +507,78 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   }
 
   const consoleLogPath = join(outDir, "console.log");
+
+  let exploredOk = false;
+  if (options.explore && !options.landingOnly && landingOk) {
+    exploredOk = await runBeat(
+      "explored",
+      join(outDir, "05-explore.png"),
+      async () => {
+        const consoleErrorsBefore = consoleErrors.length;
+        // Fresh load so the prompt takes the /generate path (a loaded game
+        // would route the same text to /edit and stay a goal game).
+        await page.goto(options.url, {
+          waitUntil: "domcontentloaded",
+          timeout: NAVIGATION_TIMEOUT_MS,
+        });
+        await page.waitForFunction(
+          () => document.querySelector("#badge")?.getAttribute("data-validated") === "false",
+          undefined,
+          { timeout: NAVIGATION_TIMEOUT_MS }
+        );
+        const errorsBefore = await chatErrorCount(page);
+        await page.fill("#chat-input", QA_EXPLORE_PROMPT);
+        await page.click("#chat-submit");
+        log(`submitted explore prompt (waiting up to ${RENDER_TIMEOUT_MS / 1000}s)`);
+        const started = Date.now();
+        await waitForGenerateOutcome(page, errorsBefore, RENDER_TIMEOUT_MS);
+        const failure = await newChatError(page, errorsBefore);
+        expectCondition(failure === null, `explore generation failed: ${failure}`);
+        await waitForValidated(page, RENDER_TIMEOUT_MS);
+        await page.waitForFunction(
+          () =>
+            (document.querySelector("#hud")?.textContent ?? "").includes("Explore freely"),
+          undefined,
+          { timeout: RENDER_TIMEOUT_MS }
+        );
+        const hudText = ((await page.locator("#hud").textContent()) ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
+        expectCondition(
+          hudText.includes("Explore freely"),
+          `explore hint missing from HUD (got "${hudText}")`
+        );
+        const colors = pngStats(await canvasScreenshot(page)).distinct;
+        expectCondition(colors >= MIN_CANVAS_COLORS, `flat canvas (${colors} colors)`);
+        await page.screenshot({ path: join(outDir, "05-explore.png") });
+        const newConsoleErrors = consoleErrors.slice(consoleErrorsBefore);
+        expectCondition(
+          newConsoleErrors.length === 0,
+          `console errors during explore beat: ${newConsoleErrors.join(" | ")}`
+        );
+        return `explore scene validated after ${Date.now() - started}ms; HUD="${hudText}"; canvas colors=${colors}; new console errors=0`;
+      }
+    );
+  } else if (options.explore && !options.landingOnly) {
+    record({
+      beat: "explored",
+      ok: false,
+      detail: "skipped: landing beat failed",
+      screenshot: join(outDir, "05-explore.png"),
+    });
+  }
+
   const consoleLines = consoleMessages.map(
     (message) => `${message.type}\t${message.text}${message.location ? `\t${message.location}` : ""}`
   );
   writeFileSync(consoleLogPath, `${consoleLines.join("\n")}\n`, "utf8");
 
   const failedBeats = beats.filter((beat) => !beat.ok);
+  const exploreOk = !options.explore || options.landingOnly || exploredOk;
   const ok =
     landingOk &&
     (options.landingOnly || (generatedOk && movedOk && editedOk)) &&
+    exploreOk &&
     consoleErrors.length === 0;
 
   const result: QaResult = {
@@ -542,14 +611,17 @@ interface CliOptions {
   url?: string;
   outDir?: string;
   landingOnly: boolean;
+  explore: boolean;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
-  const options: CliOptions = { landingOnly: false };
+  const options: CliOptions = { landingOnly: false, explore: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--landing-only") {
       options.landingOnly = true;
+    } else if (arg === "--explore") {
+      options.explore = true;
     } else if (arg === "--out") {
       const value = argv[i + 1];
       if (value === undefined) throw new Error("--out requires a directory");
@@ -573,7 +645,9 @@ if (isDirectRun) {
   (async () => {
     const options = parseArgs(process.argv.slice(2));
     if (!options.url) {
-      console.error("usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only]");
+      console.error(
+        "usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only] [--explore]"
+      );
       process.exitCode = 2;
       return;
     }
@@ -591,6 +665,7 @@ if (isDirectRun) {
         url: options.url,
         outDir: options.outDir,
         landingOnly: options.landingOnly,
+        explore: options.explore,
       });
       process.exitCode = result.ok ? 0 : 1;
     } finally {

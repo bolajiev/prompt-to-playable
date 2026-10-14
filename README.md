@@ -15,9 +15,9 @@ The architecture is **schema-first and data-driven**. The LLM emits a validated 
 
 ## What it is
 
-A single JSON document describes the entire game: `meta`, `world`, `entities`, `objectives`, `rules`, and a mutable `scratch` bag. The engine interprets that document every tick; the renderer reflects it. Because game logic lives in data, the same engine plays collect-a-thons, switch puzzles, platformers, and stealth levels.
+A single JSON document describes the entire game: `meta`, `world`, `entities`, `objectives`, `rules`, and a mutable `scratch` bag. The engine interprets that document every tick; the renderer reflects it. Because game logic lives in data, the same engine plays collect-a-thons, switch puzzles, platformers, and stealth levels — or renders an objective-free scene to roam.
 
-Four curated archetypes: `collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`.
+Five modes: the four curated game archetypes (`collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`) plus a free-roam **explore** mode. Place-like prompts ("a quiet forest clearing with a campfire at dusk") produce a lit scene with no objectives and no win/lose; the HUD reads "Explore freely — WASD move · Space jump · drag to orbit".
 
 ## Architecture (schema-first)
 
@@ -51,7 +51,7 @@ Boundaries that the code enforces:
 | `packages/render` | Three.js reconciliation layer (entity `id` → mesh) |
 | `packages/shared` | Shared types, math, seeded RNG, id helpers |
 | `server` | Express API: classifier, generator, validator, repair, sanity, edit patch |
-| `apps/web` | Vite client: canvas, chat input, HUD, validation badge |
+| `apps/web` | Vite client: canvas, chat input, HUD, validation badge, orbit camera, procedural audio |
 | `scripts/eval-corpus.ts` | Prompt-corpus reliability harness |
 
 ## How to run (dev)
@@ -95,7 +95,7 @@ but `/generate` and `/edit` fail with a clear error.
 npm --workspace @prompt-to-playable/web run dev      # Vite dev server
 ```
 
-Open the printed URL, type a game prompt, and play. Follow-up messages are applied as conversational edits.
+Open the printed URL, click an example chip (one-click generation) or type a game prompt, and play. Follow-up messages are applied as conversational edits.
 
 ### Controls
 
@@ -104,6 +104,13 @@ Open the printed URL, type a game prompt, and play. Follow-up messages are appli
 | Move | `W`/`A`/`S`/`D` or arrow keys |
 | Jump | `Space` |
 | Interact (switches, doors) | `E` |
+| Orbit camera | drag on the canvas |
+| Zoom | mouse wheel |
+
+Movement is camera-relative, and after a drag the orbit camera eases back
+behind the player. Sound effects are synthesized at runtime with WebAudio
+(jump, collect, hit, interact, win, lose) — the project ships no audio files
+and no external art assets.
 
 Production builds:
 
@@ -137,13 +144,15 @@ player moves, applies a follow-up edit, and writes screenshots to
 ```bash
 npm run qa:browser -- https://prompt-to-playable-steel.vercel.app
 npm run qa:browser -- <url> --landing-only   # landing-page smoke, no live model calls
+npm run qa:browser -- <url> --explore        # adds a fifth beat: explore-scene generation + free-roam HUD
 ```
 
-The offline suite is **32 files / 274 tests**, needs no API key, and includes the
-rules evaluator, movement/gravity/jump and obstacle/platform collision, enemy
-patrol/chase, objectives, the deterministic input-only playtest over the live
-fixtures (`tests/playtest.test.ts`: 3 auto-won games + label/coverage guards),
-patch application (RFC 6902), validation/sanity, repair loop, generation/edit
+The offline suite is **42 files / 425 tests**, needs no API key, and includes
+the rules evaluator, movement/gravity/jump and obstacle/platform collision,
+enemy patrol/chase, objectives, explore HUD hint and orbit-camera math, audio
+cue mapping, the deterministic input-only playtest over the live fixtures
+(`tests/playtest.test.ts`: 3 auto-won games + label/coverage guards), patch
+application (RFC 6902), validation/sanity, repair loop, generation/edit
 pipelines, renderer reconciliation, and an end-to-end smoke test.
 
 ## Live smoke (real model)
@@ -175,7 +184,7 @@ npm run eval:corpus
 
 It classifies, generates, validates, sanity-checks, and confirms a win path for each of the 21 curated prompts using a deterministic mock LLM. Current result: **21/21 (100%) valid + solvable**, target ≥ 95% → PASS.
 
-### Live model evaluation
+### Live model evaluation (2026-10-12)
 
 The same pipeline was run against a real model (`gemini-3.1-flash-lite` via an
 OpenAI-compatible endpoint) on 2026-10-12: **4/4 generated games valid +
@@ -184,6 +193,16 @@ The captured documents are committed as `tests/fixtures/live-*.json`; three of
 them (collect-a-thon and puzzle-switch) are auto-won by input-only steering in
 the offline suite. Per-prompt results and failure classes:
 [`docs/llm-eval-2026-10-12.md`](docs/llm-eval-2026-10-12.md).
+
+### Judge-style live evaluation (2026-10-14)
+
+A 10-prompt judge-style set (4 game prompts — one per archetype — 4 scene
+prompts, and 2 conversational edits) was run against `deepseek-v4.1-flash` via
+an OpenAI-compatible gateway: **10/10 passed on the first iteration with zero
+repairs** — 4/4 games valid + winnable, 4/4 scenes valid + objective-free
+explorable, 2/2 edits applied as valid RFC 6902 patches. Per-prompt table,
+structural edit diffs and honest limitations:
+[`docs/llm-eval-2026-10-14.md`](docs/llm-eval-2026-10-14.md).
 
 ## Tech stack
 
@@ -196,7 +215,7 @@ the offline suite. Per-prompt results and failure classes:
 
 ## Submission notes
 
-- **Focus category:** prompt-to-world / AI-assisted interactive 3D game creation.
+- **Focus category:** AI-generated gameplay systems / prompt-to-world creation.
 - **Artifacts:** public repo, hosted browser demo, demo video < 3 min, written description (`docs/submission/description.md`).
 - **AI usage:** archetype classifier → constrained structured generator → Zod validation + ≤2 repair retries → sanity/solvability checks; conversational edits via RFC 6902 JSON Patch, re-validated before commit.
 - **Demo script:** `docs/submission/demo-script.md`.
@@ -210,6 +229,7 @@ This project is [MIT licensed](LICENSE).
 - **Express** — MIT; the thin Node API.
 - **Playwright** — Apache-2.0; dev-only browser QA (`npm run qa:browser`).
 - **Google Gemini** via its OpenAI-compatible endpoint — used for the live model evaluation on 2026-10-12 (`docs/llm-eval-2026-10-12.md`); the repository ships no API key.
+- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14 (`docs/llm-eval-2026-10-14.md`); no key or endpoint is recorded in the repository.
 
 The app, engine, schema, and tests were written with AI-assisted code
 generation; every generated game document is validated and checked before it

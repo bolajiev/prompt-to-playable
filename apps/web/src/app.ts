@@ -201,7 +201,7 @@ export class App {
     );
     this.onboarding = new Onboarding(
       { examples: elements.examples, emptyState: elements.emptyState },
-      { onPick: (prompt) => this.chat.fill(prompt) }
+      { onPick: (prompt) => this.chat.send(prompt) }
     );
 
     this.handleResize();

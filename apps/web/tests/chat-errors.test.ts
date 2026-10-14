@@ -158,14 +158,4 @@ describe("chat error, retry and cancel UX", () => {
     expect(log.children[1].find("retry")).toBeUndefined();
     expect(input.disabled).toBe(false);
   });
-
-  test("fill sets the input and focuses it without submitting", () => {
-    const onSubmit = vi.fn(async () => {});
-    const { chat, input } = createChatHarness(onSubmit);
-
-    chat.fill("a quiet forest clearing with a campfire at dusk");
-    expect(input.value).toBe("a quiet forest clearing with a campfire at dusk");
-    expect(input.focus).toHaveBeenCalledTimes(1);
-    expect(onSubmit).not.toHaveBeenCalled();
-  });
 });

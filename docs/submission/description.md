@@ -4,13 +4,15 @@
 **Repo:** https://github.com/bolajiev/prompt-to-playable
 **Demo video (66 s, captioned):** `docs/submission/demo.mp4`
 
-**Focus category:** prompt-to-world / AI-assisted interactive 3D game creation.
+**Focus category:** AI-generated gameplay systems / prompt-to-world creation
 
 ## What we built
 
 A web app that turns a plain-language prompt into a **playable 3D game with working logic** in the browser — then lets you keep shaping it by chatting. You type something like *"collect three crystals while avoiding patrolling guards,"* and you are controlling a character in a 3D scene: **WASD / arrow keys** to move, **Space** to jump, **E** to interact. Gravity, obstacle and platform collision, patrolling and chasing enemies, and win and lose states all work in real time. Follow-up messages such as *"add a second guard and a timer"* or *"raise the platforms"* update the live game in place, no reload.
 
 The core idea: **game logic lives in data, not generated code.** The AI produces a validated JSON game document; a fixed, deterministic engine plays it. That keeps AI output safe, keeps behavior reliable, and makes conversational editing cheap.
+
+Scene-like prompts — *"a quiet forest clearing with a campfire at dusk"* — open in **free-roam explore** mode: a lit 3D scene with no objectives and no win/lose, where you walk, jump, and orbit the camera (drag; mouse wheel to zoom). Collectibles, enemies, and props are animated, pickups burst into particles, and a small procedural WebAudio layer plays jump/collect/hit/win cues. Everything is generated at runtime from primitives and synthesized sound — no external art or audio assets (Three.js is the only renderer).
 
 ## Problem / opportunity
 
@@ -22,14 +24,14 @@ The opportunity is to make interactive 3D creation **conversational**: describe 
 
 AI is used only where it adds leverage: turning fuzzy natural language into structured game data. Everything after that is deterministic.
 
-1. **Archetype classifier.** An LLM call maps the prompt to one of four curated archetypes (`collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`). Constraining the output set keeps the generator focused and the results predictable.
-2. **Structured generator.** A second LLM call, given the full schema and few-shot examples, emits a complete game document: world settings, entities, objectives, and rules.
+1. **Archetype classifier.** An LLM call maps the prompt to one of five modes: the four curated game archetypes (`collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`) or `explore` for place-like prompts with no stated goal ("a cozy reading room with a fireplace"). Constraining the output set keeps the generator focused and the results predictable.
+2. **Structured generator.** A second LLM call, given the full schema and few-shot examples, emits a complete game document: world settings, entities, objectives, and rules. For `explore` prompts the document keeps `objectives` empty — a scene to roam, not a challenge.
 3. **Constrained schema + validation.** The document is parsed against a **Zod** schema — the single source of truth. Types are inferred from it, so client and server agree on the exact shape. Malformed or out-of-bounds output is caught immediately.
 4. **Repair loop.** If validation or sanity checks fail, the errors are fed back to the model with a targeted repair prompt (up to two retries). The model fixes the same document instead of starting over.
-5. **Sanity / solvability checks.** Before anything reaches the client we verify references resolve, the player spawn and bounds are valid, and the game contains a real win path. Only then is the document returned.
-6. **Conversational edits via JSON Patch.** Follow-up requests never regenerate the whole game. The model returns a minimal **RFC 6902 JSON Patch** (add/remove/replace operations). We apply it to the current validated document, re-validate and re-run sanity checks, and only then commit — so "add a second guard and a timer" produces a small, safe, reviewable change.
+5. **Sanity / solvability checks.** Before anything reaches the client we verify references resolve, the player spawn and bounds are valid, and the game contains a real win path. Explore documents are exempt from the win-path requirement and must instead have zero objectives. Only then is the document returned.
+6. **Conversational edits via JSON Patch.** Follow-up requests never regenerate the whole game. The model returns a minimal **RFC 6902 JSON Patch** (add/remove/replace operations). We apply it to the current validated document, re-validate and re-run sanity checks, and only then commit — so "add a second guard and a timer" produces a small, safe, reviewable change. Explore scenes keep their free-roam policy across edits: patches may add decorations but never objectives or win/lose actions.
 
-Because the client only ever receives **validated JSON** and the engine is a fixed interpreter, the AI can never inject code or ship a broken game to the player. The engine itself is pure TypeScript with a fixed timestep and seeded RNG, so gameplay is deterministic and testable.
+Because the client only ever receives **validated JSON** and the engine is a fixed interpreter, the AI can never inject code or ship a broken game to the player. The HUD switches to a free-roam hint whenever the validated document has no objectives. The engine itself is pure TypeScript with a fixed timestep and seeded RNG, so gameplay is deterministic and testable.
 
 ## Architecture
 
@@ -70,7 +72,12 @@ same document and inputs, same simulation, every time.
 
 ## Reliability
 
-We treat reliability as a first-class metric. A deterministic prompt-corpus harness classifies, generates, validates, sanity-checks, and confirms a win path for 21 curated prompts; the target is **≥ 95% valid + solvable**. The live pipeline was also run against a real model (`gemini-3.1-flash-lite` via an OpenAI-compatible endpoint): **4/4 generated games valid + solvable, plus 1/1 working conversational edit** (`docs/llm-eval-2026-10-12.md`). Three of those captured documents are auto-won by input-only steering in the offline suite, so playability is verified with no model and no network. The full suite (unit, integration, end-to-end, fixture playtest) runs on every change and needs no API key.
+We treat reliability as a first-class metric. A deterministic prompt-corpus harness classifies, generates, validates, sanity-checks, and confirms a win path for 21 curated prompts; the target is **≥ 95% valid + solvable**, and the current result is **21/21 (100%) valid + solvable → PASS**. The live pipeline was also run against real models:
+
+- **2026-10-12** (`gemini-3.1-flash-lite` via an OpenAI-compatible endpoint): **4/4 generated games valid + solvable, plus 1/1 working conversational edit** (one transient `503`, auto-retried) — `docs/llm-eval-2026-10-12.md`.
+- **2026-10-14 judge-style set** (`deepseek-v4.1-flash`; 4 game prompts — one per archetype, 4 explore scenes, 2 conversational edits): **10/10 passed on the first iteration with zero repairs** — 4/4 games valid + winnable, 4/4 scenes valid + objective-free explorable, 2/2 edits applied as valid patches — `docs/llm-eval-2026-10-14.md`.
+
+Three of the captured 2026-10-12 documents are auto-won by input-only steering in the offline suite, so playability is verified with no model and no network. Note that "solvable" is checked statically (schema + sanity + a win path exists), not by a simulated playthrough; the eval documents list the remaining limitations honestly. The full suite (unit, integration, end-to-end, fixture playtest) runs on every change and needs no API key.
 
 ## Links
 
@@ -78,7 +85,8 @@ We treat reliability as a first-class metric. A deterministic prompt-corpus harn
 - **Repository:** https://github.com/bolajiev/prompt-to-playable
 - **Demo video (66 s, captioned):** `docs/submission/demo.mp4`
 - **Deployment guide:** `docs/deployment.md`
-- **Live model evaluation:** `docs/llm-eval-2026-10-12.md`
+- **Live model evaluation (2026-10-12):** `docs/llm-eval-2026-10-12.md`
+- **Judge-style live evaluation (2026-10-14):** `docs/llm-eval-2026-10-14.md`
 
 ## Credits & attribution
 
@@ -87,6 +95,7 @@ We treat reliability as a first-class metric. A deterministic prompt-corpus harn
 - **Express** — MIT; thin Node API.
 - **Playwright** — Apache-2.0; dev-only browser QA (`npm run qa:browser -- <url>`).
 - **Google Gemini** via its OpenAI-compatible endpoint — used for the live model evaluation on 2026-10-12; no API key is included in the repository.
+- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14; no key or endpoint is recorded in the repository.
 - **AI-assisted code generation:** the app, engine, schema, and tests were written with AI assistance; runtime behavior is verified by the test suite and by schema/sanity checks on every AI-generated game document.
 
 ## API key / environment

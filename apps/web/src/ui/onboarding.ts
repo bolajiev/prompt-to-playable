@@ -57,14 +57,14 @@ export interface OnboardingElements {
 }
 
 export interface OnboardingOptions {
-  /** Called with the full prompt when a chip is picked; never auto-submits. */
+  /** Called with the full prompt when a chip is picked; the app submits it. */
   onPick(prompt: string): void;
 }
 
 /**
  * First-run onboarding: renders the example chips and owns the empty-state
- * overlay. Pure DOM view — picks are forwarded to `onPick`, which fills the
- * chat input, so the user can review or tweak the prompt before sending.
+ * overlay. Pure DOM view — picks are forwarded to `onPick`, which the app
+ * turns into an immediate submit, so one click starts a demo generation.
  */
 export class Onboarding {
   private busy = false;
