@@ -221,10 +221,11 @@ describe("explore archetype", () => {
     expect(text).toContain("a quiet forest clearing with a campfire at dusk");
   });
 
-  test("explore few-shot is a zero-objective scene that passes sanity", () => {
+  test("explore few-shot is a zero-objective zone-free scene that passes sanity", () => {
     const explore = ARCHETYPE_EXAMPLES.explore;
     expect(explore.meta.archetype).toBe("explore");
     expect(explore.objectives).toEqual([]);
+    expect(explore.entities.some((entity) => entity.kind === "zone")).toBe(false);
     expect(explore.entities.some((entity) => entity.kind === "prop")).toBe(true);
     expect(explore.entities.some((entity) => entity.kind === "interactable")).toBe(true);
     expect(sanityCheck(explore).ok).toBe(true);
@@ -288,10 +289,21 @@ describe("explore archetype", () => {
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.explore, null, 2));
   });
 
+  test("explore generation prompt forbids zone entities", () => {
+    const text = buildGenerationPrompt(
+      "a quiet forest clearing with a campfire at dusk",
+      "explore"
+    );
+    expect(text).toContain("NO trigger zones");
+    expect(text).toContain('MUST NOT include "zone" entities');
+    expect(text).not.toContain('"kind": "zone"');
+  });
+
   test("game generation prompt keeps the winnability requirement", () => {
     const text = buildGenerationPrompt("collect gems in a cave", "collect-a-thon");
     expect(text).toContain("The game must be winnable through its rules alone.");
     expect(text).not.toContain("MUST be an empty array: []");
+    expect(text).toContain('trigger zone (kind "zone")');
   });
 });
 

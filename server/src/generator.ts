@@ -304,23 +304,9 @@ export const ARCHETYPE_EXAMPLES: Record<Archetype, GameDoc> = {
         state: "idle",
         color: "yellow",
       },
-      {
-        id: "campfire-glow",
-        kind: "zone",
-        name: "Campfire glow",
-        position: [4, 1, 3],
-        size: [6, 3, 6],
-      },
     ],
     objectives: [],
     rules: [
-      {
-        id: "greet-campfire",
-        on: { event: "playerEnter", zone: "campfire-glow" },
-        then: [
-          { type: "showMessage", text: "The fire crackles. The clearing is calm." },
-        ],
-      },
       {
         id: "read-signpost",
         on: { event: "interact", entity: "signpost" },
@@ -340,9 +326,11 @@ export function buildGenerationPrompt(prompt: string, archetype: Archetype): str
       ? `Design a complete, explorable 3D scene that fits the "${archetype}" archetype.`
       : `Design a complete, playable game that fits the "${archetype}" archetype.`,
     isExplore
-      ? "It uses the same JSON document shape but has NO objectives and no win or lose"
+      ? "It uses the same JSON document shape but has NO objectives, NO trigger zones"
       : "",
-    isExplore ? "condition: the player simply roams a small, atmospheric place." : "",
+    isExplore
+      ? "and no win or lose condition: the player simply roams a small, atmospheric place."
+      : "",
     "",
     "Respond with ONLY one JSON object - no markdown fences, no commentary -",
     "with exactly this shape:",
@@ -417,6 +405,9 @@ export function buildGenerationPrompt(prompt: string, archetype: Archetype): str
           "Free-roam scene requirements (explore archetype):",
           '- "objectives" MUST be an empty array: []. There is no win or lose condition;',
           "  never emit win/lose actions and never reference objectives in rules.",
+          '- Explore documents MUST NOT include "zone" entities: no trigger volumes,',
+          "  no playerEnter rules, no objectives. Props, interactables and decorative",
+          "  objects only.",
           '- Populate the scene with a player spawn, a few decorative props (kind "prop"',
           '  with "color", "size" and a "props": { "shape": ... } entry from the',
           "  vocabulary above - prefer tree, rock, campfire, flower, lamp, statue,",
