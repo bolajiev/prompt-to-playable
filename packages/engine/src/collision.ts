@@ -104,11 +104,13 @@ function penetration(position: Vec3, size: Vec3, solid: AABB): Vec3 | null {
 }
 
 /**
- * Axis-separated horizontal pushout: resolve X then Z against every solid.
- * Contacts where the vertical overlap is the smallest (landing / head bumps)
- * are left to `resolveY`. Each axis defers when the other horizontal axis has
- * the shallower penetration, so a head-on hit resolves along the approach
- * direction instead of shoving the body sideways along the deep axis.
+ * Axis-separated horizontal pushout with minimum-translation semantics: the
+ * axis with the shallower horizontal penetration resolves, always toward the
+ * body's nearest face (body center vs solid center). Contacts where the
+ * vertical overlap is the smallest (landing / head bumps) are left to
+ * `resolveY`. Direction never comes from the velocity sign, so a shallow edge
+ * contact can never shove the body through to the solid's far face. The pass
+ * runs twice so corner contacts between neighbouring solids settle.
  */
 export function resolveXZ(
   pos: Vec3,
@@ -119,26 +121,19 @@ export function resolveXZ(
   const position: Vec3 = [...pos];
   const velocity: Vec3 = [...vel];
 
-  for (const axis of [0, 2] as const) {
-    const other = axis === 0 ? 2 : 0;
+  for (let pass = 0; pass < 2; pass++) {
     for (const solid of solids) {
       const pen = penetration(position, size, solid);
       if (!pen) continue;
       if (pen[1] < pen[0] && pen[1] < pen[2]) continue;
-      if (pen[other] < pen[axis]) continue;
 
+      const axis: 0 | 2 = pen[0] <= pen[2] ? 0 : 2;
       const half = size[axis] / 2;
-      if (velocity[axis] > 0) {
-        position[axis] = solid.min[axis] - half;
-      } else if (velocity[axis] < 0) {
-        position[axis] = solid.max[axis] + half;
-      } else {
-        const center = (solid.min[axis] + solid.max[axis]) / 2;
-        position[axis] =
-          position[axis] < center
-            ? solid.min[axis] - half
-            : solid.max[axis] + half;
-      }
+      const center = (solid.min[axis] + solid.max[axis]) / 2;
+      position[axis] =
+        position[axis] < center
+          ? solid.min[axis] - half
+          : solid.max[axis] + half;
       velocity[axis] = 0;
     }
   }
@@ -147,8 +142,11 @@ export function resolveXZ(
 }
 
 /**
- * Vertical resolution: falling contacts land on the solid top (grounded),
- * rising contacts stop at the solid bottom (head bump, not grounded).
+ * Vertical resolution with minimum-translation semantics: each penetrated
+ * solid pushes the body to its nearest face (body center vs solid center).
+ * Landing from above lands on the solid top and reports grounded; a head bump
+ * from below stops at the solid bottom and stays ungrounded. Direction never
+ * comes from the velocity sign.
  */
 export function resolveY(
   pos: Vec3,
@@ -163,14 +161,14 @@ export function resolveY(
 
   for (const solid of solids) {
     if (!penetration(position, size, solid)) continue;
-    if (velocity[1] <= 0) {
-      position[1] = solid.max[1] + half;
-      velocity[1] = 0;
-      grounded = true;
-    } else {
+    const center = (solid.min[1] + solid.max[1]) / 2;
+    if (position[1] < center) {
       position[1] = solid.min[1] - half;
-      velocity[1] = 0;
+    } else {
+      position[1] = solid.max[1] + half;
+      grounded = true;
     }
+    velocity[1] = 0;
   }
 
   return { pos: position, vel: velocity, grounded };

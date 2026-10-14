@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   validateGame,
@@ -11,6 +14,7 @@ import {
   resolveXZ,
   resolveY,
 } from "../src/collision.js";
+import { FIXED_DT_MS, createEngine } from "../src/engine.js";
 import { createState } from "../src/state.js";
 import { tick } from "../src/tick.js";
 
@@ -163,6 +167,31 @@ describe("resolveXZ", () => {
     expect(pos).toEqual([1.2, HALF_HEIGHT, 0]);
     expect(vel).toEqual([6, 0, 3]);
   });
+
+  test("shallow edge contact resolves to the nearest face, not across the solid", () => {
+    const door: AABB = { min: [-1.1, 0, 5.85], max: [1.1, 3.4, 6.15] };
+    const pos: Vec3 = [1.337, HALF_HEIGHT, 5.6394];
+    const vel: Vec3 = [2.684, 0, 5.366];
+
+    const res = resolveXZ(pos, vel, PLAYER_SIZE, [door]);
+
+    expect(res.pos[0]).toBeCloseTo(door.max[0] + PLAYER_SIZE[0] / 2, 6);
+    expect(res.pos[2]).toBeCloseTo(5.6394, 6);
+    expect(res.vel[0]).toBe(0);
+    expect(res.vel[2]).toBeCloseTo(5.366, 6);
+  });
+
+  test("velocity sign never picks the far face on the other side of the contact", () => {
+    const door: AABB = { min: [-1.1, 0, 5.85], max: [1.1, 3.4, 6.15] };
+    const pos: Vec3 = [-1.337, HALF_HEIGHT, 5.6394];
+    const vel: Vec3 = [-2.684, 0, 5.366];
+
+    const res = resolveXZ(pos, vel, PLAYER_SIZE, [door]);
+
+    expect(res.pos[0]).toBeCloseTo(door.min[0] - PLAYER_SIZE[0] / 2, 6);
+    expect(res.vel[0]).toBe(0);
+    expect(res.vel[2]).toBeCloseTo(5.366, 6);
+  });
 });
 
 describe("resolveY", () => {
@@ -202,6 +231,36 @@ describe("resolveY", () => {
     expect(res.pos).toEqual([0, 5, 0]);
     expect(res.vel).toEqual([0, -2, 0]);
     expect(res.grounded).toBe(false);
+  });
+
+  test("a downward body centered below the solid resolves to its bottom face", () => {
+    const ceiling: AABB = { min: [-2, 2.5, -2], max: [2, 3.5, 2] };
+
+    const res = resolveY(
+      [0, 2.2, 0],
+      [0, -2, 0],
+      PLAYER_SIZE,
+      [ceiling]
+    );
+
+    expect(res.pos[1]).toBeCloseTo(ceiling.min[1] - HALF_HEIGHT, 6);
+    expect(res.vel[1]).toBe(0);
+    expect(res.grounded).toBe(false);
+  });
+
+  test("an upward body centered above the solid resolves to its top face", () => {
+    const ceiling: AABB = { min: [-2, 2.5, -2], max: [2, 3.5, 2] };
+
+    const res = resolveY(
+      [0, 3.2, 0],
+      [0, 3, 0],
+      PLAYER_SIZE,
+      [ceiling]
+    );
+
+    expect(res.pos[1]).toBeCloseTo(ceiling.max[1] + HALF_HEIGHT, 6);
+    expect(res.vel[1]).toBe(0);
+    expect(res.grounded).toBe(true);
   });
 });
 
@@ -360,5 +419,86 @@ describe("player jump collision", () => {
     }
     expect(playerRuntime(state).position[1]).toBeCloseTo(HALF_HEIGHT, 6);
     expect(playerRuntime(state).grounded).toBe(true);
+  });
+});
+
+const KIT_HOUSE_FIXTURE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "tests",
+  "fixtures",
+  "kit-house.json"
+);
+
+/** Yaw-0 camera-relative forward/backward vectors (see web CameraRig). */
+const FORWARD: Vec3 = [-0.4472135954999579, 0, -0.8944271909999159];
+const BACKWARD: Vec3 = [0.4472135954999579, 0, 0.8944271909999159];
+const MAX_STEP = 0.35;
+/** Room interior faces (walls x=±5.0, z=±5.85) minus the player half extent. */
+const ROOM_LIMITS = { x: 4.7, z: 5.55 };
+
+function kitHouse(): GameDoc {
+  return JSON.parse(readFileSync(KIT_HOUSE_FIXTURE, "utf8")) as GameDoc;
+}
+
+describe("kit-house front-door gap regression", () => {
+  test("scripted forward/backward input never teleports and stays in the room", () => {
+    const doc = kitHouse();
+    const engine = createEngine();
+    engine.load(doc);
+    const playerId = doc.entities.find((entity) => entity.kind === "player")?.id;
+    expect(playerId).toBeDefined();
+    if (!playerId) return;
+
+    let previous: Vec3 = [
+      ...engine.getState().entityRuntime[playerId].position,
+    ] as Vec3;
+    for (let step = 0; step < 480; step++) {
+      const input = step < 240 ? FORWARD : BACKWARD;
+      engine.step(FIXED_DT_MS, { moveX: input[0], moveZ: input[2] });
+      const position = engine.getState().entityRuntime[playerId].position;
+      const jump = Math.hypot(position[0] - previous[0], position[2] - previous[2]);
+      expect(
+        jump,
+        `position jump ${jump.toFixed(3)} at tick ${step + 1}`
+      ).toBeLessThanOrEqual(MAX_STEP);
+      expect(Math.abs(position[0])).toBeLessThanOrEqual(ROOM_LIMITS.x + 1e-6);
+      expect(Math.abs(position[2])).toBeLessThanOrEqual(ROOM_LIMITS.z + 1e-6);
+      previous = [position[0], position[1], position[2]];
+    }
+  });
+
+  test("diagonal approach to the door-gap edge never teleports across the door", () => {
+    const doc = kitHouse();
+    const engine = createEngine();
+    engine.load(doc);
+    const playerId = doc.entities.find((entity) => entity.kind === "player")?.id;
+    expect(playerId).toBeDefined();
+    if (!playerId) return;
+
+    const door = doc.entities.find((entity) => entity.id === "front-door");
+    expect(door).toBeDefined();
+    if (!door) return;
+    const doorMinX = door.position[0] - (door.size?.[0] ?? 0) / 2;
+
+    let previous: Vec3 = [
+      ...engine.getState().entityRuntime[playerId].position,
+    ] as Vec3;
+    for (let step = 0; step < 300; step++) {
+      engine.step(FIXED_DT_MS, { moveX: BACKWARD[0], moveZ: BACKWARD[2] });
+      const position = engine.getState().entityRuntime[playerId].position;
+      const jump = Math.hypot(position[0] - previous[0], position[2] - previous[2]);
+      expect(
+        jump,
+        `position jump ${jump.toFixed(3)} at tick ${step + 1}`
+      ).toBeLessThanOrEqual(MAX_STEP);
+      expect(
+        position[0],
+        `player crossed behind the door at tick ${step + 1}`
+      ).toBeGreaterThanOrEqual(doorMinX);
+      previous = [position[0], position[1], position[2]];
+    }
   });
 });
