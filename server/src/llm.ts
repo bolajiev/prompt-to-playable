@@ -5,6 +5,7 @@ export interface OpenAiLlmOptions {
   model?: string | undefined;
   baseUrl?: string | undefined;
   retryDelaysMs?: number[] | undefined;
+  sessionId?: string | undefined;
 }
 
 export const DEFAULT_LLM_MODEL = "gpt-4o-mini";
@@ -31,6 +32,7 @@ export function createOpenAiLlm(options: OpenAiLlmOptions = {}): LlmCall {
     "https://api.openai.com/v1"
   ).replace(/\/+$/, "");
   const retryDelaysMs = [...(options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS)];
+  const sessionId = options.sessionId ?? process.env.OPENAI_SESSION_ID?.trim() ?? "";
 
   const redact = (value: string): string =>
     apiKey ? value.split(apiKey).join("[redacted]") : value;
@@ -52,6 +54,7 @@ export function createOpenAiLlm(options: OpenAiLlmOptions = {}): LlmCall {
           headers: {
             "content-type": "application/json",
             authorization: `Bearer ${apiKey}`,
+            ...(sessionId.length > 0 ? { "X-Session-Id": sessionId } : {}),
           },
           body: JSON.stringify({
             model,

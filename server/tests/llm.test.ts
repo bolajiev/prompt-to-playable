@@ -50,6 +50,55 @@ afterEach(async () => {
   );
 });
 
+describe("createOpenAiLlm session id header", () => {
+  const originalSessionId = process.env.OPENAI_SESSION_ID;
+
+  afterEach(() => {
+    if (originalSessionId === undefined) {
+      delete process.env.OPENAI_SESSION_ID;
+    } else {
+      process.env.OPENAI_SESSION_ID = originalSessionId;
+    }
+  });
+
+  function startOkServer(): Promise<{ baseUrl: string; sessionHeader: () => string | undefined }> {
+    let seen: string | undefined;
+    return startServer((req, res) => {
+      const value = req.headers["x-session-id"];
+      seen = Array.isArray(value) ? value[0] : value;
+      res.statusCode = 200;
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ choices: [{ message: { content: "ok" } }] }));
+    }).then(({ baseUrl }) => ({ baseUrl, sessionHeader: () => seen }));
+  }
+
+  test("sends X-Session-Id when sessionId is provided", async () => {
+    const { baseUrl, sessionHeader } = await startOkServer();
+    const llm = createOpenAiLlm({ apiKey: "test-key", baseUrl, sessionId: "ses_test" });
+
+    await expect(llm("hello")).resolves.toBe("ok");
+    expect(sessionHeader()).toBe("ses_test");
+  });
+
+  test("omits X-Session-Id when no sessionId is configured", async () => {
+    delete process.env.OPENAI_SESSION_ID;
+    const { baseUrl, sessionHeader } = await startOkServer();
+    const llm = createOpenAiLlm({ apiKey: "test-key", baseUrl });
+
+    await expect(llm("hello")).resolves.toBe("ok");
+    expect(sessionHeader()).toBeUndefined();
+  });
+
+  test("falls back to the OPENAI_SESSION_ID env variable", async () => {
+    process.env.OPENAI_SESSION_ID = "ses_env";
+    const { baseUrl, sessionHeader } = await startOkServer();
+    const llm = createOpenAiLlm({ apiKey: "test-key", baseUrl });
+
+    await expect(llm("hello")).resolves.toBe("ok");
+    expect(sessionHeader()).toBe("ses_env");
+  });
+});
+
 describe("createOpenAiLlm retries", () => {
   test("retries 503 responses and resolves after the third attempt", async () => {
     let seen = 0;
