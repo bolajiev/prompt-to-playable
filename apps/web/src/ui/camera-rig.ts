@@ -85,8 +85,8 @@ export function forwardFromYaw(yaw: number): [number, number] {
 export type CameraMode = "orbit" | "firstPerson" | "chase";
 
 /** Inspect scenes frame their content tighter than the default orbit view. */
-export const INSPECT_DISTANCE = 10;
-export const INSPECT_PITCH = 0.35;
+export const INSPECT_DISTANCE = 15;
+export const INSPECT_PITCH = 0.62;
 
 /** First-person eye height above the player AABB center. */
 export const FIRST_PERSON_EYE_HEIGHT = 1.6;

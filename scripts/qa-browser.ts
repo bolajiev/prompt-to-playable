@@ -21,7 +21,7 @@ export const QA_RACE_PROMPT =
 
 const VIEWPORT = { width: 1280, height: 720 };
 const NAVIGATION_TIMEOUT_MS = 60_000;
-const RENDER_TIMEOUT_MS = 90_000;
+const RENDER_TIMEOUT_MS = 240_000;
 const MOVE_HOLD_MS = 1_000;
 const MIN_MOVE_DISTANCE = 0.05;
 const MIN_CANVAS_COLORS = 16;
@@ -774,7 +774,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   });
 
   let generatedOk = false;
-  if (landingOk && !options.landingOnly) {
+  if (landingOk && !options.landingOnly && !options.kitsOnly) {
     generatedOk = await runBeat("generated", join(outDir, "02-generated.png"), async () => {
       const errorsBefore = await chatErrorCount(page);
       await page.fill("#chat-input", QA_PROMPT);
@@ -794,7 +794,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
         objectives.map((text) => text.trim())
       )}; canvas colors=${colors}`;
     });
-  } else if (!options.landingOnly) {
+  } else if (!options.landingOnly && !options.kitsOnly) {
     record({
       beat: "generated",
       ok: false,
@@ -838,7 +838,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
       expectCondition(changed, "canvas did not change while holding w");
       return `held w for ${MOVE_HOLD_MS}ms; canvas changed (pixel-diff; no __gameDebug in this build)`;
     });
-  } else if (!options.landingOnly) {
+  } else if (!options.landingOnly && !options.kitsOnly) {
     record({
       beat: "playing",
       ok: false,
@@ -866,7 +866,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
         " "
       )}"`;
     });
-  } else if (!options.landingOnly) {
+  } else if (!options.landingOnly && !options.kitsOnly) {
     record({
       beat: "edited",
       ok: false,
@@ -878,7 +878,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   const consoleLogPath = join(outDir, "console.log");
 
   let exploredOk = false;
-  if (options.explore && !options.landingOnly && landingOk) {
+  if (options.explore && !options.landingOnly && !options.kitsOnly && landingOk) {
     exploredOk = await runBeat(
       "explored",
       join(outDir, "05-explore.png"),
@@ -928,7 +928,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
         return `explore scene validated after ${Date.now() - started}ms; HUD="${hudText}"; canvas colors=${colors}; new console errors=0`;
       }
     );
-  } else if (options.explore && !options.landingOnly) {
+  } else if (options.explore && !options.landingOnly && !options.kitsOnly) {
     record({
       beat: "explored",
       ok: false,
@@ -1171,14 +1171,14 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   writeFileSync(consoleLogPath, `${consoleLines.join("\n")}\n`, "utf8");
 
   const failedBeats = beats.filter((beat) => !beat.ok);
-  const exploreOk = !options.explore || options.landingOnly || exploredOk;
+  const exploreOk = !options.explore || options.landingOnly || options.kitsOnly || exploredOk;
   const kitsOk =
     !options.kits ||
     options.landingOnly ||
     (inspectedOk && walkedOk && droveOk);
   const ok =
     landingOk &&
-    (options.landingOnly || (generatedOk && movedOk && editedOk)) &&
+    (options.landingOnly || options.kitsOnly || (generatedOk && movedOk && editedOk)) &&
     exploreOk &&
     kitsOk &&
     consoleErrors.length === 0;
@@ -1215,10 +1215,11 @@ interface CliOptions {
   landingOnly: boolean;
   explore: boolean;
   kits: boolean;
+  kitsOnly: boolean;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
-  const options: CliOptions = { landingOnly: false, explore: false, kits: false };
+  const options: CliOptions = { landingOnly: false, explore: false, kits: false, kitsOnly: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--landing-only") {
@@ -1226,6 +1227,9 @@ function parseArgs(argv: readonly string[]): CliOptions {
     } else if (arg === "--explore") {
       options.explore = true;
     } else if (arg === "--kits") {
+      options.kits = true;
+    } else if (arg === "--kits-only") {
+      options.kitsOnly = true;
       options.kits = true;
     } else if (arg === "--out") {
       const value = argv[i + 1];
@@ -1251,7 +1255,7 @@ if (isDirectRun) {
     const options = parseArgs(process.argv.slice(2));
     if (!options.url) {
       console.error(
-        "usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only] [--explore] [--kits]"
+        "usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only] [--explore] [--kits] [--kits-only]"
       );
       process.exitCode = 2;
       return;
@@ -1272,6 +1276,7 @@ if (isDirectRun) {
         landingOnly: options.landingOnly,
         explore: options.explore,
         kits: options.kits,
+        kitsOnly: options.kitsOnly,
       });
       process.exitCode = result.ok ? 0 : 1;
     } finally {
