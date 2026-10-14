@@ -27,6 +27,11 @@ import {
   TRANSLUCENT_OPACITY,
   type EntityTransform,
 } from "./scene.js";
+import {
+  applyShapeColor,
+  createShapeObject,
+  resolvePropShape,
+} from "./shapes.js";
 
 /**
  * Adapter boundary so reconciliation can be tested without Three.js.
@@ -186,9 +191,11 @@ function distance(a: Vec3, b: Vec3): number {
 
 /**
  * Materializes entities as Three.js objects. Animation is applied to the ROOT
- * mesh only (position bob, yaw/roll rotation, emissive modulation), so physics
- * extents derived from the root mesh's Box3 never change. Interactables also
- * get a `visualOnly` ring child that stays inside the entity's unit box.
+ * object only (position bob, yaw/roll rotation, emissive modulation), so
+ * physics extents derived from the root's Box3 never change. Props with a
+ * vocabulary `props.shape` become multi-part Groups whose parts all stay
+ * inside the unit cube; interactables also get a `visualOnly` ring child that
+ * stays inside the entity's unit box.
  */
 export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
   context: AnimationContext = { time: 0, dt: 0, playerPosition: null };
@@ -196,12 +203,17 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
   constructor(private readonly target: THREE.Object3D) {}
 
   create(entity: Entity): THREE.Object3D {
-    const mesh = new THREE.Mesh(geometryForKind(entity.kind), materialForEntity(entity));
-    mesh.name = entity.id;
-    mesh.userData.entityId = entity.id;
-    mesh.userData.kind = entity.kind;
-    if (entity.kind === "interactable") this.attachHighlightRing(mesh);
-    return mesh;
+    const shape =
+      entity.kind === "prop" ? resolvePropShape(entity.props) : "box";
+    const view: THREE.Object3D =
+      shape === "box"
+        ? new THREE.Mesh(geometryForKind(entity.kind), materialForEntity(entity))
+        : createShapeObject(shape, entityColor(entity));
+    view.name = entity.id;
+    view.userData.entityId = entity.id;
+    view.userData.kind = entity.kind;
+    if (entity.kind === "interactable") this.attachHighlightRing(view);
+    return view;
   }
 
   attach(view: THREE.Object3D): void {
@@ -287,20 +299,24 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
     view.visible = transform.visible;
     view.userData.kind = entity.kind;
 
-    const material = (view as THREE.Mesh).material;
     const color = new THREE.Color(entityColor(entity));
-    const emissive = EMISSIVE_STRENGTH[entity.kind];
-    const applyColor = (target: THREE.Material): void => {
-      const shaded = target as THREE.MeshStandardMaterial;
-      shaded.color?.set(color);
-      if (emissive !== undefined && shaded.emissive) {
-        shaded.emissive.copy(color).multiplyScalar(emissive * emissiveScale);
+    if (view.userData.propShape !== undefined) {
+      applyShapeColor(view, color);
+    } else {
+      const material = (view as THREE.Mesh).material;
+      const emissive = EMISSIVE_STRENGTH[entity.kind];
+      const applyColor = (target: THREE.Material): void => {
+        const shaded = target as THREE.MeshStandardMaterial;
+        shaded.color?.set(color);
+        if (emissive !== undefined && shaded.emissive) {
+          shaded.emissive.copy(color).multiplyScalar(emissive * emissiveScale);
+        }
+      };
+      if (Array.isArray(material)) {
+        material.forEach(applyColor);
+      } else if (material && "color" in material) {
+        applyColor(material);
       }
-    };
-    if (Array.isArray(material)) {
-      material.forEach(applyColor);
-    } else if (material && "color" in material) {
-      applyColor(material);
     }
   }
 

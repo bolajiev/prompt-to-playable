@@ -230,6 +230,53 @@ describe("explore archetype", () => {
     expect(sanityCheck(explore).ok).toBe(true);
   });
 
+  test("explore few-shot props use the render shape vocabulary", () => {
+    const shapeVocabulary = [
+      "tree",
+      "rock",
+      "campfire",
+      "pillar",
+      "statue",
+      "lamp",
+      "table",
+      "flower",
+      "building",
+    ];
+    expect(validateGame(ARCHETYPE_EXAMPLES.explore).ok).toBe(true);
+    const props = ARCHETYPE_EXAMPLES.explore.entities.filter(
+      (entity) => entity.kind === "prop"
+    );
+    expect(props.length).toBeGreaterThanOrEqual(2);
+    for (const entity of props) {
+      const shape = entity.props?.shape;
+      expect(typeof shape, entity.id).toBe("string");
+      expect(shapeVocabulary, entity.id).toContain(shape);
+    }
+    expect(props.some((entity) => entity.props?.shape === "campfire")).toBe(true);
+    expect(props.some((entity) => entity.props?.shape === "tree")).toBe(true);
+  });
+
+  test("explore generation prompt teaches the prop shape vocabulary", () => {
+    const text = buildGenerationPrompt(
+      "a quiet forest clearing with a campfire at dusk",
+      "explore"
+    );
+    expect(text).toContain('"shape"');
+    for (const shape of [
+      "tree",
+      "rock",
+      "campfire",
+      "pillar",
+      "statue",
+      "lamp",
+      "table",
+      "flower",
+      "building",
+    ]) {
+      expect(text, shape).toContain(shape);
+    }
+  });
+
   test("explore generation prompt requires empty objectives and no win path", () => {
     const text = buildGenerationPrompt(
       "a quiet forest clearing with a campfire at dusk",
