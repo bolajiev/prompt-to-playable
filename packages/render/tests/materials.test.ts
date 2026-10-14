@@ -90,11 +90,17 @@ describe("kind materials", () => {
     renderer.dispose();
   });
 
-  test("collectibles and enemies are slightly emissive; props are not", () => {
+  test("collectibles, enemies, interactables and exit doors are emissive; props are not", () => {
     const { scene, renderer } = newRenderer();
     renderer.reconcile(
       createState(
-        validDoc([ent("gem", "collectible"), ent("guard", "enemy"), ent("prop", "prop")]),
+        validDoc([
+          ent("gem", "collectible"),
+          ent("guard", "enemy"),
+          ent("prop", "prop"),
+          ent("lever", "interactable"),
+          ent("exit", "exitDoor"),
+        ]),
         1
       )
     );
@@ -102,9 +108,13 @@ describe("kind materials", () => {
     const gem = meshMaterial(scene, "gem") as THREE.MeshStandardMaterial;
     const guard = meshMaterial(scene, "guard") as THREE.MeshStandardMaterial;
     const prop = meshMaterial(scene, "prop") as THREE.MeshStandardMaterial;
+    const lever = meshMaterial(scene, "lever") as THREE.MeshStandardMaterial;
+    const exit = meshMaterial(scene, "exit") as THREE.MeshStandardMaterial;
     expect(gem.emissive.getHex()).not.toBe(0);
     expect(guard.emissive.getHex()).not.toBe(0);
     expect(prop.emissive.getHex()).toBe(0);
+    expect(lever.emissive.getHex()).not.toBe(0);
+    expect(exit.emissive.getHex()).not.toBe(0);
 
     renderer.dispose();
   });

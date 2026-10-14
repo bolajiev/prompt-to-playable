@@ -98,11 +98,14 @@ export const TRANSLUCENT_OPACITY = 0.2;
 
 /**
  * Per-kind emissive fraction of the entity color. Keeps gameplay-relevant
- * entities (collectibles, enemies) readable even in dim lighting.
+ * entities (collectibles, interactables, exit doors, enemies) readable even in
+ * dim lighting: pickups shine, levers and doors glow as affordances.
  */
 export const EMISSIVE_STRENGTH: Readonly<Record<string, number>> = {
-  collectible: 0.35,
+  collectible: 0.4,
   enemy: 0.2,
+  interactable: 0.5,
+  exitDoor: 0.45,
 };
 
 export const KIND_COLORS: Record<string, string> = {

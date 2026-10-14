@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Engine, type GameState } from "@prompt-to-playable/engine";
-import { Renderer } from "@prompt-to-playable/render";
-import type { GameDoc, Lighting } from "@prompt-to-playable/schema";
+import { applyWorldEnvironment, Renderer } from "@prompt-to-playable/render";
+import type { GameDoc } from "@prompt-to-playable/schema";
 import { Chat } from "./ui/chat.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
@@ -43,35 +43,22 @@ export function isTextEntry(target: EventTarget | null): boolean {
   );
 }
 
-/** Light intensities plus scene background for one `world.lighting` mood. */
-export interface LightingProfile {
-  ambient: number;
-  hemisphere: number;
-  directional: number;
-  background: string;
-}
-
 /**
- * Per-`world.lighting` profiles. Morning/evening/night/indoor may be dimmer
- * than day, but every profile keeps a high ambient floor and a hemisphere fill
- * so a generated game is never pitch black.
+ * Lighting presets and environment helpers live in `@prompt-to-playable/render`
+ * (pure tables plus `applyWorldEnvironment`); re-exported here so app consumers
+ * keep one import surface.
  */
-export const LIGHTING_PROFILES: Record<Lighting, LightingProfile> = {
-  dawn: { ambient: 1.3, hemisphere: 0.6, directional: 1.4, background: "#131b2f" },
-  day: { ambient: 1.4, hemisphere: 0.7, directional: 1.6, background: "#0f172a" },
-  dusk: { ambient: 1.3, hemisphere: 0.6, directional: 1.3, background: "#131a2c" },
-  night: { ambient: 1.2, hemisphere: 0.55, directional: 1.05, background: "#0b1120" },
-  indoor: { ambient: 1.25, hemisphere: 0.6, directional: 1.0, background: "#101827" },
-};
-
-/** Ambient intensity every profile must keep for scenes to stay readable. */
-export const MIN_AMBIENT_INTENSITY = 1.2;
-/** Hemisphere fill every profile must keep for scenes to stay readable. */
-export const MIN_HEMISPHERE_INTENSITY = 0.5;
-
-export function lightingProfile(lighting: Lighting | undefined): LightingProfile {
-  return LIGHTING_PROFILES[lighting ?? "day"];
-}
+export {
+  applyWorldEnvironment,
+  LIGHTING_PROFILES,
+  lightingProfile,
+  MIN_AMBIENT_INTENSITY,
+  MIN_DIRECTIONAL_INTENSITY,
+  MIN_FILL_INTENSITY,
+  MIN_HEMISPHERE_INTENSITY,
+  WORLD_ENVIRONMENT_NAME,
+} from "@prompt-to-playable/render";
+export type { LightingProfile } from "@prompt-to-playable/render";
 
 export interface GameDebugHook {
   /** Deep-cloned engine snapshot (JSON round-trip), refreshed on every call. */
@@ -134,9 +121,6 @@ export class App {
   private readonly camera: THREE.PerspectiveCamera;
   private readonly webgl: THREE.WebGLRenderer;
   private readonly renderer: Renderer;
-  private readonly ambientLight: THREE.AmbientLight;
-  private readonly hemisphereLight: THREE.HemisphereLight;
-  private readonly sunLight: THREE.DirectionalLight;
   private readonly hud: Hud;
   private readonly badge: ValidationBadge;
   private readonly chat: Chat;
@@ -164,7 +148,7 @@ export class App {
       options.cancelFrame ?? ((handle) => globalThis.cancelAnimationFrame(handle));
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color("#0f172a");
+    applyWorldEnvironment(this.scene);
 
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
     this.camera.position.set(6, 8, 12);
@@ -175,12 +159,6 @@ export class App {
       antialias: true,
     });
     this.webgl.setPixelRatio(Math.min(globalThis.devicePixelRatio ?? 1, 2));
-
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 1);
-    this.hemisphereLight = new THREE.HemisphereLight(0xbfd8ff, 0x475569, 1);
-    this.sunLight = new THREE.DirectionalLight(0xffffff, 1);
-    this.setupLights();
-    this.setupGround();
 
     this.renderer = new Renderer(this.scene, this.camera);
     this.hud = new Hud(elements.hud);
@@ -218,26 +196,6 @@ export class App {
       this.cancelFrame(this.frameHandle);
       this.frameHandle = null;
     }
-  }
-
-  private setupLights(): void {
-    this.sunLight.position.set(8, 14, 6);
-    this.scene.add(this.ambientLight, this.hemisphereLight, this.sunLight);
-    this.applyLighting(undefined);
-  }
-
-  /** Applies the mood profile for `world.lighting`; dimmer moods stay readable. */
-  private applyLighting(lighting: Lighting | undefined): void {
-    const profile = lightingProfile(lighting);
-    this.ambientLight.intensity = profile.ambient;
-    this.hemisphereLight.intensity = profile.hemisphere;
-    this.sunLight.intensity = profile.directional;
-    (this.scene.background as THREE.Color).set(profile.background);
-  }
-
-  private setupGround(): void {
-    const grid = new THREE.GridHelper(60, 60, 0x334155, 0x1e293b);
-    this.scene.add(grid);
   }
 
   private handleResize = (): void => {
@@ -340,7 +298,7 @@ export class App {
   private loadGame(doc: GameDoc): void {
     this.lastValidatedDoc = doc;
     this.engine.load(doc);
-    this.applyLighting(doc.world.lighting);
+    applyWorldEnvironment(this.scene, doc.world);
     const state = this.engine.getState();
     this.badge.setValidated(true);
     this.hud.update(state);
