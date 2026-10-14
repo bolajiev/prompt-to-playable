@@ -1,0 +1,54 @@
+[
+  {
+    "slug": "judge-collect",
+    "prompt": "collect five glowing crystals scattered across a moonlit meadow",
+    "expectArchetype": "collect-a-thon"
+  },
+  {
+    "slug": "judge-puzzle",
+    "prompt": "activate four ancient switches to open the temple door",
+    "expectArchetype": "puzzle-switch"
+  },
+  {
+    "slug": "judge-platform",
+    "prompt": "jump across floating platforms to reach the summit",
+    "expectArchetype": "platformer-lite"
+  },
+  {
+    "slug": "judge-stealth",
+    "prompt": "sneak past a patrolling guard to escape through the garden gate",
+    "expectArchetype": "stealth-chase"
+  },
+  {
+    "slug": "judge-forest",
+    "prompt": "a quiet forest clearing with a campfire at dusk",
+    "expectArchetype": "explore"
+  },
+  {
+    "slug": "judge-museum",
+    "prompt": "a museum hall with marble statues",
+    "expectArchetype": "explore"
+  },
+  {
+    "slug": "judge-neon",
+    "prompt": "a neon city street at night",
+    "expectArchetype": "explore"
+  },
+  {
+    "slug": "judge-reading",
+    "prompt": "a cozy reading room with a fireplace",
+    "expectArchetype": "explore"
+  },
+  {
+    "slug": "judge-edit-guard",
+    "prompt": "add a second guard patrolling the area",
+    "expectArchetype": "stealth-chase",
+    "editOf": "judge-stealth"
+  },
+  {
+    "slug": "judge-edit-crystals",
+    "prompt": "add three glowing crystals to collect around the campfire",
+    "expectArchetype": "explore",
+    "editOf": "judge-forest"
+  }
+]

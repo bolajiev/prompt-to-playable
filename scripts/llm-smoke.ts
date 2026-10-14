@@ -1,15 +1,15 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { validateGame } from "@prompt-to-playable/schema";
-import type { GameDoc } from "@prompt-to-playable/schema";
+import { ArchetypeSchema, validateGame } from "@prompt-to-playable/schema";
+import type { Archetype, GameDoc } from "@prompt-to-playable/schema";
 import { createDefaultEditDeps, editGame } from "../server/src/edit.js";
 import { loadEnvFile } from "../server/src/env.js";
 import { DEFAULT_LLM_MODEL, createOpenAiLlm } from "../server/src/llm.js";
 import type { LlmCall } from "../server/src/llm.js";
 import { createDefaultPipelineDeps, generateGame } from "../server/src/pipeline.js";
 import { RouteError } from "../server/src/routes.js";
-import { sanityCheck } from "../server/src/sanity.js";
+import { hasWinPath, requiresWinPath, sanityCheck } from "../server/src/sanity.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ENV_PATH = join(ROOT, "server", ".env");
@@ -19,13 +19,19 @@ const CALL_ATTEMPTS = 3;
 
 const USAGE =
   "usage: npm run llm:smoke [-- --prompts <file>] [--no-edit] [--no-write]\n" +
-  "  --prompts <file>  JSON array of {slug, prompt} entries instead of the defaults\n" +
-  "  --no-edit         skip the conversational-edit stage\n" +
+  "  --prompts <file>  JSON array of {slug, prompt, expectArchetype?, editOf?} entries\n" +
+  "                    instead of the defaults; expectArchetype is checked after\n" +
+  "                    generation and editOf marks an edit of that generated slug\n" +
+  "  --no-edit         skip entries with editOf (the conversational-edit stage)\n" +
   "  --no-write        validate and report only; do not write tests/fixtures/live-*.json";
 
 export interface SmokePrompt {
   slug: string;
   prompt: string;
+  /** Judge-style expectation; a mismatch is reported as ARCHETYPE_MISMATCH. */
+  expectArchetype?: Archetype;
+  /** Slug of the generated document this conversational-edit prompt mutates. */
+  editOf?: string;
 }
 
 /**
@@ -53,6 +59,17 @@ export const SMOKE_PROMPTS: readonly SmokePrompt[] = [
 ];
 
 export const SMOKE_EDIT_PROMPT = "add a second guard patrolling the level";
+
+const DEFAULT_EDIT: SmokePrompt = {
+  slug: "crystals-guard-edit",
+  prompt: SMOKE_EDIT_PROMPT,
+  editOf: "crystals-guard",
+};
+
+export const DEFAULT_SMOKE_ENTRIES: readonly SmokePrompt[] = [
+  ...SMOKE_PROMPTS,
+  DEFAULT_EDIT,
+];
 
 function redact(text: string): string {
   const key = process.env.OPENAI_API_KEY?.trim();
@@ -138,6 +155,11 @@ function writeFixture(name: string, doc: GameDoc): string {
 
 interface DocCheck {
   valid: boolean;
+  sanity: boolean;
+  isExplore: boolean;
+  winnable: boolean;
+  objectives: number;
+  explorable: boolean;
   solvable: boolean;
   errors: string[];
 }
@@ -149,28 +171,111 @@ function checkDoc(doc: GameDoc): DocCheck {
       validation.error?.issues.map(
         (issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`
       ) ?? ["document is not a game"];
-    return { valid: false, solvable: false, errors };
+    return {
+      valid: false,
+      sanity: false,
+      isExplore: false,
+      winnable: false,
+      objectives: 0,
+      explorable: false,
+      solvable: false,
+      errors,
+    };
   }
-  const sanity = sanityCheck(validation.data);
+  const data = validation.data;
+  const sanity = sanityCheck(data);
+  const isExplore = data.meta.archetype === "explore";
+  const errors = sanity.errors.map((issue) => `${issue.path}: ${issue.message}`);
+  const winnable = !requiresWinPath(data) || hasWinPath(data);
+  if (!winnable) errors.push("(root): no rule wins the game");
+  if (isExplore && data.objectives.length > 0) {
+    errors.push(
+      `objectives: explore scene has ${data.objectives.length} objective(s); expected none`
+    );
+  }
   return {
     valid: true,
-    solvable: sanity.ok,
-    errors: sanity.errors.map((issue) => `${issue.path}: ${issue.message}`),
+    sanity: sanity.ok,
+    isExplore,
+    winnable,
+    objectives: data.objectives.length,
+    explorable: isExplore && sanity.ok && data.objectives.length === 0,
+    solvable: !isExplore && sanity.ok && winnable,
+    errors,
   };
 }
 
-function report(
-  label: string,
-  archetype: string,
-  valid: boolean,
-  solvable: boolean,
-  latencyMs: number,
-  llmCalls: number,
-  failure?: string
-): void {
-  const failureSuffix = failure ? ` failure=${failure}` : "";
+function docStats(doc: GameDoc): string {
+  const counts = new Map<string, number>();
+  for (const entity of doc.entities) {
+    counts.set(entity.kind, (counts.get(entity.kind) ?? 0) + 1);
+  }
+  const kinds = [...counts.entries()].map(([kind, count]) => `${kind}=${count}`).join(" ");
+  return `entities=${doc.entities.length} (${kinds}) objectives=${doc.objectives.length} rules=${doc.rules.length}`;
+}
+
+function editDiff(base: GameDoc, doc: GameDoc): string {
+  const before = new Set(base.entities.map((entity) => entity.id));
+  const after = new Set(doc.entities.map((entity) => entity.id));
+  const added = doc.entities.filter((entity) => !before.has(entity.id));
+  const removed = base.entities.filter((entity) => !after.has(entity.id));
+  const objectiveDelta = doc.objectives.length - base.objectives.length;
+  const ruleDelta = doc.rules.length - base.rules.length;
+  const sign = (value: number): string => (value >= 0 ? `+${value}` : `${value}`);
+  const ids = (entities: readonly { id: string; kind: string }[]): string =>
+    entities.length === 0 ? "" : ` [${entities.map((e) => `${e.id}(${e.kind})`).join(", ")}]`;
+  const changed =
+    added.length > 0 || removed.length > 0 || objectiveDelta !== 0 || ruleDelta !== 0;
+  return (
+    `edit-diff: entities +${added.length} -${removed.length}${ids(added)}` +
+    ` objectives ${sign(objectiveDelta)} rules ${sign(ruleDelta)}` +
+    (changed ? "" : " (no structural change)")
+  );
+}
+
+function usabilityFailure(check: DocCheck): string | undefined {
+  if (!check.valid) return "SCHEMA";
+  if (!check.sanity) return "SANITY";
+  if (check.isExplore) return check.explorable ? undefined : "OBJECTIVES_PRESENT";
+  return check.solvable ? undefined : "NO_WIN_PATH";
+}
+
+function archetypeFailure(
+  archetype: Archetype,
+  expect: Archetype | undefined
+): string | undefined {
+  return expect !== undefined && archetype !== expect ? "ARCHETYPE_MISMATCH" : undefined;
+}
+
+interface RunOutcome {
+  slug: string;
+  kind: "generate" | "edit";
+  label: string;
+  expected?: Archetype;
+  doc?: GameDoc;
+  check?: DocCheck;
+  failure?: string;
+  usable: boolean;
+  latencyMs: number;
+  calls: number;
+}
+
+function report(outcome: RunOutcome): void {
+  const produced = outcome.doc ? outcome.doc.meta.archetype : "n/a";
+  const expected =
+    outcome.expected !== undefined
+      ? ` expected=${outcome.expected}${
+          outcome.doc && produced !== outcome.expected ? " MISMATCH" : ""
+        }`
+      : "";
+  const verdict = outcome.check
+    ? outcome.check.isExplore
+      ? `valid=${outcome.check.valid} explorable=${outcome.check.explorable}`
+      : `valid=${outcome.check.valid} solvable=${outcome.check.solvable}`
+    : "valid=false solvable=false";
+  const failureSuffix = outcome.failure ? ` failure=${outcome.failure}` : "";
   console.log(
-    `${label} -> ${archetype} -> valid=${valid} solvable=${solvable} latency=${latencyMs}ms calls=${llmCalls}${failureSuffix}`
+    `${outcome.label} -> ${produced}${expected} -> ${verdict} latency=${outcome.latencyMs}ms calls=${outcome.calls}${failureSuffix}`
   );
 }
 
@@ -179,26 +284,41 @@ async function runGenerate(
   llm: LlmCall,
   counter: CallCounter,
   writeFixtures: boolean
-): Promise<GameDoc | undefined> {
+): Promise<RunOutcome> {
   const before = counter.calls;
   const started = Date.now();
+  const outcome: RunOutcome = {
+    slug: entry.slug,
+    kind: "generate",
+    label: entry.prompt,
+    ...(entry.expectArchetype !== undefined
+      ? { expected: entry.expectArchetype }
+      : {}),
+    usable: false,
+    latencyMs: 0,
+    calls: 0,
+  };
   try {
     const doc = await generateGame(entry.prompt, createDefaultPipelineDeps(llm));
     const check = checkDoc(doc);
-    const failure = check.valid ? (check.solvable ? undefined : "SANITY") : "SCHEMA";
-    report(
-      entry.prompt,
-      doc.meta.archetype,
-      check.valid,
-      check.solvable,
-      Date.now() - started,
-      counter.calls - before,
-      failure
-    );
-    if (!check.valid || !check.solvable) {
+    outcome.doc = doc;
+    outcome.check = check;
+    outcome.failure =
+      usabilityFailure(check) ?? archetypeFailure(doc.meta.archetype, entry.expectArchetype);
+    outcome.usable = outcome.failure === undefined;
+    outcome.latencyMs = Date.now() - started;
+    outcome.calls = counter.calls - before;
+    report(outcome);
+    console.log(`  stats: ${docStats(doc)}`);
+    if (!outcome.usable) {
       for (const detail of check.errors) console.error(`  error: ${detail}`);
+      if (outcome.failure === "ARCHETYPE_MISMATCH") {
+        console.error(
+          `  expected archetype ${String(entry.expectArchetype)}, produced ${doc.meta.archetype}`
+        );
+      }
       console.error(`  fixture not written: post-check failed for "${entry.prompt}"`);
-      return undefined;
+      return outcome;
     }
     console.log(
       writeFixtures
@@ -206,69 +326,71 @@ async function runGenerate(
         : `  fixture: tests/fixtures/live-${entry.slug}.json (not written: --no-write)`
     );
     if (writeFixtures) writeFixture(entry.slug, doc);
-    return doc;
+    return outcome;
   } catch (error) {
-    report(
-      entry.prompt,
-      "n/a",
-      false,
-      false,
-      Date.now() - started,
-      counter.calls - before,
-      classifyFailure(error)
-    );
+    outcome.failure = classifyFailure(error);
+    outcome.latencyMs = Date.now() - started;
+    outcome.calls = counter.calls - before;
+    report(outcome);
     for (const detail of failureDetails(error)) console.error(`  error: ${detail}`);
-    return undefined;
+    return outcome;
   }
 }
 
 async function runEdit(
+  entry: SmokePrompt,
   base: GameDoc,
-  baseSlug: string,
   llm: LlmCall,
   counter: CallCounter,
   writeFixtures: boolean
-): Promise<boolean> {
+): Promise<RunOutcome> {
   const before = counter.calls;
   const started = Date.now();
+  const outcome: RunOutcome = {
+    slug: entry.slug,
+    kind: "edit",
+    label: entry.prompt,
+    ...(entry.expectArchetype !== undefined
+      ? { expected: entry.expectArchetype }
+      : {}),
+    usable: false,
+    latencyMs: 0,
+    calls: 0,
+  };
   try {
-    const result = await editGame(SMOKE_EDIT_PROMPT, base, [], createDefaultEditDeps(llm));
+    const result = await editGame(entry.prompt, base, [], createDefaultEditDeps(llm));
     const check = checkDoc(result.doc);
-    const failure = check.valid ? (check.solvable ? undefined : "SANITY") : "SCHEMA";
-    report(
-      SMOKE_EDIT_PROMPT,
-      result.doc.meta.archetype,
-      check.valid,
-      check.solvable,
-      Date.now() - started,
-      counter.calls - before,
-      failure
-    );
-    if (!check.valid || !check.solvable) {
+    outcome.doc = result.doc;
+    outcome.check = check;
+    outcome.failure =
+      usabilityFailure(check) ??
+      archetypeFailure(result.doc.meta.archetype, entry.expectArchetype);
+    outcome.usable = outcome.failure === undefined;
+    outcome.latencyMs = Date.now() - started;
+    outcome.calls = counter.calls - before;
+    report(outcome);
+    console.log(`  stats: ${docStats(result.doc)}`);
+    console.log(`  ${editDiff(base, result.doc)}`);
+    if (!outcome.usable) {
       for (const detail of check.errors) console.error(`  error: ${detail}`);
       console.error("  fixture not written: post-check failed for edit");
-      return false;
+      return outcome;
     }
-    const name = `${baseSlug}-edit`;
+    const name = `${String(entry.editOf)}-edit`;
     console.log(
       writeFixtures
         ? `  fixture: tests/fixtures/live-${name}.json`
         : `  fixture: tests/fixtures/live-${name}.json (not written: --no-write)`
     );
     if (writeFixtures) writeFixture(name, result.doc);
-    return true;
+    return outcome;
   } catch (error) {
-    report(
-      SMOKE_EDIT_PROMPT,
-      "n/a",
-      false,
-      false,
-      Date.now() - started,
-      counter.calls - before,
-      classifyFailure(error)
-    );
+    outcome.failure = classifyFailure(error);
+    outcome.latencyMs = Date.now() - started;
+    outcome.calls = counter.calls - before;
+    report(outcome);
     for (const detail of failureDetails(error)) console.error(`  error: ${detail}`);
-    return false;
+    return outcome;
   }
 }
 
@@ -285,15 +407,36 @@ function parsePromptsFile(file: string): SmokePrompt[] {
     throw new Error(`--prompts file must contain a JSON array: ${file}`);
   }
   return parsed.map((entry, index) => {
-    const slug = (entry as { slug?: unknown } | null)?.slug;
-    const prompt = (entry as { prompt?: unknown } | null)?.prompt;
+    const record = entry as Record<string, unknown> | null;
+    const slug = record?.slug;
+    const prompt = record?.prompt;
     if (typeof slug !== "string" || slug.length === 0) {
       throw new Error(`--prompts entry ${index} is missing a non-empty "slug"`);
     }
     if (typeof prompt !== "string" || prompt.length === 0) {
       throw new Error(`--prompts entry ${index} is missing a non-empty "prompt"`);
     }
-    return { slug, prompt };
+    const parsed: SmokePrompt = { slug, prompt };
+    const expectArchetype = record?.expectArchetype;
+    if (expectArchetype !== undefined) {
+      const result = ArchetypeSchema.safeParse(expectArchetype);
+      if (!result.success) {
+        throw new Error(
+          `--prompts entry ${index} has invalid "expectArchetype": ${JSON.stringify(
+            expectArchetype
+          )}`
+        );
+      }
+      parsed.expectArchetype = result.data;
+    }
+    const editOf = record?.editOf;
+    if (editOf !== undefined) {
+      if (typeof editOf !== "string" || editOf.length === 0) {
+        throw new Error(`--prompts entry ${index} has invalid "editOf"`);
+      }
+      parsed.editOf = editOf;
+    }
+    return parsed;
   });
 }
 
@@ -321,7 +464,7 @@ function parseArgs(argv: readonly string[]): SmokeOptions {
 }
 
 export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
-  const prompts = options.prompts ?? SMOKE_PROMPTS;
+  const entries = options.prompts ?? DEFAULT_SMOKE_ENTRIES;
   const runEditStage = options.edit ?? true;
   const writeFixtures = options.write ?? true;
   loadEnvFile(ENV_PATH);
@@ -333,35 +476,65 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
     return false;
   }
 
+  const generations = entries.filter((entry) => entry.editOf === undefined);
+  const editEntries = entries.filter((entry) => entry.editOf !== undefined);
   const counter: CallCounter = { calls: 0, retries: 0 };
   const llm = countingLlm(withTransientRetries(createOpenAiLlm(), counter), counter);
-  const generated: { slug: string; doc: GameDoc }[] = [];
-  for (const entry of prompts) {
-    const doc = await runGenerate(entry, llm, counter, writeFixtures);
-    if (doc) generated.push({ slug: entry.slug, doc });
+  const outcomes: RunOutcome[] = [];
+  const docsBySlug = new Map<string, GameDoc>();
+
+  for (const entry of generations) {
+    const outcome = await runGenerate(entry, llm, counter, writeFixtures);
+    outcomes.push(outcome);
+    if (outcome.usable && outcome.doc) docsBySlug.set(entry.slug, outcome.doc);
   }
 
   let editCalls = 0;
-  let edited = false;
-  if (runEditStage) {
-    const base = generated[0];
-    if (base) {
-      const before = counter.calls;
-      edited = await runEdit(base.doc, base.slug, llm, counter, writeFixtures);
-      editCalls = counter.calls - before;
-    } else {
-      console.error("skipping edit stage: no generated document to edit");
+  const editsToRun = runEditStage ? editEntries : [];
+  for (const entry of editsToRun) {
+    const base = docsBySlug.get(String(entry.editOf));
+    if (base === undefined) {
+      const outcome: RunOutcome = {
+        slug: entry.slug,
+        kind: "edit",
+        label: entry.prompt,
+        ...(entry.expectArchetype !== undefined
+          ? { expected: entry.expectArchetype }
+          : {}),
+        failure: "BASE_UNAVAILABLE",
+        usable: false,
+        latencyMs: 0,
+        calls: 0,
+      };
+      outcomes.push(outcome);
+      report(outcome);
+      console.error(
+        `  skipping edit: base "${String(entry.editOf)}" was not generated successfully`
+      );
+      continue;
     }
+    const before = counter.calls;
+    const outcome = await runEdit(entry, base, llm, counter, writeFixtures);
+    editCalls += counter.calls - before;
+    outcomes.push(outcome);
   }
 
+  const generated = outcomes.filter((outcome) => outcome.kind === "generate");
+  const edited = outcomes.filter((outcome) => outcome.kind === "edit");
+  const generatedOk = generated.filter((outcome) => outcome.usable).length;
+  const editedOk = edited.filter((outcome) => outcome.usable).length;
+  const explored = generated.filter(
+    (outcome) => outcome.doc?.meta.archetype === "explore"
+  );
+  const explorable = explored.filter((outcome) => outcome.check?.explorable).length;
   const genCalls = counter.calls - editCalls;
-  const ok = generated.length === prompts.length && (!runEditStage || edited);
+  const ok = generatedOk === generations.length && editedOk === editsToRun.length;
   console.log(
-    `summary: generated=${generated.length}/${prompts.length} edited=${
-      runEditStage ? edited : "skipped"
-    } genCalls=${genCalls} editCalls=${editCalls} transientRetries=${counter.retries} result=${
-      ok ? "PASS" : "FAIL"
-    }`
+    `summary: generated=${generatedOk}/${generations.length} edited=${
+      runEditStage ? `${editedOk}/${editsToRun.length}` : "skipped"
+    } explorable=${explorable} genCalls=${genCalls} editCalls=${editCalls} transientRetries=${
+      counter.retries
+    } result=${ok ? "PASS" : "FAIL"}`
   );
   return ok;
 }
