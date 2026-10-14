@@ -2,15 +2,18 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { validateGame } from "@prompt-to-playable/schema";
-import type { Archetype, GameDoc, Vec3 } from "@prompt-to-playable/schema";
+import type { Archetype, Vec3 } from "@prompt-to-playable/schema";
 import type { LlmCall } from "../server/src/llm.js";
+import { isExplorePrompt } from "../server/src/classifier.js";
 import {
   createDefaultPipelineDeps,
   generateGame,
 } from "../server/src/pipeline.js";
 import type { GenerationPipelineDeps } from "../server/src/pipeline.js";
-import { sanityCheck } from "../server/src/sanity.js";
+import { hasWinPath, requiresWinPath, sanityCheck } from "../server/src/sanity.js";
 import { validateDoc } from "../server/src/validate.js";
+
+export { hasWinPath };
 
 export const DEFAULT_THRESHOLD = 0.95;
 export const MIN_CORPUS_SIZE = 20;
@@ -72,6 +75,7 @@ const ARCHETYPE_SET = new Set<Archetype>([
   "puzzle-switch",
   "platformer-lite",
   "stealth-chase",
+  "explore",
 ]);
 
 function asArchetype(value: unknown, context: string): Archetype {
@@ -166,6 +170,7 @@ const DIFFICULTY: Record<Archetype, number> = {
   "puzzle-switch": 0.5,
   "platformer-lite": 0.5,
   "stealth-chase": 0.6,
+  explore: 0,
 };
 
 function metaOf(entry: CorpusEntry): Record<string, unknown> {
@@ -484,6 +489,74 @@ function stealthDoc(entry: CorpusEntry): Record<string, unknown> {
   };
 }
 
+function exploreDoc(entry: CorpusEntry): Record<string, unknown> {
+  return {
+    version: "1.0.0",
+    meta: metaOf(entry),
+    world: {
+      bounds: [24, 10, 24],
+      lighting: "dusk",
+      skybox: "outdoor",
+    },
+    entities: [
+      { id: "player", kind: "player", name: "Wanderer", position: [0, 1, 0] },
+      {
+        id: "campfire",
+        kind: "prop",
+        name: "Campfire",
+        position: [4, 0.5, 3],
+        size: [1.5, 1, 1.5],
+        color: "orange",
+      },
+      {
+        id: "bench",
+        kind: "prop",
+        name: "Fallen log",
+        position: [6, 0.5, 5],
+        size: [3, 1, 1],
+        color: "saddlebrown",
+      },
+      {
+        id: "signpost",
+        kind: "interactable",
+        name: "Weathered signpost",
+        position: [-6, 1, 5],
+      },
+      {
+        id: "firefly",
+        kind: "enemy",
+        name: "Drifting firefly",
+        position: [8, 2, -6],
+        speed: 1,
+        state: "idle",
+      },
+      {
+        id: "campfire-glow",
+        kind: "zone",
+        name: "Campfire glow",
+        position: [4, 1, 3],
+        size: [6, 3, 6],
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "greet-campfire",
+        on: { event: "playerEnter", zone: "campfire-glow" },
+        then: [
+          { type: "showMessage", text: "The fire crackles. The clearing is calm." },
+        ],
+      },
+      {
+        id: "read-signpost",
+        on: { event: "interact", entity: "signpost" },
+        then: [{ type: "showMessage", text: "Rest here as long as you like." }],
+      },
+    ],
+    scratch: { promptId: entry.id },
+  };
+}
+
 export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
   switch (entry.archetype) {
     case "collect-a-thon":
@@ -494,6 +567,8 @@ export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
       return platformerDoc(entry);
     case "stealth-chase":
       return stealthDoc(entry);
+    case "explore":
+      return exploreDoc(entry);
   }
 }
 
@@ -512,6 +587,9 @@ export function classifyByKeywords(prompt: string): Archetype {
   }
   if (/switch|puzzle|beam|mirror|lever|plate|pressure|rotate|light|crystal/i.test(prompt)) {
     return "puzzle-switch";
+  }
+  if (isExplorePrompt(prompt)) {
+    return "explore";
   }
   return "collect-a-thon";
 }
@@ -582,12 +660,6 @@ export function createCorpusLlm(corpus: readonly CorpusEntry[]): LlmCall {
   };
 }
 
-export function hasWinPath(doc: GameDoc): boolean {
-  return doc.rules.some((rule) =>
-    rule.then.some((action) => action.type === "win")
-  );
-}
-
 async function evaluateEntry(entry: CorpusEntry, llm: LlmCall): Promise<PromptOutcome> {
   let repairs = 0;
   const base = createDefaultPipelineDeps(llm);
@@ -620,7 +692,7 @@ async function evaluateEntry(entry: CorpusEntry, llm: LlmCall): Promise<PromptOu
     if (!sanity.ok) {
       return fail(`sanity: ${sanity.errors.map((issue) => issue.message).join("; ")}`);
     }
-    if (!hasWinPath(data)) {
+    if (requiresWinPath(data) && !hasWinPath(data)) {
       return fail("no rule wins the game");
     }
     return {

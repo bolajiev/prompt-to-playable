@@ -74,6 +74,24 @@ describe("buildEditPrompt", () => {
     expect(text).toContain("attempt 2 of 2");
     expect(text).toContain("Cannot replace missing key at /meta/missing");
   });
+
+  test("switches to free-roam constraints for explore scenes", () => {
+    const explore = mustDoc({
+      version: "1.0.0",
+      meta: { title: "Quiet Scene", archetype: "explore" },
+      world: { bounds: [24, 10, 24] },
+      entities: [
+        { id: "player", kind: "player", position: [0, 1, 0] },
+        { id: "bench", kind: "prop", position: [4, 0.5, 3] },
+      ],
+      objectives: [],
+      rules: [],
+      scratch: {},
+    });
+    const text = buildEditPrompt({ prompt: "add a lantern", doc: explore });
+    expect(text).toContain("keep objectives empty");
+    expect(text).not.toContain("Keep the game winnable.");
+  });
 });
 
 describe("parseJsonPatch", () => {

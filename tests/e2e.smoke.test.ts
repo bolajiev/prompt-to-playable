@@ -5,6 +5,7 @@ import type { GameDoc, Vec3 } from "@prompt-to-playable/schema";
 import {
   EvalTargetError,
   assertTarget,
+  buildDoc,
   createCorpusLlm,
   evaluatePrompts,
   loadCorpus,
@@ -13,13 +14,20 @@ import {
   type PromptOutcome,
 } from "../scripts/eval-corpus.js";
 import { createDefaultPipelineDeps, generateGame } from "../server/src/pipeline.js";
-import { sanityCheck } from "../server/src/sanity.js";
+import { hasWinPath, requiresWinPath, sanityCheck } from "../server/src/sanity.js";
 
 const COLLECT: CorpusEntry = {
   id: "smoke-collect",
   prompt: "collect 3 crystals while avoiding patrolling guards",
   archetype: "collect-a-thon",
   title: "Smoke Crystals",
+};
+
+const EXPLORE: CorpusEntry = {
+  id: "smoke-explore",
+  prompt: "a quiet forest clearing with a campfire at dusk",
+  archetype: "explore",
+  title: "Quiet Clearing",
 };
 
 async function generate(entry: CorpusEntry): Promise<GameDoc> {
@@ -92,6 +100,44 @@ describe("e2e smoke — prompt to playable game", () => {
     const summary = summarize(outcomes, corpus.target);
     expect(summary.passed).toBe(true);
     expect(() => assertTarget(summary)).not.toThrow();
+  });
+});
+
+describe("explore scene — prompt to playable scene", () => {
+  function mustExploreDoc(): GameDoc {
+    const checked = validateGame(buildDoc(EXPLORE));
+    if (!checked.ok || !checked.data) throw new Error("explore fixture fails validation");
+    return checked.data;
+  }
+
+  test("the corpus harness accepts an explore scene without a win path", async () => {
+    const outcomes = await evaluatePrompts([EXPLORE]);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0]?.archetype).toBe("explore");
+    expect(outcomes[0]?.valid).toBe(true);
+    expect(outcomes[0]?.solvable).toBe(true);
+    expect(outcomes[0]?.error).toBeUndefined();
+  });
+
+  test("explore docs validate, pass sanity, and are exempt from the win path", () => {
+    const doc = mustExploreDoc();
+    expect(doc.objectives).toEqual([]);
+    expect(doc.entities.some((entity) => entity.kind === "player")).toBe(true);
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(hasWinPath(doc)).toBe(false);
+    expect(requiresWinPath(doc)).toBe(false);
+  });
+
+  test("the engine loads the explore scene and ticks without errors", () => {
+    const engine = createEngine();
+    expect(engine.load(mustExploreDoc()).status).toBe("running");
+
+    for (let i = 0; i < 120; i += 1) engine.step(16.666);
+
+    const state = engine.getState();
+    expect(state.status).toBe("running");
+    expect(state.objectives).toEqual([]);
+    expect(state.ticks).toBeGreaterThan(0);
   });
 });
 

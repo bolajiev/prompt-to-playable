@@ -224,6 +224,7 @@ export const ArchetypeSchema = z.enum([
   "puzzle-switch",
   "platformer-lite",
   "stealth-chase",
+  "explore",
 ]);
 
 export const MetaSchema = z.object({

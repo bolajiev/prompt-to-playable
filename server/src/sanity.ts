@@ -430,6 +430,22 @@ export function sanityCheck(doc: GameDoc): SanityResult {
   return { ok: errors.length === 0, errors };
 }
 
+/** True when some rule can end the game with a win action. */
+export function hasWinPath(doc: GameDoc): boolean {
+  return doc.rules.some((rule) =>
+    rule.then.some((action) => action.type === "win")
+  );
+}
+
+/**
+ * Goal games must ship a win path. Explore scenes are free-roam by design:
+ * they carry no objectives and need no win condition, while player, bounds
+ * and reference checks still apply.
+ */
+export function requiresWinPath(doc: GameDoc): boolean {
+  return doc.meta.archetype !== "explore";
+}
+
 export const SANITY_CODES = [
   "no-player",
   "missing-objective-target",

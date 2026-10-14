@@ -242,11 +242,87 @@ export const ARCHETYPE_EXAMPLES: Record<Archetype, GameDoc> = {
     ],
     scratch: {},
   }),
+  explore: example({
+    version: "1.0.0",
+    meta: { title: "Campfire Clearing", archetype: "explore", genre: "ambient", difficulty: 0 },
+    world: {
+      bounds: [24, 10, 24],
+      lighting: "dusk",
+      skybox: "outdoor",
+      terrain: { type: "flat", obstacles: [] },
+    },
+    entities: [
+      { id: "player", kind: "player", name: "Wanderer", position: [0, 1, 0] },
+      {
+        id: "campfire",
+        kind: "prop",
+        name: "Crackling campfire",
+        position: [4, 0.5, 3],
+        size: [1.5, 1, 1.5],
+        color: "orange",
+      },
+      {
+        id: "log-bench",
+        kind: "prop",
+        name: "Fallen log bench",
+        position: [6, 0.5, 5],
+        size: [3, 1, 1],
+        color: "saddlebrown",
+      },
+      {
+        id: "signpost",
+        kind: "interactable",
+        name: "Weathered signpost",
+        position: [-6, 1, 5],
+      },
+      {
+        id: "firefly",
+        kind: "enemy",
+        name: "Drifting firefly",
+        position: [8, 2, -6],
+        speed: 1,
+        state: "idle",
+        color: "yellow",
+      },
+      {
+        id: "campfire-glow",
+        kind: "zone",
+        name: "Campfire glow",
+        position: [4, 1, 3],
+        size: [6, 3, 6],
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "greet-campfire",
+        on: { event: "playerEnter", zone: "campfire-glow" },
+        then: [
+          { type: "showMessage", text: "The fire crackles. The clearing is calm." },
+        ],
+      },
+      {
+        id: "read-signpost",
+        on: { event: "interact", entity: "signpost" },
+        then: [
+          { type: "showMessage", text: "The sign reads: rest here as long as you like." },
+        ],
+      },
+    ],
+    scratch: {},
+  }),
 };
 
 export function buildGenerationPrompt(prompt: string, archetype: Archetype): string {
+  const isExplore = archetype === "explore";
   return [
-    `Design a complete, playable game that fits the "${archetype}" archetype.`,
+    isExplore
+      ? `Design a complete, explorable 3D scene that fits the "${archetype}" archetype.`
+      : `Design a complete, playable game that fits the "${archetype}" archetype.`,
+    isExplore
+      ? "It uses the same JSON document shape but has NO objectives and no win or lose"
+      : "",
+    isExplore ? "condition: the player simply roams a small, atmospheric place." : "",
     "",
     "Respond with ONLY one JSON object - no markdown fences, no commentary -",
     "with exactly this shape:",
@@ -269,6 +345,9 @@ export function buildGenerationPrompt(prompt: string, archetype: Archetype): str
     '  "targets" AND "count" (the number of progress steps needed to finish it:',
     "  1 for a single reach zone, one per collectible or switch otherwise).",
     '  "progress" defaults to 0 and "status" defaults to "active" }',
+    isExplore
+      ? '  For the "explore" archetype this array MUST be empty: []'
+      : "",
     '- "rules": array of { "id", "on": { "event": ... }, optional "if", "then": [...] }',
     '- "scratch": object of string|number|boolean values (may be empty)',
     "",
@@ -309,25 +388,48 @@ export function buildGenerationPrompt(prompt: string, archetype: Archetype): str
     '  { "type": "spawn", "entity": { ...full entity object... } }',
     '  Never invent action types (no "stateChange") and never use an event name as an action.',
     "",
-    "Winnability - required, because objectives never advance on their own:",
-    "- Walking over a collectible picks nothing up. For every collect target, add a",
-    '  trigger zone (kind "zone") at the same position and one rule that fires on',
-    '  {"event":"playerEnter","zone":"<zone-id>"}, despawns the collectible, and',
-    "  calls objectiveProgress for that objective.",
-    "- For every activate target, add one rule that fires on",
-    '  {"event":"interact","entity":"<target-id>"} and calls objectiveProgress.',
-    "- For every reach target, add one rule on playerEnter for the destination zone",
-    "  that calls objectiveProgress.",
-    "- Progress each step exactly once; never reuse one rule to advance two targets.",
-    '- Finish every objective with a rule on {"event":"objectiveComplete",',
-    '  "objective":"<objective-id>"} whose actions include {"type":"win",...}.',
-    "- The game must be winnable through its rules alone.",
+    ...(isExplore
+      ? [
+          "Free-roam scene requirements (explore archetype):",
+          '- "objectives" MUST be an empty array: []. There is no win or lose condition;',
+          "  never emit win/lose actions and never reference objectives in rules.",
+          '- Populate the scene with a player spawn, a few decorative props (kind "prop"',
+          '  with "color" and/or "size"), and a couple of interactables (kind',
+          '  "interactable"). An NPC-like enemy is allowed, but only with "state":',
+          '  "idle" and no "sight" so it never chases or harms the player.',
+          "- Ambient rules are optional and may only use showMessage, playSound, setVar",
+          "  or incVar; every id they reference must exist in the document.",
+          "- Keep the ground walkable: flat terrain with no obstacles unless the prompt",
+          "  explicitly asks for them.",
+        ]
+      : [
+          "Winnability - required, because objectives never advance on their own:",
+          "- Walking over a collectible picks nothing up. For every collect target, add a",
+          '  trigger zone (kind "zone") at the same position and one rule that fires on',
+          '  {"event":"playerEnter","zone":"<zone-id>"}, despawns the collectible, and',
+          "  calls objectiveProgress for that objective.",
+          "- For every activate target, add one rule that fires on",
+          '  {"event":"interact","entity":"<target-id>"} and calls objectiveProgress.',
+          "- For every reach target, add one rule on playerEnter for the destination zone",
+          "  that calls objectiveProgress.",
+          "- Progress each step exactly once; never reuse one rule to advance two targets.",
+          '- Finish every objective with a rule on {"event":"objectiveComplete",',
+          '  "objective":"<objective-id>"} whose actions include {"type":"win",...}.',
+          "- The game must be winnable through its rules alone.",
+        ]),
     "",
     "Layout - open ground:",
     "- Every position and patrol point must lie inside world.bounds.",
     '- Unless the user explicitly asks for obstacles or cover, use "terrain": { "type": "flat", "obstacles": [] }.',
-    "- If obstacles are requested, keep them well clear of the straight line between",
-    "  the player spawn and every objective target; targets must be reachable on foot.",
+    ...(isExplore
+      ? [
+          "- If obstacles are requested, keep the spawn area and the paths between points",
+          "  of interest clear so the whole scene stays walkable.",
+        ]
+      : [
+          "- If obstacles are requested, keep them well clear of the straight line between",
+          "  the player spawn and every objective target; targets must be reachable on foot.",
+        ]),
     "",
     `Few-shot example for the "${archetype}" archetype`,
     "(structure and quality target - do not copy verbatim):",

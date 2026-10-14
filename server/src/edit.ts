@@ -54,9 +54,17 @@ export interface EditPromptInput {
 
 const SUPPORTED_OPS = "add, remove, replace";
 
+function isExploreDoc(doc: unknown): boolean {
+  if (typeof doc !== "object" || doc === null) return false;
+  const meta = (doc as { meta?: unknown }).meta;
+  if (typeof meta !== "object" || meta === null) return false;
+  return (meta as { archetype?: unknown }).archetype === "explore";
+}
+
 export function buildEditPrompt(input: EditPromptInput): string {
   const history = input.history ?? [];
   const errors = input.errors ?? [];
+  const isExplore = isExploreDoc(input.doc);
   const lines: string[] = [
     "You edit an existing game document.",
     "",
@@ -74,7 +82,13 @@ export function buildEditPrompt(input: EditPromptInput): string {
     "- Make the smallest patch that satisfies the request.",
     "- Keep every position and patrol point inside world.bounds.",
     "- Keep every entity/objective id referenced by objectives or rules defined.",
-    "- Keep exactly one player entity and keep the game winnable.",
+    "- Keep exactly one player entity.",
+    ...(isExplore
+      ? [
+          "- This is an explore scene: keep objectives empty and never add win/lose",
+          "  actions; new decorative entities are welcome.",
+        ]
+      : ["- Keep the game winnable."]),
     "",
     "Current document:",
     JSON.stringify(input.doc, null, 2),

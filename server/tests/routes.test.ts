@@ -137,6 +137,29 @@ describe("POST /generate", () => {
     expect(res.body.error).toBe("GENERATION_FAILED");
     expect(res.body.details.join("\n")).toContain("ghost-gem");
   });
+
+  test("accepts an objective-less explore scene through the sanity gate", async () => {
+    const res = validateGame({
+      version: "1.0.0",
+      meta: { title: "Quiet Scene", archetype: "explore" },
+      world: { bounds: [24, 10, 24] },
+      entities: [
+        { id: "player", kind: "player", position: [0, 1, 0] },
+        { id: "bench", kind: "prop", position: [4, 0.5, 3] },
+      ],
+      objectives: [],
+      rules: [],
+      scratch: {},
+    });
+    if (!res.ok || !res.data) throw new Error("fixture fails schema validation");
+    const app = createApp({ generate: async () => res.data as GameDoc });
+    const response = await request(app)
+      .post("/generate")
+      .send({ prompt: "show me a quiet room" });
+    expect(response.status).toBe(200);
+    expect(response.body.meta.archetype).toBe("explore");
+    expect(response.body.objectives).toEqual([]);
+  });
 });
 
 describe("POST /edit", () => {

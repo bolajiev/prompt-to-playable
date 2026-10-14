@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { GameDoc } from "@prompt-to-playable/schema";
 import { validateGame } from "@prompt-to-playable/schema";
-import { sanityCheck } from "../src/sanity.js";
+import { hasWinPath, requiresWinPath, sanityCheck } from "../src/sanity.js";
 
 function docWith(overrides: Partial<GameDoc>): GameDoc {
   const base: unknown = {
@@ -158,5 +158,79 @@ describe("reachability heuristic (deterministic A* on 2D grid)", () => {
     const doc = docWith({});
     doc.objectives = [{ id: "obj1", type: "collect", count: 3 }];
     expect(sanityCheck(doc).ok).toBe(true);
+  });
+});
+
+function exploreDoc(overrides: Partial<GameDoc> = {}): GameDoc {
+  const base: unknown = {
+    version: "1.0.0",
+    meta: { title: "Quiet Scene", archetype: "explore" },
+    world: { bounds: [24, 10, 24], lighting: "dusk" },
+    entities: [
+      { id: "player", kind: "player", position: [0, 1, 0] },
+      { id: "campfire", kind: "prop", position: [4, 0.5, 3] },
+    ],
+    objectives: [],
+    rules: [],
+    scratch: {},
+  };
+  const res = validateGame(base);
+  if (!res.ok || !res.data) throw new Error("fixture fails schema validation");
+  return { ...res.data, ...overrides };
+}
+
+describe("sanityCheck — explore scenes", () => {
+  test("accepts an explore doc with no objectives and no rules", () => {
+    const result = sanityCheck(exploreDoc());
+    expect(result.ok).toBe(true);
+    expect(result.errors).toEqual([]);
+  });
+
+  test("still reports a missing player entity", () => {
+    const doc = exploreDoc();
+    doc.entities = [{ id: "campfire", kind: "prop", position: [4, 0.5, 3] }];
+    expect(codes(sanityCheck(doc))).toContain("no-player");
+  });
+
+  test("still reports out-of-bounds entities", () => {
+    const doc = exploreDoc();
+    (doc.entities.find((e) => e.id === "campfire") as NonNullable<GameDoc["entities"][number]>).position = [
+      40, 0.5, 3,
+    ];
+    expect(codes(sanityCheck(doc))).toContain("out-of-bounds");
+  });
+
+  test("still reports orphan rule references", () => {
+    const doc = exploreDoc();
+    doc.rules = [
+      {
+        id: "r1",
+        on: { event: "interact", entity: "ghost" },
+        then: [{ type: "showMessage", text: "hi" }],
+      },
+    ];
+    const result = sanityCheck(doc);
+    expect(codes(result)).toContain("missing-rule-reference");
+    expect(result.ok).toBe(false);
+  });
+
+  test("win path is required for games but not for explore", () => {
+    const scene = exploreDoc();
+    expect(hasWinPath(scene)).toBe(false);
+    expect(requiresWinPath(scene)).toBe(false);
+
+    const game = docWith({});
+    expect(hasWinPath(game)).toBe(false);
+    expect(requiresWinPath(game)).toBe(true);
+
+    const winnable = docWith({});
+    winnable.rules = [
+      {
+        id: "r1",
+        on: { event: "objectiveComplete", objective: "obj1" },
+        then: [{ type: "win" }],
+      },
+    ];
+    expect(hasWinPath(winnable)).toBe(true);
   });
 });

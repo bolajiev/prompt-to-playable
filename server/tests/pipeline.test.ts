@@ -7,6 +7,7 @@ import {
   DEFAULT_ARCHETYPE,
   buildClassifierPrompt,
   classify,
+  isExplorePrompt,
   parseArchetype,
 } from "../src/classifier.js";
 import {
@@ -22,6 +23,7 @@ import {
 } from "../src/pipeline.js";
 import type { GenerationPipelineDeps } from "../src/pipeline.js";
 import { RouteError, createApp } from "../src/routes.js";
+import { sanityCheck } from "../src/sanity.js";
 
 type LlmCall = (prompt: string) => Promise<string>;
 
@@ -160,6 +162,89 @@ describe("generator", () => {
     expect(text).toContain('"archetype": "collect-a-thon"');
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES["collect-a-thon"], null, 2));
     expect(text).toContain("collect gems in a cave");
+  });
+});
+
+describe("explore archetype", () => {
+  const gameCases: ReadonlyArray<readonly [string, Archetype]> = [
+    ["a room where I collect 3 glowing crystals while avoiding one guard", "collect-a-thon"],
+    ["puzzle room: activate three switches to open the exit", "puzzle-switch"],
+    ["a platforming course with moving hazards to reach the door", "platformer-lite"],
+    ["sneak past patrolling guards to the exit", "stealth-chase"],
+  ];
+
+  const exploreCases: readonly string[] = [
+    "a quiet forest clearing with a campfire at dusk",
+    "a museum hall with marble statues",
+    "a neon city street at night",
+    "show me a cozy room",
+  ];
+
+  test("classifies goal prompts into the four game archetypes", async () => {
+    for (const [prompt, expected] of gameCases) {
+      const llm = vi.fn<LlmCall>(async () => expected);
+      await expect(classify(prompt, llm)).resolves.toBe(expected);
+    }
+  });
+
+  test("classifies scene prompts as explore", async () => {
+    for (const prompt of exploreCases) {
+      const llm = vi.fn<LlmCall>(async () => "explore");
+      await expect(classify(prompt, llm)).resolves.toBe("explore");
+    }
+  });
+
+  test("deterministic fallback maps scene prompts to explore", async () => {
+    for (const prompt of exploreCases) {
+      const llm = vi.fn<LlmCall>(async () => "banana");
+      await expect(classify(prompt, llm)).resolves.toBe("explore");
+    }
+    await expect(classify("sneak past a guard", async () => "banana")).resolves.toBe(
+      DEFAULT_ARCHETYPE
+    );
+    expect(parseArchetype("banana", "a quiet forest clearing at dusk")).toBe("explore");
+  });
+
+  test("isExplorePrompt separates scenes from goal prompts", () => {
+    for (const prompt of exploreCases) {
+      expect(isExplorePrompt(prompt), prompt).toBe(true);
+    }
+    for (const [prompt] of gameCases) {
+      expect(isExplorePrompt(prompt), prompt).toBe(false);
+    }
+  });
+
+  test("buildClassifierPrompt teaches the explore choice", () => {
+    const text = buildClassifierPrompt("a quiet forest clearing with a campfire at dusk");
+    expect(text).toContain("- explore");
+    expect(text).toContain('choose "explore"');
+    expect(text).toContain("a quiet forest clearing with a campfire at dusk");
+  });
+
+  test("explore few-shot is a zero-objective scene that passes sanity", () => {
+    const explore = ARCHETYPE_EXAMPLES.explore;
+    expect(explore.meta.archetype).toBe("explore");
+    expect(explore.objectives).toEqual([]);
+    expect(explore.entities.some((entity) => entity.kind === "prop")).toBe(true);
+    expect(explore.entities.some((entity) => entity.kind === "interactable")).toBe(true);
+    expect(sanityCheck(explore).ok).toBe(true);
+  });
+
+  test("explore generation prompt requires empty objectives and no win path", () => {
+    const text = buildGenerationPrompt(
+      "a quiet forest clearing with a campfire at dusk",
+      "explore"
+    );
+    expect(text).toContain('"explore" archetype');
+    expect(text).toContain("MUST be an empty array: []");
+    expect(text).not.toContain("The game must be winnable through its rules alone.");
+    expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.explore, null, 2));
+  });
+
+  test("game generation prompt keeps the winnability requirement", () => {
+    const text = buildGenerationPrompt("collect gems in a cave", "collect-a-thon");
+    expect(text).toContain("The game must be winnable through its rules alone.");
+    expect(text).not.toContain("MUST be an empty array: []");
   });
 });
 
