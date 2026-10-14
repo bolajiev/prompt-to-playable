@@ -2,9 +2,11 @@ import * as THREE from "three";
 import { Engine, type GameState } from "@prompt-to-playable/engine";
 import { applyWorldEnvironment, Renderer } from "@prompt-to-playable/render";
 import type { GameDoc } from "@prompt-to-playable/schema";
-import { Chat } from "./ui/chat.js";
+import { Chat, isAbortError } from "./ui/chat.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
+import { GenerationProgress } from "./ui/progress.js";
+import { Onboarding } from "./ui/onboarding.js";
 import {
   audioCueFor,
   AudioPlayer,
@@ -25,6 +27,12 @@ export interface AppElements {
   chatLog: HTMLElement;
   hud: HTMLElement;
   badge: HTMLElement;
+  examples: HTMLElement;
+  emptyState: HTMLElement;
+  progress: HTMLElement;
+  progressStage: HTMLElement;
+  progressTime: HTMLElement;
+  progressCancel: HTMLButtonElement;
 }
 
 export interface AppOptions {
@@ -131,6 +139,8 @@ export class App {
   private readonly hud: Hud;
   private readonly badge: ValidationBadge;
   private readonly chat: Chat;
+  private readonly onboarding: Onboarding;
+  private readonly progress: GenerationProgress;
   private readonly keyboard = createKeyboardState();
   private readonly cameraRig = new CameraRig();
   private readonly audio = new AudioPlayer();
@@ -147,6 +157,7 @@ export class App {
   private lastTime = 0;
   private running = false;
   private frameHandle: number | null = null;
+  private abortController: AbortController | null = null;
   private dragPointerId: number | null = null;
   private lastPointerX = 0;
   private lastPointerY = 0;
@@ -179,6 +190,19 @@ export class App {
     this.chat = new Chat(elements.chatForm, elements.chatInput, elements.chatLog, {
       onSubmit: (prompt) => this.handlePrompt(prompt),
     });
+    this.progress = new GenerationProgress(
+      {
+        root: elements.progress,
+        stage: elements.progressStage,
+        time: elements.progressTime,
+        cancel: elements.progressCancel,
+      },
+      { onCancel: () => this.abortController?.abort() }
+    );
+    this.onboarding = new Onboarding(
+      { examples: elements.examples, emptyState: elements.emptyState },
+      { onPick: (prompt) => this.chat.fill(prompt) }
+    );
 
     this.handleResize();
     globalThis.addEventListener("resize", this.handleResize);
@@ -336,26 +360,40 @@ export class App {
   }
 
   private async handlePrompt(prompt: string): Promise<void> {
-    if (this.lastValidatedDoc === null) {
-      await this.generate(prompt);
-    } else {
-      await this.edit(prompt);
+    const controller = new AbortController();
+    this.abortController = controller;
+    this.progress.start();
+    this.onboarding.setBusy(true);
+    try {
+      if (this.lastValidatedDoc === null) {
+        await this.generate(prompt, controller.signal);
+      } else {
+        await this.edit(prompt, controller.signal);
+      }
+    } finally {
+      if (this.abortController === controller) this.abortController = null;
+      this.progress.stop();
+      this.onboarding.setBusy(false);
     }
   }
 
-  private async generate(prompt: string): Promise<void> {
-    const doc = await this.postJson<GameDoc>("/generate", { prompt });
+  private async generate(prompt: string, signal: AbortSignal): Promise<void> {
+    const doc = await this.postJson<GameDoc>("/generate", { prompt }, signal);
     this.loadGame(doc);
     this.history.push(prompt);
     this.chat.appendMessage("system", `Loaded "${doc.meta.title}".`);
   }
 
-  private async edit(prompt: string): Promise<void> {
-    const result = await this.postJson<EditResponse>("/edit", {
-      prompt,
-      game: this.lastValidatedDoc,
-      history: [...this.history],
-    });
+  private async edit(prompt: string, signal: AbortSignal): Promise<void> {
+    const result = await this.postJson<EditResponse>(
+      "/edit",
+      {
+        prompt,
+        game: this.lastValidatedDoc,
+        history: [...this.history],
+      },
+      signal
+    );
     this.loadGame(result.doc);
     this.history.push(prompt);
     this.chat.appendMessage("system", `Applied edit to "${result.doc.meta.title}".`);
@@ -372,17 +410,24 @@ export class App {
     this.hud.update(state);
     this.renderer.reconcile(state);
     this.lastTime = this.now();
+    this.onboarding.complete();
   }
 
-  private async postJson<T>(path: string, body: unknown): Promise<T> {
+  private async postJson<T>(
+    path: string,
+    body: unknown,
+    signal?: AbortSignal
+  ): Promise<T> {
     let response: Response;
     try {
       response = await this.fetchImpl(this.apiBase + path, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
+        signal,
       });
     } catch (error) {
+      if (isAbortError(error)) throw error;
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(`Could not reach the server (${path}): ${message}`);
     }
@@ -414,6 +459,12 @@ export function resolveElements(root: ParentNode): AppElements {
   const chatLog = root.querySelector<HTMLElement>("#chat-log");
   const hud = root.querySelector<HTMLElement>("#hud");
   const badge = root.querySelector<HTMLElement>("#badge");
+  const examples = root.querySelector<HTMLElement>("#examples");
+  const emptyState = root.querySelector<HTMLElement>("#empty-state");
+  const progress = root.querySelector<HTMLElement>("#progress");
+  const progressStage = root.querySelector<HTMLElement>("#progress-stage");
+  const progressTime = root.querySelector<HTMLElement>("#progress-time");
+  const progressCancel = root.querySelector<HTMLButtonElement>("#progress-cancel");
 
   const missing: string[] = [];
   if (!canvas) missing.push("#game");
@@ -422,6 +473,12 @@ export function resolveElements(root: ParentNode): AppElements {
   if (!chatLog) missing.push("#chat-log");
   if (!hud) missing.push("#hud");
   if (!badge) missing.push("#badge");
+  if (!examples) missing.push("#examples");
+  if (!emptyState) missing.push("#empty-state");
+  if (!progress) missing.push("#progress");
+  if (!progressStage) missing.push("#progress-stage");
+  if (!progressTime) missing.push("#progress-time");
+  if (!progressCancel) missing.push("#progress-cancel");
   if (
     missing.length > 0 ||
     !canvas ||
@@ -429,12 +486,31 @@ export function resolveElements(root: ParentNode): AppElements {
     !chatInput ||
     !chatLog ||
     !hud ||
-    !badge
+    !badge ||
+    !examples ||
+    !emptyState ||
+    !progress ||
+    !progressStage ||
+    !progressTime ||
+    !progressCancel
   ) {
     throw new Error(`Missing required DOM elements: ${missing.join(", ")}`);
   }
 
-  return { canvas, chatForm, chatInput, chatLog, hud, badge };
+  return {
+    canvas,
+    chatForm,
+    chatInput,
+    chatLog,
+    hud,
+    badge,
+    examples,
+    emptyState,
+    progress,
+    progressStage,
+    progressTime,
+    progressCancel,
+  };
 }
 
 export function createApp(options: AppOptions = {}): App {

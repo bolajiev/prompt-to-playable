@@ -6,6 +6,15 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "failed",
 };
 
+/** Copy shown instead of an objective list for explore-style scenes. */
+export const EXPLORE_HINT =
+  "Explore freely — WASD move · Space jump · drag to orbit";
+
+/** Pure explore-HUD decision: zero objectives means a free-roam scene. */
+export function exploreHint(objectiveCount: number): string | null {
+  return objectiveCount === 0 ? EXPLORE_HINT : null;
+}
+
 function formatSeconds(value: number): string {
   return `${value.toFixed(1)}s`;
 }
@@ -68,35 +77,35 @@ export class Hud {
     meta.textContent = `Time: ${formatSeconds(state.time)}`;
     this.root.append(meta);
 
-    const list = doc.createElement("ul");
-    list.className = "objectives";
+    const hint = exploreHint(state.objectives.length);
+    if (hint !== null) {
+      const explore = doc.createElement("p");
+      explore.className = "hud-empty explore-hint";
+      explore.textContent = hint;
+      this.root.append(explore);
+    } else {
+      const list = doc.createElement("ul");
+      list.className = "objectives";
+      for (const objective of state.objectives) {
+        const item = doc.createElement("li");
+        item.className = `objective ${objective.status}`;
+        item.dataset.objectiveId = objective.id;
 
-    if (state.objectives.length === 0) {
-      const item = doc.createElement("li");
-      item.className = "objective";
-      item.textContent = "No objectives";
-      list.append(item);
+        const label = doc.createElement("span");
+        label.textContent = objectiveLabel(objective);
+        item.append(label);
+
+        const right = doc.createElement("span");
+        right.className = "progress";
+        const progress = objectiveProgress(objective);
+        const status = STATUS_LABEL[objective.status] ?? objective.status;
+        right.textContent = progress ? `${progress} \u00b7 ${status}` : status;
+        item.append(right);
+
+        list.append(item);
+      }
+      this.root.append(list);
     }
-
-    for (const objective of state.objectives) {
-      const item = doc.createElement("li");
-      item.className = `objective ${objective.status}`;
-      item.dataset.objectiveId = objective.id;
-
-      const label = doc.createElement("span");
-      label.textContent = objectiveLabel(objective);
-      item.append(label);
-
-      const right = doc.createElement("span");
-      right.className = "progress";
-      const progress = objectiveProgress(objective);
-      const status = STATUS_LABEL[objective.status] ?? objective.status;
-      right.textContent = progress ? `${progress} \u00b7 ${status}` : status;
-      item.append(right);
-
-      list.append(item);
-    }
-    this.root.append(list);
 
     if (state.status === "won" || state.status === "lost") {
       const banner = doc.createElement("div");
