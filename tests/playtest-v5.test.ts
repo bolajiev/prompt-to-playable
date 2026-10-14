@@ -139,16 +139,25 @@ describe("live kit fixtures are playable offline", () => {
     expect(door).toBeDefined();
     if (!player || !door) return;
 
+    const solidProps = doc.entities.filter(
+      (entity) => entity.kind === "prop" && entity.solid === true
+    );
+    expect(
+      solidProps.length,
+      "walkthrough houses must ship solid wall props so the player cannot walk through them"
+    ).toBeGreaterThanOrEqual(4);
+
     const playerStart: Vec3 = [
       ...engine.getState().entityRuntime[player.id].position,
     ] as Vec3;
     const before = [...engine.getState().entityRuntime[door.id].position] as Vec3;
 
     const moveBudget = Math.floor(TICK_BUDGET / 2);
+    const inward = Math.sign(playerStart[2] - door.position[2]) || -1;
     const awayTarget: Vec3 = [
-      playerStart[0],
+      door.position[0],
       playerStart[1],
-      playerStart[2] + 3.2,
+      door.position[2] + inward * 8,
     ];
     const walkedAway = approach(engine, player.id, awayTarget, moveBudget);
     expect(walkedAway).toBe(true);
@@ -158,7 +167,13 @@ describe("live kit fixtures are playable offline", () => {
     expect(xzDistance(awayPosition, playerStart)).toBeGreaterThan(1.0);
     expect(xzDistance(awayPosition, door.position)).toBeGreaterThanOrEqual(2.5);
 
-    const returned = approach(engine, player.id, door.position, moveBudget);
+    const doorDepth = door.size?.[2] ?? 0.3;
+    const returnTarget: Vec3 = [
+      door.position[0],
+      playerStart[1],
+      door.position[2] + inward * (doorDepth / 2 + 0.55),
+    ];
+    const returned = approach(engine, player.id, returnTarget, moveBudget);
     expect(returned).toBe(true);
     const backPosition: Vec3 = [
       ...engine.getState().entityRuntime[player.id].position,
@@ -210,6 +225,31 @@ describe("live kit fixtures are playable offline", () => {
       "second interact should slide the door back toward closed"
     ).toBeLessThan(openTravel / 2);
     expect(state.scratch.doorOpen).toBe(0);
+
+    const backWall = [...solidProps].sort(
+      (a, b) => a.position[2] - b.position[2]
+    )[0];
+    expect(backWall?.size).toBeDefined();
+    if (backWall?.size) {
+      const throughWall: Vec3 = [
+        backWall.position[0],
+        playerStart[1],
+        backWall.position[2] - 3,
+      ];
+      const reachedThrough = approach(engine, player.id, throughWall, 300);
+      expect(
+        reachedThrough,
+        "the player must not walk through the solid back wall"
+      ).toBe(false);
+      const stopped = engine.getState().entityRuntime[player.id].position;
+      const innerFace = backWall.position[2] + backWall.size[2] / 2;
+      expect(
+        stopped[2],
+        "the solid wall must stop the player on the room side"
+      ).toBeGreaterThan(innerFace);
+    }
+
+    state = engine.getState();
     expect(state.ticks).toBeLessThanOrEqual(TICK_BUDGET);
   });
 

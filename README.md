@@ -163,7 +163,7 @@ npm run qa:browser -- <url> --explore        # adds a fifth beat: explore-scene 
 npm run qa:browser -- <url> --kits           # adds beats six to eight: inspect hover, walkthrough door/lamp, drive speed
 ```
 
-The offline suite is **57 files / 604 tests**, needs no API key, and includes
+The offline suite is **57 files / 605 tests**, needs no API key, and includes
 the rules evaluator, movement/gravity/jump and obstacle/platform collision,
 enemy patrol/chase, objectives, explore HUD hint, mode HUDs (inspect /
 walkthrough / drive), picking and hover edges, orbit-camera math, audio cue

@@ -57,24 +57,73 @@ describe("kit few-shot examples", () => {
     expect(actionTypes).toContain("cameraFocus");
   });
 
-  test("walkthrough example has a sliding door and a toggling lamp", () => {
+  test("walkthrough example has solid wall props, a sliding door and a toggling lamp", () => {
     const doc = ARCHETYPE_EXAMPLES.walkthrough;
     expect(doc.meta.mode).toBe("walkthrough");
     expect(doc.objectives).toEqual([]);
     expect(requiresWinPath(doc)).toBe(false);
+    expect(doc.entities.length).toBeLessThanOrEqual(14);
+    expect(doc.rules.length).toBeLessThanOrEqual(10);
+
+    const walls = doc.entities.filter(
+      (entity) => entity.kind === "prop" && entity.solid === true
+    );
+    expect(walls.length).toBeGreaterThanOrEqual(4);
+    for (const wall of walls) {
+      expect(wall.size, wall.id).toBeDefined();
+      expect(wall.parts?.[0]?.offset, wall.id).toEqual([0, 0, 0]);
+    }
+    const frontWalls = walls.filter((wall) => wall.position[2] > 0);
+    expect(frontWalls.length).toBeGreaterThanOrEqual(2);
 
     const door = doc.entities.find((entity) => entity.id === "front-door");
     expect(door?.kind).toBe("interactable");
     expect(door?.props?.door).toBe(true);
-    const doorRule = doc.rules.find((rule) => rule.on.entity === "front-door");
-    expect(doorRule?.on.event).toBe("interact");
-    const slide = doorRule?.then.find((action) => action.type === "animate");
+    expect(door?.solid).toBe(true);
+    expect(door?.size).toBeDefined();
+    if (door?.size && frontWalls.length >= 2) {
+      const ordered = [...frontWalls].sort(
+        (a, b) => a.position[0] - b.position[0]
+      );
+      const leftEdge = ordered[0].position[0] + ordered[0].size![0] / 2;
+      const rightEdge = ordered[1].position[0] - ordered[1].size![0] / 2;
+      const gap = rightEdge - leftEdge;
+      expect(gap).toBeGreaterThan(0);
+      expect(door.size[0]).toBeLessThanOrEqual(gap + 1e-6);
+      expect(door.size[0]).toBeGreaterThan(gap / 2);
+    }
+
+    const doorRules = doc.rules.filter(
+      (rule) => rule.on.event === "interact" && rule.on.entity === "front-door"
+    );
+    expect(doorRules.length).toBeGreaterThanOrEqual(2);
+    const branch = (right: number) =>
+      doorRules.find((rule) => {
+        if (!rule.if || rule.if.op !== "==") return false;
+        const left = rule.if.left;
+        return (
+          typeof left === "object" &&
+          left !== null &&
+          "var" in left &&
+          left.var === "doorOpen" &&
+          rule.if.right === right
+        );
+      });
+    const openRule = branch(0);
+    const closeRule = branch(1);
+    expect(openRule, "open branch gated on doorOpen == 0").toBeDefined();
+    expect(closeRule, "close branch gated on doorOpen == 1").toBeDefined();
+    const slide = openRule?.then.find((action) => action.type === "animate");
     expect(slide?.type === "animate" && slide.kind).toBe("slide");
     expect(slide?.type === "animate" && Array.isArray(slide.to)).toBe(true);
-    expect(doorRule?.then.some((action) => action.type === "openDoor")).toBe(true);
+    expect(openRule?.then.some((action) => action.type === "openDoor")).toBe(true);
+    expect(
+      closeRule?.then.some((action) => action.type === "setVar" && action.key === "doorOpen" && action.value === 0)
+    ).toBe(true);
 
     const lamp = doc.entities.find((entity) => entity.id === "floor-lamp");
     expect(lamp?.kind).toBe("interactable");
+    expect(lamp?.solid).not.toBe(true);
     const lampRules = doc.rules.filter((rule) => rule.on.entity === "floor-lamp");
     const lampActions = lampRules.flatMap((rule) => rule.then.map((action) => action.type));
     expect(lampActions).toContain("setVisible");
@@ -130,15 +179,29 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.inspect, null, 2));
   });
 
-  test("walkthrough prompt teaches slide doors, interactables and no win path", () => {
+  test("walkthrough prompt teaches solid walls, slide doors and variation", () => {
     const text = buildGenerationPrompt("a house I can walk through", "walkthrough");
     expect(text).toContain('"mode": "walkthrough"');
+    expect(text).toContain('"solid": true');
+    expect(text).toContain("per entity AABB, never per part");
+    expect(text).toContain("door-width gap");
     expect(text).toContain('"props": { "door": true }');
     expect(text).toContain('"kind":"slide"');
     expect(text).toContain("openDoor");
+    expect(text).toContain("doorOpen");
+    expect(text).toContain("lampOn");
     expect(text).toContain("setVisible");
+    expect(text).toContain("Budget: at most 14 entities and 10 rules");
+    expect(text).toContain("do not copy the few-shot document verbatim");
     expect(text).not.toContain("The game must be winnable through its rules alone.");
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.walkthrough, null, 2));
+  });
+
+  test("inspect and drive prompts carry entity and rule budgets", () => {
+    const inspect = buildGenerationPrompt("a 3D PCB I can inspect", "inspect");
+    expect(inspect).toContain("Budget: at most 12 entities and 8 rules");
+    const drive = buildGenerationPrompt("a car racing game", "drive");
+    expect(drive).toContain("Budget: at most 12 entities and 10 rules");
   });
 
   test("drive prompt teaches vehicle props, ordered checkpoints and winnability", () => {
