@@ -6,6 +6,13 @@ import { Chat } from "./ui/chat.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
 import {
+  audioCueFor,
+  AudioPlayer,
+  toAudioCueState,
+  type AudioCueState,
+} from "./ui/audio.js";
+import { CameraRig } from "./ui/camera-rig.js";
+import {
   createKeyboardState,
   PREVENT_DEFAULT_CODES,
   toWorldInput,
@@ -125,6 +132,9 @@ export class App {
   private readonly badge: ValidationBadge;
   private readonly chat: Chat;
   private readonly keyboard = createKeyboardState();
+  private readonly cameraRig = new CameraRig();
+  private readonly audio = new AudioPlayer();
+  private previousCueState: AudioCueState | null = null;
 
   private readonly fetchImpl: typeof fetch;
   private readonly apiBase: string;
@@ -137,6 +147,9 @@ export class App {
   private lastTime = 0;
   private running = false;
   private frameHandle: number | null = null;
+  private dragPointerId: number | null = null;
+  private lastPointerX = 0;
+  private lastPointerY = 0;
 
   constructor(elements: AppElements, options: AppOptions = {}) {
     this.apiBase = options.apiBase ?? "";
@@ -172,6 +185,16 @@ export class App {
     globalThis.addEventListener("keydown", this.handleKeyDown);
     globalThis.addEventListener("keyup", this.handleKeyUp);
     globalThis.addEventListener("blur", this.handleBlur);
+    globalThis.addEventListener("pointerdown", this.handleUserGesture);
+    globalThis.addEventListener("keydown", this.handleUserGesture);
+
+    elements.canvas.addEventListener("pointerdown", this.handlePointerDown);
+    elements.canvas.addEventListener("pointermove", this.handlePointerMove);
+    elements.canvas.addEventListener("pointerup", this.handlePointerUp);
+    elements.canvas.addEventListener("pointercancel", this.handlePointerUp);
+    elements.canvas.addEventListener("wheel", this.handleWheel, {
+      passive: false,
+    });
     installDebugHook(this.engine);
   }
 
@@ -222,6 +245,49 @@ export class App {
     this.keyboard.clear();
   };
 
+  /** Autoplay policy: the AudioContext may only be created from a gesture. */
+  private handleUserGesture = (): void => {
+    this.audio.resume();
+  };
+
+  private handlePointerDown = (event: PointerEvent): void => {
+    if (event.button !== 0) return;
+    this.dragPointerId = event.pointerId;
+    this.lastPointerX = event.clientX;
+    this.lastPointerY = event.clientY;
+    this.cameraRig.beginDrag();
+    try {
+      event.target instanceof Element &&
+        event.target.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Pointer capture is best-effort (synthetic or already-released pointers).
+    }
+  };
+
+  private handlePointerMove = (event: PointerEvent): void => {
+    if (this.dragPointerId === null || event.pointerId !== this.dragPointerId) {
+      return;
+    }
+    const dx = event.clientX - this.lastPointerX;
+    const dy = event.clientY - this.lastPointerY;
+    this.lastPointerX = event.clientX;
+    this.lastPointerY = event.clientY;
+    this.cameraRig.drag(dx, dy);
+  };
+
+  private handlePointerUp = (event: PointerEvent): void => {
+    if (this.dragPointerId === null || event.pointerId !== this.dragPointerId) {
+      return;
+    }
+    this.dragPointerId = null;
+    this.cameraRig.endDrag();
+  };
+
+  private handleWheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    this.cameraRig.zoom(event.deltaY);
+  };
+
   private loop = (): void => {
     if (!this.running) return;
 
@@ -234,38 +300,38 @@ export class App {
       if (state.status === "running") {
         const input = toWorldInput(
           this.keyboard.toInput(),
-          this.cameraForward(state)
+          this.cameraRig.forwardGround()
         );
         state = this.engine.step(dt, input);
       }
       this.renderer.reconcile(state);
       this.hud.update(state);
-      this.updateCamera(state);
+      this.updateCamera(state, dt / 1000);
+      this.updateAudio(state);
     }
 
     this.webgl.render(this.scene, this.camera);
     this.frameHandle = this.requestFrame(this.loop);
   };
 
-  /** Camera ground-forward `[x, z]` from the camera toward the player on XZ. */
-  private cameraForward(state: GameState): [number, number] {
-    const player = state.entities.find((entity) => entity.kind === "player");
-    if (!player) return [0, -1];
-    const position = state.entityRuntime[player.id]?.position ?? player.position;
-    const dx = position[0] - this.camera.position.x;
-    const dz = position[2] - this.camera.position.z;
-    const length = Math.hypot(dx, dz);
-    if (length < 1e-6) return [0, -1];
-    return [dx / length, dz / length];
+  private updateAudio(state: GameState): void {
+    const next = toAudioCueState(state);
+    const cue = audioCueFor(this.previousCueState, next);
+    this.previousCueState = next;
+    if (cue !== null) this.audio.play(cue);
   }
 
-  private updateCamera(state: GameState): void {
+  private updateCamera(state: GameState, dtSeconds: number): void {
+    this.cameraRig.update(dtSeconds);
     const player = state.entities.find((entity) => entity.kind === "player");
     if (!player) return;
     const position = state.entityRuntime[player.id]?.position ?? player.position;
     const target = new THREE.Vector3(position[0], position[1], position[2]);
-    const desired = target.clone().add(new THREE.Vector3(6, 8, 12));
-    this.camera.position.lerp(desired, 0.1);
+    const desired = this.cameraRig.desiredPosition(position);
+    this.camera.position.lerp(
+      new THREE.Vector3(desired[0], desired[1], desired[2]),
+      0.1
+    );
     this.camera.lookAt(target);
   }
 
@@ -299,6 +365,8 @@ export class App {
     this.lastValidatedDoc = doc;
     this.engine.load(doc);
     applyWorldEnvironment(this.scene, doc.world);
+    this.cameraRig.reset();
+    this.previousCueState = null;
     const state = this.engine.getState();
     this.badge.setValidated(true);
     this.hud.update(state);
