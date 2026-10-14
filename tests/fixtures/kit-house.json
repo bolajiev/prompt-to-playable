@@ -1,0 +1,1443 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Small House Walkthrough",
+    "archetype": "explore",
+    "genre": "interior",
+    "difficulty": 0,
+    "seed": 4217,
+    "mode": "walkthrough"
+  },
+  "world": {
+    "bounds": [
+      16,
+      8,
+      16
+    ],
+    "lighting": "indoor",
+    "skybox": "outdoor",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "name": "Visitor",
+      "position": [
+        0,
+        1,
+        4.5
+      ],
+      "tags": [
+        "visitor"
+      ],
+      "active": true
+    },
+    {
+      "id": "house",
+      "kind": "prop",
+      "name": "House shell",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        11,
+        4.4,
+        9
+      ],
+      "tags": [
+        "building"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.1,
+            0
+          ],
+          "size": [
+            11,
+            0.2,
+            9
+          ],
+          "color": "#b98d5c",
+          "material": {
+            "roughness": 0.9,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            2,
+            -4.5
+          ],
+          "size": [
+            11,
+            4,
+            0.2
+          ],
+          "color": "#f0e2c8",
+          "material": {
+            "roughness": 0.95,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -5.5,
+            2,
+            0
+          ],
+          "size": [
+            0.2,
+            4,
+            9
+          ],
+          "color": "#f0e2c8",
+          "material": {
+            "roughness": 0.95,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            5.5,
+            2,
+            0
+          ],
+          "size": [
+            0.2,
+            4,
+            9
+          ],
+          "color": "#f0e2c8",
+          "material": {
+            "roughness": 0.95,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -4,
+            2,
+            4.5
+          ],
+          "size": [
+            3,
+            4,
+            0.2
+          ],
+          "color": "#f0e2c8",
+          "material": {
+            "roughness": 0.95,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            4,
+            2,
+            4.5
+          ],
+          "size": [
+            3,
+            4,
+            0.2
+          ],
+          "color": "#f0e2c8",
+          "material": {
+            "roughness": 0.95,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            4.15,
+            0
+          ],
+          "size": [
+            11.6,
+            0.3,
+            9.6
+          ],
+          "color": "#8b5a42",
+          "material": {
+            "roughness": 0.85,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "wedge",
+          "offset": [
+            0,
+            5.05,
+            0
+          ],
+          "size": [
+            11.6,
+            1.8,
+            9.6
+          ],
+          "color": "#6f4c3c",
+          "material": {
+            "roughness": 0.85,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            5.2,
+            0
+          ],
+          "size": [
+            0.5,
+            2.4,
+            0.5
+          ],
+          "color": "#a8917a",
+          "material": {
+            "roughness": 0.9,
+            "texture": "brick"
+          }
+        }
+      ]
+    },
+    {
+      "id": "front-door",
+      "kind": "interactable",
+      "name": "Front door",
+      "position": [
+        0,
+        1.5,
+        4.5
+      ],
+      "size": [
+        2.2,
+        3,
+        0.25
+      ],
+      "color": "#7b4b2a",
+      "tags": [
+        "door"
+      ],
+      "active": true,
+      "props": {
+        "door": true,
+        "interactRange": 3.5
+      },
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2.2,
+            3,
+            0.2
+          ],
+          "color": "#7b4b2a",
+          "material": {
+            "roughness": 0.8,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            1.1,
+            0
+          ],
+          "size": [
+            1.4,
+            0.6,
+            0.28
+          ],
+          "color": "#5f3a20",
+          "material": {
+            "roughness": 0.8,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            -0.8,
+            0,
+            0.22
+          ],
+          "size": [
+            0.18,
+            0.18,
+            0.18
+          ],
+          "color": "#d4af37",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.25
+          }
+        }
+      ],
+      "label": {
+        "text": "Front door — press E to open",
+        "offset": [
+          0,
+          2.1,
+          0
+        ],
+        "size": 0.42
+      }
+    },
+    {
+      "id": "floor-lamp",
+      "kind": "interactable",
+      "name": "Floor lamp",
+      "position": [
+        -3.2,
+        1.5,
+        2.6
+      ],
+      "size": [
+        1,
+        3,
+        1
+      ],
+      "color": "#ffd166",
+      "tags": [
+        "lamp"
+      ],
+      "active": true,
+      "props": {
+        "interactRange": 3.5
+      },
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.18,
+            3,
+            0.18
+          ],
+          "color": "#4a4a4a",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -1.4,
+            0
+          ],
+          "size": [
+            0.7,
+            0.15,
+            0.7
+          ],
+          "color": "#3d3d3d",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "cone",
+          "offset": [
+            0,
+            1.6,
+            0
+          ],
+          "size": [
+            1.2,
+            0.95,
+            1.2
+          ],
+          "color": "#ffd166",
+          "material": {
+            "emissive": "#ffd166",
+            "opacity": 0.92
+          }
+        }
+      ],
+      "label": {
+        "text": "Floor lamp — press E to toggle",
+        "offset": [
+          0,
+          2.7,
+          0
+        ],
+        "size": 0.4
+      }
+    },
+    {
+      "id": "lamp-glow",
+      "kind": "prop",
+      "name": "Lamp glow",
+      "position": [
+        -3.2,
+        3.3,
+        2.6
+      ],
+      "size": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "color": "#ffe9a8",
+      "tags": [
+        "glow"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "color": "#ffe9a8",
+          "material": {
+            "emissive": "#ffdf7e",
+            "opacity": 0.85
+          }
+        }
+      ]
+    },
+    {
+      "id": "reading-chair",
+      "kind": "prop",
+      "name": "Reading chair",
+      "position": [
+        -3,
+        0.5,
+        0.4
+      ],
+      "size": [
+        1.6,
+        1,
+        1.6
+      ],
+      "tags": [
+        "furniture"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.1,
+            0
+          ],
+          "size": [
+            1.5,
+            0.3,
+            1.5
+          ],
+          "color": "#8c5a4a",
+          "material": {
+            "roughness": 0.9,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.6,
+            -0.6
+          ],
+          "size": [
+            1.5,
+            1.2,
+            0.2
+          ],
+          "color": "#8c5a4a",
+          "material": {
+            "roughness": 0.9,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.6,
+            -0.6,
+            0.6
+          ],
+          "size": [
+            0.12,
+            0.9,
+            0.12
+          ],
+          "color": "#6b4335"
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.6,
+            -0.6,
+            0.6
+          ],
+          "size": [
+            0.12,
+            0.9,
+            0.12
+          ],
+          "color": "#6b4335"
+        }
+      ]
+    },
+    {
+      "id": "dining-table",
+      "kind": "prop",
+      "name": "Dining table",
+      "position": [
+        2.6,
+        0.8,
+        1.4
+      ],
+      "size": [
+        3,
+        1.6,
+        1.7
+      ],
+      "tags": [
+        "furniture"
+      ],
+      "active": true,
+      "props": {
+        "shape": "table"
+      },
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.7,
+            0
+          ],
+          "size": [
+            3,
+            0.16,
+            1.7
+          ],
+          "color": "#9c6b45",
+          "material": {
+            "roughness": 0.8,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -1.2,
+            -0.1,
+            -0.6
+          ],
+          "size": [
+            0.15,
+            1.4,
+            0.15
+          ],
+          "color": "#7b4b2a"
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            1.2,
+            -0.1,
+            -0.6
+          ],
+          "size": [
+            0.15,
+            1.4,
+            0.15
+          ],
+          "color": "#7b4b2a"
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -1.2,
+            -0.1,
+            0.6
+          ],
+          "size": [
+            0.15,
+            1.4,
+            0.15
+          ],
+          "color": "#7b4b2a"
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            1.2,
+            -0.1,
+            0.6
+          ],
+          "size": [
+            0.15,
+            1.4,
+            0.15
+          ],
+          "color": "#7b4b2a"
+        }
+      ]
+    },
+    {
+      "id": "table-bowl",
+      "kind": "prop",
+      "name": "Fruit bowl",
+      "position": [
+        2.6,
+        1.75,
+        1.4
+      ],
+      "size": [
+        0.7,
+        0.3,
+        0.7
+      ],
+      "tags": [
+        "decor"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            0.35,
+            0.6
+          ],
+          "color": "#d8c3a5",
+          "material": {
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            -0.12,
+            0.14,
+            0
+          ],
+          "size": [
+            0.2,
+            0.2,
+            0.2
+          ],
+          "color": "#c0392b"
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0.14,
+            0.14,
+            0.06
+          ],
+          "size": [
+            0.18,
+            0.18,
+            0.18
+          ],
+          "color": "#e67e22"
+        }
+      ]
+    },
+    {
+      "id": "shelf",
+      "kind": "prop",
+      "name": "Wall shelf",
+      "position": [
+        4.6,
+        1.6,
+        -1.5
+      ],
+      "size": [
+        0.6,
+        3,
+        2.4
+      ],
+      "tags": [
+        "furniture"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -1.4,
+            0
+          ],
+          "size": [
+            0.6,
+            0.15,
+            2.4
+          ],
+          "color": "#8b5a42",
+          "material": {
+            "roughness": 0.85,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            0.15,
+            2.4
+          ],
+          "color": "#8b5a42",
+          "material": {
+            "roughness": 0.85,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            1.4,
+            0
+          ],
+          "size": [
+            0.6,
+            0.15,
+            2.4
+          ],
+          "color": "#8b5a42",
+          "material": {
+            "roughness": 0.85,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.18,
+            -1.05,
+            -0.7
+          ],
+          "size": [
+            0.22,
+            0.6,
+            0.16
+          ],
+          "color": "#3b6ea5"
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.18,
+            -1.05,
+            -0.45
+          ],
+          "size": [
+            0.22,
+            0.6,
+            0.16
+          ],
+          "color": "#a53b3b"
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.15,
+            0.35,
+            0.6
+          ],
+          "size": [
+            0.2,
+            0.5,
+            0.16
+          ],
+          "color": "#4f8a5b"
+        }
+      ]
+    },
+    {
+      "id": "rug",
+      "kind": "prop",
+      "name": "Rug",
+      "position": [
+        0,
+        0.12,
+        0.4
+      ],
+      "size": [
+        4,
+        0.06,
+        3
+      ],
+      "tags": [
+        "decor"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            4,
+            0.06,
+            3
+          ],
+          "color": "#9c4f45",
+          "material": {
+            "roughness": 1
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.02,
+            0
+          ],
+          "size": [
+            3.2,
+            0.06,
+            2.2
+          ],
+          "color": "#c98b6b",
+          "material": {
+            "roughness": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "ceiling-lamp",
+      "kind": "interactable",
+      "name": "Ceiling lamp",
+      "position": [
+        0,
+        3.4,
+        -1.2
+      ],
+      "size": [
+        1,
+        1.4,
+        1
+      ],
+      "color": "#ffd166",
+      "tags": [
+        "lamp"
+      ],
+      "active": true,
+      "props": {
+        "interactRange": 3.5
+      },
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.08,
+            0.8,
+            0.08
+          ],
+          "color": "#3d3d3d",
+          "material": {
+            "metalness": 0.7,
+            "roughness": 0.4
+          }
+        },
+        {
+          "shape": "cone",
+          "offset": [
+            0,
+            -0.1,
+            0
+          ],
+          "size": [
+            1,
+            0.9,
+            1
+          ],
+          "color": "#ffd166",
+          "material": {
+            "emissive": "#ffd166",
+            "opacity": 0.92
+          }
+        }
+      ],
+      "label": {
+        "text": "Ceiling lamp — press E to toggle",
+        "offset": [
+          0,
+          1,
+          0
+        ],
+        "size": 0.4
+      }
+    },
+    {
+      "id": "ceiling-glow",
+      "kind": "prop",
+      "name": "Ceiling glow",
+      "position": [
+        0,
+        2.7,
+        -1.2
+      ],
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ],
+      "color": "#fff2c2",
+      "tags": [
+        "glow"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.9,
+            0.9,
+            0.9
+          ],
+          "color": "#fff2c2",
+          "material": {
+            "emissive": "#ffe9a8",
+            "opacity": 0.75
+          }
+        }
+      ]
+    },
+    {
+      "id": "flower-pot",
+      "kind": "prop",
+      "name": "Flower pot",
+      "position": [
+        -4.6,
+        0.4,
+        3.4
+      ],
+      "size": [
+        0.8,
+        0.9,
+        0.8
+      ],
+      "tags": [
+        "decor"
+      ],
+      "active": true,
+      "props": {
+        "shape": "flower"
+      },
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.6,
+            0.8,
+            0.6
+          ],
+          "color": "#b5651d",
+          "material": {
+            "roughness": 0.95
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0.7,
+            0
+          ],
+          "size": [
+            0.35,
+            0.35,
+            0.35
+          ],
+          "color": "#e05a7a",
+          "material": {
+            "emissive": "#e05a7a",
+            "opacity": 0.95
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0.4,
+            0
+          ],
+          "size": [
+            0.06,
+            0.6,
+            0.06
+          ],
+          "color": "#4f8a5b"
+        }
+      ]
+    },
+    {
+      "id": "outside-stone",
+      "kind": "prop",
+      "name": "Garden stone",
+      "position": [
+        3.4,
+        0.25,
+        6.2
+      ],
+      "size": [
+        1.2,
+        0.5,
+        1
+      ],
+      "color": "#8e8e8e",
+      "tags": [
+        "decor"
+      ],
+      "active": true,
+      "props": {
+        "shape": "rock"
+      },
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1.2,
+            0.5,
+            1
+          ],
+          "color": "#8e8e8e",
+          "material": {
+            "roughness": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "outside-tree",
+      "kind": "prop",
+      "name": "Garden tree",
+      "position": [
+        -4.6,
+        2,
+        6.4
+      ],
+      "size": [
+        2,
+        4,
+        2
+      ],
+      "color": "#4f8a5b",
+      "tags": [
+        "decor"
+      ],
+      "active": true,
+      "props": {
+        "shape": "tree"
+      },
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -1.4,
+            0
+          ],
+          "size": [
+            0.35,
+            2.8,
+            0.35
+          ],
+          "color": "#6b4335",
+          "material": {
+            "roughness": 0.95
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.2,
+            0
+          ],
+          "size": [
+            2.2,
+            2.2,
+            2.2
+          ],
+          "color": "#4f8a5b",
+          "material": {
+            "roughness": 1
+          }
+        }
+      ]
+    }
+  ],
+  "objectives": [],
+  "rules": [
+    {
+      "id": "open-front-door",
+      "on": {
+        "event": "interact",
+        "entity": "front-door"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "doorOpen"
+        },
+        "right": 0
+      },
+      "then": [
+        {
+          "type": "animate",
+          "entity": "front-door",
+          "kind": "slide",
+          "to": [
+            2.4,
+            1.5,
+            4.5
+          ],
+          "duration": 900
+        },
+        {
+          "type": "openDoor",
+          "entity": "front-door"
+        },
+        {
+          "type": "setVar",
+          "key": "doorOpen",
+          "value": 1
+        },
+        {
+          "type": "playSound",
+          "sound": "door-open"
+        },
+        {
+          "type": "showMessage",
+          "text": "The front door slides open."
+        }
+      ]
+    },
+    {
+      "id": "close-front-door",
+      "on": {
+        "event": "interact",
+        "entity": "front-door"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "doorOpen"
+        },
+        "right": 1
+      },
+      "then": [
+        {
+          "type": "animate",
+          "entity": "front-door",
+          "kind": "slide",
+          "to": [
+            0,
+            1.5,
+            4.5
+          ],
+          "duration": 900
+        },
+        {
+          "type": "setVar",
+          "key": "doorOpen",
+          "value": 0
+        },
+        {
+          "type": "playSound",
+          "sound": "door-close"
+        },
+        {
+          "type": "showMessage",
+          "text": "The front door slides shut."
+        }
+      ]
+    },
+    {
+      "id": "lamp-on",
+      "on": {
+        "event": "interact",
+        "entity": "floor-lamp"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "lampOn"
+        },
+        "right": 0
+      },
+      "then": [
+        {
+          "type": "setVisible",
+          "entity": "lamp-glow",
+          "visible": true
+        },
+        {
+          "type": "setColor",
+          "entity": "floor-lamp",
+          "color": "#ffd166"
+        },
+        {
+          "type": "setVar",
+          "key": "lampOn",
+          "value": 1
+        },
+        {
+          "type": "playSound",
+          "sound": "lamp-click"
+        },
+        {
+          "type": "showMessage",
+          "text": "The floor lamp hums to life."
+        }
+      ]
+    },
+    {
+      "id": "lamp-off",
+      "on": {
+        "event": "interact",
+        "entity": "floor-lamp"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "lampOn"
+        },
+        "right": 1
+      },
+      "then": [
+        {
+          "type": "setVisible",
+          "entity": "lamp-glow",
+          "visible": false
+        },
+        {
+          "type": "setColor",
+          "entity": "floor-lamp",
+          "color": "#8d8d8d"
+        },
+        {
+          "type": "setVar",
+          "key": "lampOn",
+          "value": 0
+        },
+        {
+          "type": "playSound",
+          "sound": "lamp-click"
+        },
+        {
+          "type": "showMessage",
+          "text": "The floor lamp dims."
+        }
+      ]
+    },
+    {
+      "id": "ceiling-lamp-on",
+      "on": {
+        "event": "interact",
+        "entity": "ceiling-lamp"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ceilingOn"
+        },
+        "right": 0
+      },
+      "then": [
+        {
+          "type": "setVisible",
+          "entity": "ceiling-glow",
+          "visible": true
+        },
+        {
+          "type": "setColor",
+          "entity": "ceiling-lamp",
+          "color": "#ffd166"
+        },
+        {
+          "type": "setVar",
+          "key": "ceilingOn",
+          "value": 1
+        },
+        {
+          "type": "animate",
+          "entity": "ceiling-glow",
+          "kind": "pulse",
+          "amplitude": 0.12,
+          "speed": 1.4
+        },
+        {
+          "type": "playSound",
+          "sound": "lamp-click"
+        }
+      ]
+    },
+    {
+      "id": "ceiling-lamp-off",
+      "on": {
+        "event": "interact",
+        "entity": "ceiling-lamp"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "ceilingOn"
+        },
+        "right": 1
+      },
+      "then": [
+        {
+          "type": "setVisible",
+          "entity": "ceiling-glow",
+          "visible": false
+        },
+        {
+          "type": "setColor",
+          "entity": "ceiling-lamp",
+          "color": "#8d8d8d"
+        },
+        {
+          "type": "setVar",
+          "key": "ceilingOn",
+          "value": 0
+        },
+        {
+          "type": "playSound",
+          "sound": "lamp-click"
+        }
+      ]
+    },
+    {
+      "id": "shelf-note",
+      "on": {
+        "event": "interact",
+        "entity": "shelf"
+      },
+      "then": [
+        {
+          "type": "showPanel",
+          "title": "Wall shelf",
+          "body": "Three worn books lean together. One spine reads: 'A Small House, A Long Afternoon.'",
+          "entity": "shelf"
+        },
+        {
+          "type": "setVar",
+          "key": "shelfRead",
+          "value": true
+        }
+      ]
+    },
+    {
+      "id": "shelf-close",
+      "on": {
+        "event": "click",
+        "entity": "rug"
+      },
+      "then": [
+        {
+          "type": "hidePanel",
+          "entity": "shelf"
+        }
+      ]
+    },
+    {
+      "id": "table-hover",
+      "on": {
+        "event": "hoverEnter",
+        "entity": "dining-table"
+      },
+      "then": [
+        {
+          "type": "animate",
+          "entity": "table-bowl",
+          "kind": "bob",
+          "amplitude": 0.05,
+          "speed": 1.2
+        }
+      ]
+    }
+  ],
+  "scratch": {
+    "doorOpen": 0,
+    "lampOn": 1,
+    "ceilingOn": 1,
+    "shelfRead": false
+  }
+}

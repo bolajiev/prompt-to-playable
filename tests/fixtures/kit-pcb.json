@@ -1,0 +1,1030 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Circuit Board Inspector",
+    "archetype": "explore",
+    "genre": "showcase",
+    "difficulty": 0,
+    "seed": 4821,
+    "mode": "inspect"
+  },
+  "world": {
+    "bounds": [
+      16,
+      10,
+      16
+    ],
+    "lighting": "indoor",
+    "skybox": "lab",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "name": "Observer",
+      "position": [
+        0,
+        4,
+        11
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "mainboard",
+      "kind": "prop",
+      "name": "Green PCB mainboard",
+      "position": [
+        0,
+        1.6,
+        0
+      ],
+      "size": [
+        7,
+        0.4,
+        5
+      ],
+      "color": "#1b7a4f",
+      "tags": [
+        "board",
+        "clickable"
+      ],
+      "active": true,
+      "solid": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            7,
+            0.35,
+            5
+          ],
+          "color": "#1b7a4f",
+          "material": {
+            "roughness": 0.75,
+            "texture": "circuit"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -1.8,
+            0.28,
+            0.4
+          ],
+          "size": [
+            1.7,
+            0.22,
+            1.7
+          ],
+          "color": "#2f3640",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -2.4,
+            0.4,
+            -1.4
+          ],
+          "size": [
+            1.8,
+            0.5,
+            1
+          ],
+          "color": "#e9c46a",
+          "material": {
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            2.6,
+            0.55,
+            -1.6
+          ],
+          "size": [
+            0.32,
+            0.7,
+            0.32
+          ],
+          "color": "#3a3a3a",
+          "material": {
+            "metalness": 0.5,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            3,
+            0.45,
+            1.7
+          ],
+          "size": [
+            0.22,
+            0.5,
+            0.22
+          ],
+          "color": "#3a3a3a",
+          "material": {
+            "metalness": 0.5,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            1.1,
+            0.32,
+            2.05
+          ],
+          "size": [
+            0.08,
+            0.5,
+            0.08
+          ],
+          "rotation": [
+            1.5707963267948966,
+            0,
+            0
+          ],
+          "color": "#d4af37",
+          "material": {
+            "metalness": 0.95,
+            "roughness": 0.2
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            1.5,
+            0.32,
+            2.05
+          ],
+          "size": [
+            0.08,
+            0.5,
+            0.08
+          ],
+          "rotation": [
+            1.5707963267948966,
+            0,
+            0
+          ],
+          "color": "#d4af37",
+          "material": {
+            "metalness": 0.95,
+            "roughness": 0.2
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            1.9,
+            0.32,
+            2.05
+          ],
+          "size": [
+            0.08,
+            0.5,
+            0.08
+          ],
+          "rotation": [
+            1.5707963267948966,
+            0,
+            0
+          ],
+          "color": "#d4af37",
+          "material": {
+            "metalness": 0.95,
+            "roughness": 0.2
+          }
+        },
+        {
+          "shape": "torus",
+          "offset": [
+            -3.1,
+            0.05,
+            2.1
+          ],
+          "size": [
+            0.35,
+            0.35,
+            0.35
+          ],
+          "rotation": [
+            1.5707963267948966,
+            0,
+            0
+          ],
+          "color": "#c9a227",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.3
+          }
+        },
+        {
+          "shape": "torus",
+          "offset": [
+            3.1,
+            0.05,
+            -2.1
+          ],
+          "size": [
+            0.35,
+            0.35,
+            0.35
+          ],
+          "rotation": [
+            1.5707963267948966,
+            0,
+            0
+          ],
+          "color": "#c9a227",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.3
+          }
+        }
+      ],
+      "label": {
+        "text": "PCB-01 mainboard",
+        "offset": [
+          0,
+          1.3,
+          0
+        ],
+        "size": 0.55
+      }
+    },
+    {
+      "id": "cpu-chip",
+      "kind": "prop",
+      "name": "CPU chip",
+      "position": [
+        -1.8,
+        2.05,
+        0.4
+      ],
+      "size": [
+        1.5,
+        0.6,
+        1.5
+      ],
+      "color": "#2f3640",
+      "tags": [
+        "clickable",
+        "component"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.2,
+            0
+          ],
+          "size": [
+            1.5,
+            0.4,
+            1.5
+          ],
+          "color": "#2f3640",
+          "material": {
+            "metalness": 0.7,
+            "roughness": 0.35
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.7,
+            0.2,
+            0.7
+          ],
+          "color": "#8d99ae",
+          "material": {
+            "metalness": 0.8,
+            "roughness": 0.25
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0.72,
+            0
+          ],
+          "size": [
+            0.5,
+            0.08,
+            0.5
+          ],
+          "color": "#d4af37",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.3
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.95,
+            0
+          ],
+          "size": [
+            1,
+            0.35,
+            1
+          ],
+          "color": "#4a4e69",
+          "material": {
+            "metalness": 0.55,
+            "roughness": 0.45
+          }
+        }
+      ],
+      "label": {
+        "text": "CPU-8 core",
+        "offset": [
+          0,
+          1.3,
+          0
+        ],
+        "size": 0.5
+      }
+    },
+    {
+      "id": "ram-bank",
+      "kind": "prop",
+      "name": "RAM bank",
+      "position": [
+        1.6,
+        1.95,
+        -0.6
+      ],
+      "size": [
+        2.4,
+        0.5,
+        0.7
+      ],
+      "color": "#2b2d42",
+      "tags": [
+        "clickable",
+        "component"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2.4,
+            0.4,
+            0.6
+          ],
+          "color": "#2b2d42",
+          "material": {
+            "metalness": 0.5,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.28,
+            0
+          ],
+          "size": [
+            2.2,
+            0.15,
+            0.35
+          ],
+          "color": "#5c677d",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.55,
+            0.42,
+            0
+          ],
+          "size": [
+            0.8,
+            0.18,
+            0.3
+          ],
+          "color": "#3f4c6b",
+          "material": {
+            "metalness": 0.5,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.55,
+            0.42,
+            0
+          ],
+          "size": [
+            0.8,
+            0.18,
+            0.3
+          ],
+          "color": "#3f4c6b",
+          "material": {
+            "metalness": 0.5,
+            "roughness": 0.5
+          }
+        }
+      ],
+      "label": {
+        "text": "RAM bank DIMM-A",
+        "offset": [
+          0,
+          1.1,
+          0
+        ],
+        "size": 0.45
+      }
+    },
+    {
+      "id": "power-connector",
+      "kind": "prop",
+      "name": "Power connector",
+      "position": [
+        -2.4,
+        2,
+        -1.4
+      ],
+      "size": [
+        1.6,
+        1,
+        1
+      ],
+      "color": "#e9c46a",
+      "tags": [
+        "clickable",
+        "component"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1.6,
+            0.9,
+            1
+          ],
+          "color": "#e9c46a",
+          "material": {
+            "metalness": 0.3,
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.5,
+            0.7,
+            0
+          ],
+          "size": [
+            0.14,
+            0.9,
+            0.14
+          ],
+          "rotation": [
+            1.5707963267948966,
+            0,
+            0
+          ],
+          "color": "#d4af37",
+          "material": {
+            "metalness": 0.95,
+            "roughness": 0.2
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.5,
+            0.7,
+            0
+          ],
+          "size": [
+            0.14,
+            0.9,
+            0.14
+          ],
+          "rotation": [
+            1.5707963267948966,
+            0,
+            0
+          ],
+          "color": "#d4af37",
+          "material": {
+            "metalness": 0.95,
+            "roughness": 0.2
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.55,
+            0
+          ],
+          "size": [
+            1.3,
+            0.2,
+            0.7
+          ],
+          "color": "#8d99ae",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        }
+      ],
+      "label": {
+        "text": "J1 power header",
+        "offset": [
+          0,
+          1.4,
+          0
+        ],
+        "size": 0.45
+      }
+    },
+    {
+      "id": "status-leds",
+      "kind": "prop",
+      "name": "Status LEDs",
+      "position": [
+        2.5,
+        1.9,
+        1.6
+      ],
+      "size": [
+        1.4,
+        0.4,
+        0.5
+      ],
+      "color": "#35c98f",
+      "tags": [
+        "clickable",
+        "component"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.35,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            0.25,
+            0.3
+          ],
+          "color": "#35c98f",
+          "material": {
+            "roughness": 0.3,
+            "emissive": "#35c98f"
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.35,
+            0,
+            0
+          ],
+          "size": [
+            0.3,
+            0.25,
+            0.3
+          ],
+          "color": "#e63946",
+          "material": {
+            "roughness": 0.3,
+            "emissive": "#e63946"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.15,
+            0
+          ],
+          "size": [
+            1.4,
+            0.15,
+            0.5
+          ],
+          "color": "#20232a",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ],
+      "label": {
+        "text": "LED status array",
+        "offset": [
+          0,
+          0.9,
+          0
+        ],
+        "size": 0.4
+      }
+    },
+    {
+      "id": "heatsink",
+      "kind": "prop",
+      "name": "Aluminium heatsink",
+      "position": [
+        0.6,
+        2.2,
+        1.5
+      ],
+      "size": [
+        2,
+        1,
+        1.6
+      ],
+      "color": "#9aa5b1",
+      "tags": [
+        "clickable",
+        "thermal"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            2,
+            0.2,
+            1.6
+          ],
+          "color": "#9aa5b1",
+          "material": {
+            "metalness": 0.85,
+            "roughness": 0.3
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.6,
+            0.45,
+            0
+          ],
+          "size": [
+            0.18,
+            0.7,
+            1.4
+          ],
+          "color": "#b8c1cc",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.25
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.2,
+            0.45,
+            0
+          ],
+          "size": [
+            0.18,
+            0.7,
+            1.4
+          ],
+          "color": "#b8c1cc",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.25
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.2,
+            0.45,
+            0
+          ],
+          "size": [
+            0.18,
+            0.7,
+            1.4
+          ],
+          "color": "#b8c1cc",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.25
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.6,
+            0.45,
+            0
+          ],
+          "size": [
+            0.18,
+            0.7,
+            1.4
+          ],
+          "color": "#b8c1cc",
+          "material": {
+            "metalness": 0.9,
+            "roughness": 0.25
+          }
+        }
+      ],
+      "label": {
+        "text": "Heatsink HS-1",
+        "offset": [
+          0,
+          1.2,
+          0
+        ],
+        "size": 0.4
+      }
+    },
+    {
+      "id": "inspection-lamp",
+      "kind": "prop",
+      "name": "Bench lamp",
+      "position": [
+        -5.5,
+        0.5,
+        4.5
+      ],
+      "size": [
+        0.6,
+        3,
+        0.6
+      ],
+      "color": "#57606f",
+      "tags": [
+        "decor"
+      ],
+      "active": true,
+      "props": {
+        "shape": "lamp"
+      }
+    }
+  ],
+  "objectives": [],
+  "rules": [
+    {
+      "id": "focus-mainboard-first",
+      "on": {
+        "event": "click",
+        "entity": "mainboard"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "focused"
+        },
+        "right": 0
+      },
+      "then": [
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
+        },
+        {
+          "type": "cameraFocus",
+          "entity": "mainboard"
+        }
+      ]
+    },
+    {
+      "id": "inspect-mainboard",
+      "on": {
+        "event": "click",
+        "entity": "mainboard"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "mainboard",
+          "color": "#35c98f"
+        },
+        {
+          "type": "showPanel",
+          "title": "PCB-01 mainboard",
+          "body": "A four-layer printed circuit board with a copper pour, silkscreen legend and mounting holes at the corners. Every component is soldered to this plate - click the CPU, RAM, heatsink or power header to read about them.",
+          "entity": "mainboard"
+        },
+        {
+          "type": "playSound",
+          "sound": "click"
+        }
+      ]
+    },
+    {
+      "id": "inspect-cpu",
+      "on": {
+        "event": "click",
+        "entity": "cpu-chip"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "cpu-chip",
+          "color": "#4cc9f0"
+        },
+        {
+          "type": "showPanel",
+          "title": "CPU-8 core",
+          "body": "The processor. Eight cores sit under a polished gold lid, dropped into the socket beside the RAM bank. A small secondary die handles cache traffic.",
+          "entity": "cpu-chip"
+        },
+        {
+          "type": "playSound",
+          "sound": "click"
+        }
+      ]
+    },
+    {
+      "id": "inspect-ram",
+      "on": {
+        "event": "click",
+        "entity": "ram-bank"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "ram-bank",
+          "color": "#7b8cff"
+        },
+        {
+          "type": "showPanel",
+          "title": "RAM bank DIMM-A",
+          "body": "Two memory packages on a slim module, latched into the slot along the top edge of the board. Gold contact fingers run along the underside.",
+          "entity": "ram-bank"
+        },
+        {
+          "type": "playSound",
+          "sound": "click"
+        }
+      ]
+    },
+    {
+      "id": "inspect-connector",
+      "on": {
+        "event": "click",
+        "entity": "power-connector"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "power-connector",
+          "color": "#f4a261"
+        },
+        {
+          "type": "showPanel",
+          "title": "J1 power header",
+          "body": "The main power inlet. Two gold pins carry twelve volts onto the board, where the copper pour spreads it to every regulator.",
+          "entity": "power-connector"
+        },
+        {
+          "type": "playSound",
+          "sound": "click"
+        }
+      ]
+    },
+    {
+      "id": "inspect-leds",
+      "on": {
+        "event": "click",
+        "entity": "status-leds"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "status-leds",
+          "color": "#ffe066"
+        },
+        {
+          "type": "showPanel",
+          "title": "LED status array",
+          "body": "A green power lamp and a red fault lamp sharing one black carrier. They glow at a few milliamps and report the board state at a glance.",
+          "entity": "status-leds"
+        },
+        {
+          "type": "playSound",
+          "sound": "click"
+        }
+      ]
+    },
+    {
+      "id": "inspect-heatsink",
+      "on": {
+        "event": "click",
+        "entity": "heatsink"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "heatsink",
+          "color": "#dfe6ee"
+        },
+        {
+          "type": "showPanel",
+          "title": "Heatsink HS-1",
+          "body": "Extruded aluminium fins on a flat base. Heat leaves the chip through the base plate and is carried away by the air between the fins.",
+          "entity": "heatsink"
+        },
+        {
+          "type": "playSound",
+          "sound": "click"
+        }
+      ]
+    },
+    {
+      "id": "hover-cpu-hint",
+      "on": {
+        "event": "hoverEnter",
+        "entity": "cpu-chip"
+      },
+      "then": [
+        {
+          "type": "showMessage",
+          "text": "CPU-8 core - click to inspect"
+        }
+      ]
+    },
+    {
+      "id": "hover-mainboard-hint",
+      "on": {
+        "event": "hoverEnter",
+        "entity": "mainboard"
+      },
+      "then": [
+        {
+          "type": "showMessage",
+          "text": "PCB-01 mainboard - click to inspect"
+        }
+      ]
+    }
+  ],
+  "scratch": {
+    "focused": 0,
+    "inspected": 0
+  }
+}

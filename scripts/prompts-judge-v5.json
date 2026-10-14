@@ -1,0 +1,89 @@
+[
+  {
+    "slug": "kit-pcb",
+    "prompt": "a 3D circuit board with labeled chips I can click",
+    "expectArchetype": "explore",
+    "expectMode": "inspect",
+    "fixture": "kit-pcb.json"
+  },
+  {
+    "slug": "kit-robot",
+    "prompt": "a simple robot model with animated arms I can click",
+    "expectArchetype": "explore",
+    "expectMode": "inspect"
+  },
+  {
+    "slug": "kit-house",
+    "prompt": "a small house I can walk through that has a door and a lamp",
+    "expectArchetype": "explore",
+    "expectMode": "walkthrough",
+    "fixture": "kit-house.json"
+  },
+  {
+    "slug": "kit-museum",
+    "prompt": "walk through a museum hall with labeled statues",
+    "expectArchetype": "explore",
+    "expectMode": "walkthrough"
+  },
+  {
+    "slug": "kit-race-oval",
+    "prompt": "a car racing game on an oval track with three checkpoints",
+    "expectArchetype": "collect-a-thon",
+    "expectMode": "drive",
+    "fixture": "kit-race.json"
+  },
+  {
+    "slug": "kit-race-kart",
+    "prompt": "a kart time trial with checkpoints",
+    "expectArchetype": "collect-a-thon",
+    "expectMode": "drive"
+  },
+  {
+    "slug": "game-collect",
+    "prompt": "collect every firefly in the moonlit garden while avoiding a wandering groundskeeper",
+    "expectArchetype": "collect-a-thon"
+  },
+  {
+    "slug": "game-puzzle",
+    "prompt": "turn four rusted valves to drain the flooded corridor and escape",
+    "expectArchetype": "puzzle-switch"
+  },
+  {
+    "slug": "game-platform",
+    "prompt": "leap across crumbling platforms to reach the tower roof",
+    "expectArchetype": "platformer-lite"
+  },
+  {
+    "slug": "game-stealth",
+    "prompt": "slip past one patrolling guard to escape the courtyard at night",
+    "expectArchetype": "stealth-chase"
+  },
+  {
+    "slug": "explore-cabin",
+    "prompt": "a snowbound wooden cabin lit by a single lantern",
+    "expectArchetype": "explore"
+  },
+  {
+    "slug": "explore-garden",
+    "prompt": "a quiet japanese garden with a koi pond and a wooden bridge",
+    "expectArchetype": "explore"
+  },
+  {
+    "slug": "explore-observatory",
+    "prompt": "an abandoned observatory under a starry night sky",
+    "expectArchetype": "explore"
+  },
+  {
+    "slug": "edit-guard",
+    "prompt": "add a second guard patrolling the level",
+    "expectArchetype": "stealth-chase",
+    "editOf": "game-stealth"
+  },
+  {
+    "slug": "edit-door",
+    "prompt": "open the door wider",
+    "expectArchetype": "explore",
+    "expectMode": "walkthrough",
+    "editOf": "kit-house"
+  }
+]

@@ -1,0 +1,581 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Oval Speedway Sprint",
+    "archetype": "collect-a-thon",
+    "genre": "racing",
+    "difficulty": 0.4,
+    "seed": 12345,
+    "mode": "drive"
+  },
+  "world": {
+    "bounds": [
+      60,
+      12,
+      60
+    ],
+    "lighting": "day",
+    "skybox": "outdoor",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "name": "Racer",
+      "position": [
+        -20,
+        1,
+        -22
+      ],
+      "tags": [
+        "racer"
+      ],
+      "active": true,
+      "props": {
+        "vehicle": true,
+        "maxSpeed": 18,
+        "accel": 10
+      }
+    },
+    {
+      "id": "road",
+      "kind": "prop",
+      "name": "Oval Track",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        50,
+        0.3,
+        50
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            50,
+            0.2,
+            50
+          ],
+          "color": "#3c3f45",
+          "material": {
+            "roughness": 0.95,
+            "texture": "grid"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -25,
+            0.15,
+            0
+          ],
+          "size": [
+            0.6,
+            0.3,
+            50
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            25,
+            0.15,
+            0
+          ],
+          "size": [
+            0.6,
+            0.3,
+            50
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.15,
+            25
+          ],
+          "size": [
+            50,
+            0.3,
+            0.6
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.15,
+            -25
+          ],
+          "size": [
+            50,
+            0.3,
+            0.6
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -15,
+            0.15,
+            0
+          ],
+          "size": [
+            0.6,
+            0.3,
+            30
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            15,
+            0.15,
+            0
+          ],
+          "size": [
+            0.6,
+            0.3,
+            30
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.15,
+            15
+          ],
+          "size": [
+            30,
+            0.3,
+            0.6
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.15,
+            -15
+          ],
+          "size": [
+            30,
+            0.3,
+            0.6
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -20,
+            0.16,
+            -22
+          ],
+          "size": [
+            10,
+            0.32,
+            0.8
+          ],
+          "color": "#f2f2f2",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            20,
+            0.16,
+            -22
+          ],
+          "size": [
+            10,
+            0.32,
+            0.8
+          ],
+          "color": "#f2f2f2",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "infield",
+      "kind": "prop",
+      "name": "Infield",
+      "position": [
+        0,
+        2,
+        0
+      ],
+      "size": [
+        30,
+        4,
+        30
+      ],
+      "tags": [],
+      "active": true,
+      "solid": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            30,
+            4,
+            30
+          ],
+          "color": "#2e7d32",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "finish-arch",
+      "kind": "prop",
+      "name": "Finish Arch",
+      "position": [
+        20,
+        0,
+        -22
+      ],
+      "size": [
+        12,
+        6,
+        1
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            -4.5,
+            3,
+            0
+          ],
+          "size": [
+            0.8,
+            6,
+            0.8
+          ],
+          "color": "#c0392b",
+          "material": {
+            "metalness": 0.4,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            4.5,
+            3,
+            0
+          ],
+          "size": [
+            0.8,
+            6,
+            0.8
+          ],
+          "color": "#c0392b",
+          "material": {
+            "metalness": 0.4,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            5.6,
+            0
+          ],
+          "size": [
+            10,
+            0.9,
+            0.9
+          ],
+          "color": "#c0392b",
+          "material": {
+            "metalness": 0.4,
+            "roughness": 0.5
+          }
+        }
+      ],
+      "label": {
+        "text": "Finish",
+        "offset": [
+          0,
+          6.6,
+          0
+        ],
+        "size": 0.6
+      }
+    },
+    {
+      "id": "checkpoint-1",
+      "kind": "zone",
+      "name": "Checkpoint 1",
+      "position": [
+        -20,
+        1,
+        -5
+      ],
+      "size": [
+        12,
+        4,
+        12
+      ],
+      "tags": [
+        "checkpoint"
+      ],
+      "active": true,
+      "props": {
+        "checkpointIndex": 0
+      }
+    },
+    {
+      "id": "checkpoint-2",
+      "kind": "zone",
+      "name": "Checkpoint 2",
+      "position": [
+        -5,
+        1,
+        20
+      ],
+      "size": [
+        12,
+        4,
+        12
+      ],
+      "tags": [
+        "checkpoint"
+      ],
+      "active": true,
+      "props": {
+        "checkpointIndex": 1
+      }
+    },
+    {
+      "id": "checkpoint-3",
+      "kind": "zone",
+      "name": "Checkpoint 3",
+      "position": [
+        20,
+        1,
+        5
+      ],
+      "size": [
+        12,
+        4,
+        12
+      ],
+      "tags": [
+        "checkpoint"
+      ],
+      "active": true,
+      "props": {
+        "checkpointIndex": 2
+      }
+    }
+  ],
+  "objectives": [
+    {
+      "id": "pass-checkpoints",
+      "type": "collect",
+      "description": "Pass all three checkpoints in order",
+      "targets": [
+        "checkpoint-1",
+        "checkpoint-2",
+        "checkpoint-3"
+      ],
+      "count": 3,
+      "progress": 0,
+      "status": "active"
+    },
+    {
+      "id": "beat-the-clock",
+      "type": "timeLimit",
+      "description": "Finish the race before the clock runs out",
+      "progress": 0,
+      "time": 120,
+      "status": "active"
+    }
+  ],
+  "rules": [
+    {
+      "id": "cp1",
+      "on": {
+        "event": "playerEnter",
+        "zone": "checkpoint-1"
+      },
+      "then": [
+        {
+          "type": "incVar",
+          "key": "cp",
+          "by": 1
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "pass-checkpoints",
+          "by": 1
+        },
+        {
+          "type": "showMessage",
+          "text": "Checkpoint 1/3"
+        }
+      ]
+    },
+    {
+      "id": "cp2",
+      "on": {
+        "event": "playerEnter",
+        "zone": "checkpoint-2"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "cp"
+        },
+        "right": 1
+      },
+      "then": [
+        {
+          "type": "incVar",
+          "key": "cp",
+          "by": 1
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "pass-checkpoints",
+          "by": 1
+        },
+        {
+          "type": "showMessage",
+          "text": "Checkpoint 2/3"
+        }
+      ]
+    },
+    {
+      "id": "cp3",
+      "on": {
+        "event": "playerEnter",
+        "zone": "checkpoint-3"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "cp"
+        },
+        "right": 2
+      },
+      "then": [
+        {
+          "type": "incVar",
+          "key": "cp",
+          "by": 1
+        },
+        {
+          "type": "setVar",
+          "key": "lap",
+          "value": 1
+        },
+        {
+          "type": "objectiveProgress",
+          "objective": "pass-checkpoints",
+          "by": 1
+        },
+        {
+          "type": "showMessage",
+          "text": "Checkpoint 3/3"
+        }
+      ]
+    },
+    {
+      "id": "race-won",
+      "on": {
+        "event": "objectiveComplete",
+        "objective": "pass-checkpoints"
+      },
+      "then": [
+        {
+          "type": "win",
+          "message": "Checkered flag!"
+        }
+      ]
+    },
+    {
+      "id": "time-up",
+      "on": {
+        "event": "objectiveFailed",
+        "objective": "beat-the-clock"
+      },
+      "then": [
+        {
+          "type": "lose",
+          "message": "Time's up!"
+        }
+      ]
+    }
+  ],
+  "scratch": {
+    "cp": 0,
+    "lap": 0
+  }
+}

@@ -1,15 +1,20 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { ArchetypeSchema, validateGame } from "@prompt-to-playable/schema";
-import type { Archetype, GameDoc } from "@prompt-to-playable/schema";
+import { ArchetypeSchema, GameModeSchema, validateGame } from "@prompt-to-playable/schema";
+import type { Archetype, GameDoc, GameMode } from "@prompt-to-playable/schema";
 import { createDefaultEditDeps, editGame } from "../server/src/edit.js";
 import { loadEnvFile } from "../server/src/env.js";
 import { DEFAULT_LLM_MODEL, createOpenAiLlm } from "../server/src/llm.js";
 import type { LlmCall } from "../server/src/llm.js";
 import { createDefaultPipelineDeps, generateGame } from "../server/src/pipeline.js";
 import { RouteError } from "../server/src/routes.js";
-import { hasWinPath, requiresWinPath, sanityCheck } from "../server/src/sanity.js";
+import {
+  hasWinPath,
+  requiresWinPath,
+  resolveKit,
+  sanityCheck,
+} from "../server/src/sanity.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ENV_PATH = join(ROOT, "server", ".env");
@@ -18,21 +23,31 @@ const FIXTURES_DIR = join(ROOT, "tests", "fixtures");
 const CALL_ATTEMPTS = 3;
 
 const USAGE =
-  "usage: npm run llm:smoke [-- --prompts <file>] [--no-edit] [--no-write]\n" +
-  "  --prompts <file>  JSON array of {slug, prompt, expectArchetype?, editOf?} entries\n" +
-  "                    instead of the defaults; expectArchetype is checked after\n" +
-  "                    generation and editOf marks an edit of that generated slug\n" +
+  "usage: npm run llm:smoke [-- --prompts <file>] [--no-edit] [--no-write] [--capture-fixtures]\n" +
+  "  --prompts <file>  JSON array of {slug, prompt, expectArchetype?, expectMode?,\n" +
+  "                    fixture?, editOf?} entries instead of the defaults;\n" +
+  "                    expectArchetype/expectMode are checked after generation,\n" +
+  "                    fixture names an explicit tests/fixtures capture target and\n" +
+  "                    editOf marks an edit of that generated slug\n" +
   "  --no-edit         skip entries with editOf (the conversational-edit stage)\n" +
-  "  --no-write        validate and report only; do not write tests/fixtures/live-*.json";
+  "  --no-write        validate and report only; do not write tests/fixtures/live-*.json\n" +
+  "  --capture-fixtures  with --no-write, still write entries that declare an explicit\n" +
+  "                    \"fixture\" file (exact JSON of a successful run, deliberate capture)";
 
 export interface SmokePrompt {
   slug: string;
   prompt: string;
   /** Judge-style expectation; a mismatch is reported as ARCHETYPE_MISMATCH. */
   expectArchetype?: Archetype;
+  /** Kit expectation checked against `meta.mode`; mismatch is MODE_MISMATCH. */
+  expectMode?: GameMode;
+  /** Explicit tests/fixtures/<name>.json capture target for this entry. */
+  fixture?: string;
   /** Slug of the generated document this conversational-edit prompt mutates. */
   editOf?: string;
 }
+
+const FIXTURE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
 
 /**
  * Default capture set. The last two prompts ask for open ground explicitly so
@@ -148,9 +163,88 @@ function failureDetails(error: unknown): string[] {
 
 function writeFixture(name: string, doc: GameDoc): string {
   mkdirSync(FIXTURES_DIR, { recursive: true });
-  const file = join(FIXTURES_DIR, `live-${name}.json`);
+  const file = join(FIXTURES_DIR, name);
   writeFileSync(file, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
   return file;
+}
+
+/** Output file for an entry: an explicit `fixture` name or the live-<slug> default. */
+function fixtureName(entry: SmokePrompt, kind: "generate" | "edit"): string {
+  if (entry.fixture !== undefined) return entry.fixture;
+  if (kind === "edit") return `live-${String(entry.editOf)}-edit.json`;
+  return `live-${entry.slug}.json`;
+}
+
+interface KitCheck {
+  kit: GameMode;
+  label: string;
+  usable: boolean;
+  failure?: string;
+}
+
+function kitOk(kit: GameMode): KitCheck {
+  return { kit, label: kit, usable: true };
+}
+
+function kitFail(kit: GameMode, failure: string): KitCheck {
+  return { kit, label: kit, usable: false, failure };
+}
+
+/**
+ * Kit usability gates used for the `usable=<kit>` label. These mirror the
+ * sanity kit gates and add the soft explore no-zones rule:
+ * inspect: >=1 entity with parts or a label + >=1 click rule;
+ * walkthrough: player + >=1 interactable; drive: vehicle + >=3 checkpoint
+ * zones + a win path; game: a win path; explore: no zones.
+ */
+function kitCheck(doc: GameDoc): KitCheck {
+  const kit = resolveKit(doc);
+  switch (kit) {
+    case "inspect": {
+      const hasContent = doc.entities.some(
+        (entity) => (entity.parts?.length ?? 0) > 0 || entity.label !== undefined
+      );
+      if (!hasContent) return kitFail(kit, "INSPECT_NO_CONTENT");
+      if (!doc.rules.some((rule) => rule.on.event === "click")) {
+        return kitFail(kit, "INSPECT_NO_CLICK_RULE");
+      }
+      return kitOk(kit);
+    }
+    case "walkthrough": {
+      const hasPlayer = doc.entities.some(
+        (entity) => entity.kind === "player" || entity.id === "player"
+      );
+      if (!hasPlayer) return kitFail(kit, "WALKTHROUGH_NO_PLAYER");
+      const hasInteractable = doc.entities.some(
+        (entity) => entity.kind === "interactable" || entity.tags.includes("interactable")
+      );
+      if (!hasInteractable) return kitFail(kit, "WALKTHROUGH_NO_INTERACTABLE");
+      return kitOk(kit);
+    }
+    case "drive": {
+      const player = doc.entities.find(
+        (entity) => entity.kind === "player" || entity.id === "player"
+      );
+      if (player?.props?.vehicle !== true) return kitFail(kit, "DRIVE_NO_VEHICLE");
+      const checkpoints = doc.entities.filter(
+        (entity) =>
+          entity.kind === "zone" && typeof entity.props?.checkpointIndex === "number"
+      );
+      if (checkpoints.length < 3) return kitFail(kit, "DRIVE_CHECKPOINTS_LT3");
+      if (!hasWinPath(doc)) return kitFail(kit, "DRIVE_NO_WIN");
+      return kitOk(kit);
+    }
+    case "explore": {
+      if (doc.entities.some((entity) => entity.kind === "zone")) {
+        return kitFail(kit, "EXPLORE_ZONES_PRESENT");
+      }
+      return kitOk(kit);
+    }
+    case "game": {
+      if (!hasWinPath(doc)) return kitFail(kit, "NO_WIN_PATH");
+      return kitOk(kit);
+    }
+  }
 }
 
 interface DocCheck {
@@ -159,8 +253,10 @@ interface DocCheck {
   isExplore: boolean;
   winnable: boolean;
   objectives: number;
+  zones: number;
   explorable: boolean;
   solvable: boolean;
+  kit: KitCheck;
   errors: string[];
 }
 
@@ -171,14 +267,22 @@ function checkDoc(doc: GameDoc): DocCheck {
       validation.error?.issues.map(
         (issue) => `${issue.path.join(".") || "(root)"}: ${issue.message}`
       ) ?? ["document is not a game"];
+    const mode = GameModeSchema.safeParse(doc?.meta?.mode);
+    const kit: GameMode = mode.success
+      ? mode.data
+      : doc?.meta?.archetype === "explore"
+        ? "explore"
+        : "game";
     return {
       valid: false,
       sanity: false,
       isExplore: false,
       winnable: false,
       objectives: 0,
+      zones: 0,
       explorable: false,
       solvable: false,
+      kit: kitFail(kit, "SCHEMA"),
       errors,
     };
   }
@@ -188,10 +292,15 @@ function checkDoc(doc: GameDoc): DocCheck {
   const errors = sanity.errors.map((issue) => `${issue.path}: ${issue.message}`);
   const winnable = !requiresWinPath(data) || hasWinPath(data);
   if (!winnable) errors.push("(root): no rule wins the game");
+  const zones = data.entities.filter((entity) => entity.kind === "zone").length;
+  const kit = kitCheck(data);
   if (isExplore && data.objectives.length > 0) {
     errors.push(
       `objectives: explore scene has ${data.objectives.length} objective(s); expected none`
     );
+  }
+  if (!kit.usable && kit.failure !== undefined) {
+    errors.push(`kits: ${kit.failure}`);
   }
   return {
     valid: true,
@@ -199,8 +308,10 @@ function checkDoc(doc: GameDoc): DocCheck {
     isExplore,
     winnable,
     objectives: data.objectives.length,
-    explorable: isExplore && sanity.ok && data.objectives.length === 0,
+    zones,
+    explorable: isExplore && sanity.ok && data.objectives.length === 0 && zones === 0,
     solvable: !isExplore && sanity.ok && winnable,
+    kit,
     errors,
   };
 }
@@ -236,15 +347,23 @@ function editDiff(base: GameDoc, doc: GameDoc): string {
 function usabilityFailure(check: DocCheck): string | undefined {
   if (!check.valid) return "SCHEMA";
   if (!check.sanity) return "SANITY";
-  if (check.isExplore) return check.explorable ? undefined : "OBJECTIVES_PRESENT";
+  if (!check.kit.usable) return check.kit.failure;
+  if (check.isExplore) return check.objectives === 0 ? undefined : "OBJECTIVES_PRESENT";
   return check.solvable ? undefined : "NO_WIN_PATH";
 }
 
-function archetypeFailure(
-  archetype: Archetype,
-  expect: Archetype | undefined
+function expectationFailure(
+  doc: GameDoc,
+  expectArchetype: Archetype | undefined,
+  expectMode: GameMode | undefined
 ): string | undefined {
-  return expect !== undefined && archetype !== expect ? "ARCHETYPE_MISMATCH" : undefined;
+  if (expectArchetype !== undefined && doc.meta.archetype !== expectArchetype) {
+    return "ARCHETYPE_MISMATCH";
+  }
+  if (expectMode !== undefined && doc.meta.mode !== expectMode) {
+    return "MODE_MISMATCH";
+  }
+  return undefined;
 }
 
 interface RunOutcome {
@@ -252,6 +371,7 @@ interface RunOutcome {
   kind: "generate" | "edit";
   label: string;
   expected?: Archetype;
+  expectedMode?: GameMode;
   doc?: GameDoc;
   check?: DocCheck;
   failure?: string;
@@ -262,20 +382,32 @@ interface RunOutcome {
 
 function report(outcome: RunOutcome): void {
   const produced = outcome.doc ? outcome.doc.meta.archetype : "n/a";
+  const modeText =
+    outcome.doc?.meta.mode !== undefined ? ` mode=${outcome.doc.meta.mode}` : "";
+  const expectedParts: string[] = [];
+  if (outcome.expected !== undefined) expectedParts.push(outcome.expected);
+  if (outcome.expectedMode !== undefined) expectedParts.push(outcome.expectedMode);
+  const mismatched =
+    outcome.doc !== undefined &&
+    ((outcome.expected !== undefined && produced !== outcome.expected) ||
+      (outcome.expectedMode !== undefined &&
+        outcome.doc.meta.mode !== outcome.expectedMode));
   const expected =
-    outcome.expected !== undefined
-      ? ` expected=${outcome.expected}${
-          outcome.doc && produced !== outcome.expected ? " MISMATCH" : ""
-        }`
+    expectedParts.length > 0
+      ? ` expected=${expectedParts.join("/")}${mismatched ? " MISMATCH" : ""}`
       : "";
   const verdict = outcome.check
     ? outcome.check.isExplore
       ? `valid=${outcome.check.valid} explorable=${outcome.check.explorable}`
       : `valid=${outcome.check.valid} solvable=${outcome.check.solvable}`
     : "valid=false solvable=false";
+  const usable =
+    outcome.check !== undefined && outcome.usable
+      ? ` usable=${outcome.check.kit.label}`
+      : " usable=none";
   const failureSuffix = outcome.failure ? ` failure=${outcome.failure}` : "";
   console.log(
-    `${outcome.label} -> ${produced}${expected} -> ${verdict} latency=${outcome.latencyMs}ms calls=${outcome.calls}${failureSuffix}`
+    `${outcome.label} -> ${produced}${modeText}${expected} -> ${verdict}${usable} latency=${outcome.latencyMs}ms calls=${outcome.calls}${failureSuffix}`
   );
 }
 
@@ -283,7 +415,8 @@ async function runGenerate(
   entry: SmokePrompt,
   llm: LlmCall,
   counter: CallCounter,
-  writeFixtures: boolean
+  writeFixtures: boolean,
+  captureFixtures: boolean
 ): Promise<RunOutcome> {
   const before = counter.calls;
   const started = Date.now();
@@ -294,6 +427,7 @@ async function runGenerate(
     ...(entry.expectArchetype !== undefined
       ? { expected: entry.expectArchetype }
       : {}),
+    ...(entry.expectMode !== undefined ? { expectedMode: entry.expectMode } : {}),
     usable: false,
     latencyMs: 0,
     calls: 0,
@@ -304,7 +438,8 @@ async function runGenerate(
     outcome.doc = doc;
     outcome.check = check;
     outcome.failure =
-      usabilityFailure(check) ?? archetypeFailure(doc.meta.archetype, entry.expectArchetype);
+      usabilityFailure(check) ??
+      expectationFailure(doc, entry.expectArchetype, entry.expectMode);
     outcome.usable = outcome.failure === undefined;
     outcome.latencyMs = Date.now() - started;
     outcome.calls = counter.calls - before;
@@ -317,15 +452,22 @@ async function runGenerate(
           `  expected archetype ${String(entry.expectArchetype)}, produced ${doc.meta.archetype}`
         );
       }
+      if (outcome.failure === "MODE_MISMATCH") {
+        console.error(
+          `  expected mode ${String(entry.expectMode)}, produced ${String(doc.meta.mode)}`
+        );
+      }
       console.error(`  fixture not written: post-check failed for "${entry.prompt}"`);
       return outcome;
     }
+    const name = fixtureName(entry, "generate");
+    const shouldWrite = writeFixtures || (captureFixtures && entry.fixture !== undefined);
     console.log(
-      writeFixtures
-        ? `  fixture: tests/fixtures/live-${entry.slug}.json`
-        : `  fixture: tests/fixtures/live-${entry.slug}.json (not written: --no-write)`
+      shouldWrite
+        ? `  fixture: tests/fixtures/${name}`
+        : `  fixture: tests/fixtures/${name} (not written: --no-write)`
     );
-    if (writeFixtures) writeFixture(entry.slug, doc);
+    if (shouldWrite) writeFixture(name, doc);
     return outcome;
   } catch (error) {
     outcome.failure = classifyFailure(error);
@@ -342,7 +484,8 @@ async function runEdit(
   base: GameDoc,
   llm: LlmCall,
   counter: CallCounter,
-  writeFixtures: boolean
+  writeFixtures: boolean,
+  captureFixtures: boolean
 ): Promise<RunOutcome> {
   const before = counter.calls;
   const started = Date.now();
@@ -353,6 +496,7 @@ async function runEdit(
     ...(entry.expectArchetype !== undefined
       ? { expected: entry.expectArchetype }
       : {}),
+    ...(entry.expectMode !== undefined ? { expectedMode: entry.expectMode } : {}),
     usable: false,
     latencyMs: 0,
     calls: 0,
@@ -364,7 +508,7 @@ async function runEdit(
     outcome.check = check;
     outcome.failure =
       usabilityFailure(check) ??
-      archetypeFailure(result.doc.meta.archetype, entry.expectArchetype);
+      expectationFailure(result.doc, entry.expectArchetype, entry.expectMode);
     outcome.usable = outcome.failure === undefined;
     outcome.latencyMs = Date.now() - started;
     outcome.calls = counter.calls - before;
@@ -376,13 +520,14 @@ async function runEdit(
       console.error("  fixture not written: post-check failed for edit");
       return outcome;
     }
-    const name = `${String(entry.editOf)}-edit`;
+    const name = fixtureName(entry, "edit");
+    const shouldWrite = writeFixtures || (captureFixtures && entry.fixture !== undefined);
     console.log(
-      writeFixtures
-        ? `  fixture: tests/fixtures/live-${name}.json`
-        : `  fixture: tests/fixtures/live-${name}.json (not written: --no-write)`
+      shouldWrite
+        ? `  fixture: tests/fixtures/${name}`
+        : `  fixture: tests/fixtures/${name} (not written: --no-write)`
     );
-    if (writeFixtures) writeFixture(name, result.doc);
+    if (shouldWrite) writeFixture(name, result.doc);
     return outcome;
   } catch (error) {
     outcome.failure = classifyFailure(error);
@@ -398,6 +543,7 @@ export interface SmokeOptions {
   prompts?: readonly SmokePrompt[];
   edit?: boolean;
   write?: boolean;
+  captureFixtures?: boolean;
 }
 
 function parsePromptsFile(file: string): SmokePrompt[] {
@@ -429,6 +575,27 @@ function parsePromptsFile(file: string): SmokePrompt[] {
       }
       parsed.expectArchetype = result.data;
     }
+    const expectMode = record?.expectMode;
+    if (expectMode !== undefined) {
+      const result = GameModeSchema.safeParse(expectMode);
+      if (!result.success) {
+        throw new Error(
+          `--prompts entry ${index} has invalid "expectMode": ${JSON.stringify(expectMode)}`
+        );
+      }
+      parsed.expectMode = result.data;
+    }
+    const fixture = record?.fixture;
+    if (fixture !== undefined) {
+      if (typeof fixture !== "string" || !FIXTURE_NAME_PATTERN.test(fixture)) {
+        throw new Error(
+          `--prompts entry ${index} has invalid "fixture" (expected a plain "*.json" file name): ${JSON.stringify(
+            fixture
+          )}`
+        );
+      }
+      parsed.fixture = fixture;
+    }
     const editOf = record?.editOf;
     if (editOf !== undefined) {
       if (typeof editOf !== "string" || editOf.length === 0) {
@@ -448,6 +615,8 @@ function parseArgs(argv: readonly string[]): SmokeOptions {
       options.edit = false;
     } else if (arg === "--no-write") {
       options.write = false;
+    } else if (arg === "--capture-fixtures") {
+      options.captureFixtures = true;
     } else if (arg === "--help" || arg === "-h") {
       console.log(USAGE);
       process.exit(0);
@@ -467,6 +636,7 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
   const entries = options.prompts ?? DEFAULT_SMOKE_ENTRIES;
   const runEditStage = options.edit ?? true;
   const writeFixtures = options.write ?? true;
+  const captureFixtures = options.captureFixtures ?? false;
   loadEnvFile(ENV_PATH);
   const model = process.env.OPENAI_MODEL?.trim() || DEFAULT_LLM_MODEL;
   const configured = Boolean(process.env.OPENAI_API_KEY?.trim());
@@ -484,7 +654,7 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
   const docsBySlug = new Map<string, GameDoc>();
 
   for (const entry of generations) {
-    const outcome = await runGenerate(entry, llm, counter, writeFixtures);
+    const outcome = await runGenerate(entry, llm, counter, writeFixtures, captureFixtures);
     outcomes.push(outcome);
     if (outcome.usable && outcome.doc) docsBySlug.set(entry.slug, outcome.doc);
   }
@@ -501,6 +671,7 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
         ...(entry.expectArchetype !== undefined
           ? { expected: entry.expectArchetype }
           : {}),
+        ...(entry.expectMode !== undefined ? { expectedMode: entry.expectMode } : {}),
         failure: "BASE_UNAVAILABLE",
         usable: false,
         latencyMs: 0,
@@ -514,7 +685,7 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
       continue;
     }
     const before = counter.calls;
-    const outcome = await runEdit(entry, base, llm, counter, writeFixtures);
+    const outcome = await runEdit(entry, base, llm, counter, writeFixtures, captureFixtures);
     editCalls += counter.calls - before;
     outcomes.push(outcome);
   }
@@ -527,12 +698,26 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
     (outcome) => outcome.doc?.meta.archetype === "explore"
   );
   const explorable = explored.filter((outcome) => outcome.check?.explorable).length;
+  const kitOrder: readonly GameMode[] = ["inspect", "walkthrough", "drive", "game", "explore"];
+  const kitCounts = new Map<GameMode, { ok: number; total: number }>();
+  for (const outcome of outcomes) {
+    const label = outcome.check?.kit.label;
+    if (label === undefined) continue;
+    const tally = kitCounts.get(label) ?? { ok: 0, total: 0 };
+    tally.total += 1;
+    if (outcome.usable) tally.ok += 1;
+    kitCounts.set(label, tally);
+  }
+  const kitText = kitOrder
+    .filter((kit) => kitCounts.has(kit))
+    .map((kit) => `${kit}:${kitCounts.get(kit)?.ok}/${kitCounts.get(kit)?.total}`)
+    .join(" ");
   const genCalls = counter.calls - editCalls;
   const ok = generatedOk === generations.length && editedOk === editsToRun.length;
   console.log(
     `summary: generated=${generatedOk}/${generations.length} edited=${
       runEditStage ? `${editedOk}/${editsToRun.length}` : "skipped"
-    } explorable=${explorable} genCalls=${genCalls} editCalls=${editCalls} transientRetries=${
+    } explorable=${explorable} kits=[${kitText}] genCalls=${genCalls} editCalls=${editCalls} transientRetries=${
       counter.retries
     } result=${ok ? "PASS" : "FAIL"}`
   );
