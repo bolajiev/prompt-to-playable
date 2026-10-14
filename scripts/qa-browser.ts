@@ -12,6 +12,12 @@ export const QA_PROMPT =
   "a small room where I collect 3 glowing crystals while avoiding one guard";
 export const QA_EDIT_PROMPT = "add a second guard";
 export const QA_EXPLORE_PROMPT = "a quiet forest clearing with a campfire at dusk";
+export const QA_INSPECT_PROMPT =
+  "a 3D circuit board with labeled chips I can click";
+export const QA_WALKTHROUGH_PROMPT =
+  "a small house I can walk through that has a door and a lamp";
+export const QA_RACE_PROMPT =
+  "a car racing game on an oval track with three checkpoints";
 
 const VIEWPORT = { width: 1280, height: 720 };
 const NAVIGATION_TIMEOUT_MS = 60_000;
@@ -19,6 +25,35 @@ const RENDER_TIMEOUT_MS = 90_000;
 const MOVE_HOLD_MS = 1_000;
 const MIN_MOVE_DISTANCE = 0.05;
 const MIN_CANVAS_COLORS = 16;
+/** Hold time for the drive beat's throttle burst. */
+const DRIVE_HOLD_MS = 3_000;
+/** Minimum vehicle speed (units/s) a drive beat must reach under throttle. */
+const MIN_DRIVE_SPEED = 2;
+/** Interact key press is held this long so the fixed-step engine sees it. */
+const INTERACT_PRESS_MS = 120;
+/** Upper bound for observing an interact reaction (door slides run ~0.9 s). */
+const INTERACT_SETTLE_MS = 1_200;
+/** Poll interval while waiting for an interact reaction. */
+const INTERACT_POLL_MS = 200;
+/** Position/color/visible delta that counts as a reacted entity. */
+const MIN_RUNTIME_CHANGE = 0.08;
+/** Per-burst hold/recompute interval while walking toward an interactable. */
+const WALK_STEP_MS = 180;
+/** Total walk-up budget before giving up and pressing interact anyway. */
+const WALK_BUDGET_MS = 4_000;
+/** Engine fallback for entities without `props.interactRange`. */
+const DEFAULT_INTERACT_RANGE = 2.5;
+/**
+ * Ground-forward basis at camera yaw 0 (`forwardFromYaw(0)` in the web
+ * `CameraRig`). A fresh load resets the rig, so walkthrough input keeps this
+ * fixed basis until the QA run itself drags the canvas.
+ */
+const YAW_ZERO_FORWARD: readonly [number, number] = [
+  -0.4472135954999579,
+  -0.8944271909999159,
+];
+/** Sine of 22.5 degrees: axis threshold for choosing a WASD key. */
+const AXIS_KEY_THRESHOLD = 0.383;
 
 export interface QaOptions {
   url: string;
@@ -30,6 +65,13 @@ export interface QaOptions {
    * then assert the free-roam HUD hint, a lit canvas and zero new console errors.
    */
   explore?: boolean;
+  /**
+   * Extra beats six to eight: fresh loads generating the inspect, walkthrough
+   * and drive kits from their canonical prompts, asserting the mode HUD,
+   * hover picking, door/lamp reaction and vehicle speed. Each kit beat costs
+   * one live generation call.
+   */
+  kits?: boolean;
 }
 
 export interface QaBeat {
@@ -282,6 +324,333 @@ async function readPlayerPosition(page: Page): Promise<PlayerPosition | null> {
     if (!position || position.length < 3) return null;
     return [position[0] ?? 0, position[1] ?? 0, position[2] ?? 0] as PlayerPosition;
   });
+}
+
+/** Vehicle scalar speed (units/s) from the player runtime, or null. */
+async function readPlayerSpeed(page: Page): Promise<number | null> {
+  return page.evaluate(() => {
+    const debug = (
+      window as unknown as {
+        __gameDebug?: { getState: () => unknown };
+      }
+    ).__gameDebug;
+    if (!debug) return null;
+    const state = debug.getState() as {
+      entities?: Array<{ id?: string; kind?: string }>;
+      entityRuntime?: Record<string, { speed?: number }>;
+    };
+    const player = state.entities?.find((entity) => entity.kind === "player");
+    if (!player?.id) return null;
+    const speed = state.entityRuntime?.[player.id]?.speed;
+    return typeof speed === "number" && Number.isFinite(speed) ? speed : null;
+  });
+}
+
+/** Drops focus from the chat input so game keys reach the window listeners. */
+async function blurActiveElement(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement) active.blur();
+  });
+}
+
+/**
+ * Fresh load + `/generate` for one kit prompt, returning the elapsed ms once
+ * the document is validated and rendered. Each kit beat starts clean so the
+ * prompt takes the generation path instead of being treated as an edit.
+ * State-keyed: waits for the validated badge (or a new chat error line).
+ */
+async function generateFromFreshLoad(
+  page: Page,
+  url: string,
+  prompt: string
+): Promise<number> {
+  await page.goto(url, {
+    waitUntil: "domcontentloaded",
+    timeout: NAVIGATION_TIMEOUT_MS,
+  });
+  await page.waitForFunction(
+    () => document.querySelector("#badge")?.getAttribute("data-validated") === "false",
+    undefined,
+    { timeout: NAVIGATION_TIMEOUT_MS }
+  );
+  const errorsBefore = await chatErrorCount(page);
+  const started = Date.now();
+  await page.fill("#chat-input", prompt);
+  await page.click("#chat-submit");
+  log(`submitted kit prompt (waiting up to ${RENDER_TIMEOUT_MS / 1000}s)`);
+  await waitForGenerateOutcome(page, errorsBefore, RENDER_TIMEOUT_MS);
+  const failure = await newChatError(page, errorsBefore);
+  expectCondition(failure === null, `generation failed: ${failure}`);
+  await waitForValidated(page, RENDER_TIMEOUT_MS);
+  return Date.now() - started;
+}
+
+interface RuntimeSnapshot {
+  position: PlayerPosition;
+  visible: boolean;
+  tags: string[];
+  color: string | null;
+}
+
+interface InteractSnapshot {
+  runtime: Record<string, RuntimeSnapshot>;
+  /** Entities an `on.interact` rule owns (trigger or action target). */
+  targets: string[];
+}
+
+/**
+ * Compact runtime snapshot used to prove that pressing E made something react.
+ * `state.doc` rides along in the debug clone, so the entities an interact rule
+ * actually owns are known: a door slide moves the door, a lamp toggle changes
+ * the lamp's color or its glow child's visibility.
+ */
+async function readInteractSnapshot(page: Page): Promise<InteractSnapshot | null> {
+  return page.evaluate(() => {
+    const debug = (
+      window as unknown as {
+        __gameDebug?: { getState: () => unknown };
+      }
+    ).__gameDebug;
+    if (!debug) return null;
+    const state = debug.getState() as {
+      doc?: {
+        rules?: Array<{
+          on?: { event?: string; entity?: string };
+          then?: Array<{ entity?: string }>;
+        }>;
+      };
+      entities?: Array<{ id?: string; kind?: string; tags?: string[] }>;
+      entityRuntime?: Record<
+        string,
+        {
+          position?: number[];
+          visible?: boolean;
+          tags?: string[];
+          color?: string;
+        }
+      >;
+    };
+
+    const runtime: Record<
+      string,
+      {
+        position: [number, number, number];
+        visible: boolean;
+        tags: string[];
+        color: string | null;
+      }
+    > = {};
+    for (const [id, entry] of Object.entries(state.entityRuntime ?? {})) {
+      const position = entry.position ?? [];
+      runtime[id] = {
+        position: [position[0] ?? 0, position[1] ?? 0, position[2] ?? 0],
+        visible: entry.visible !== false,
+        tags: [...(entry.tags ?? [])],
+        color: entry.color ?? null,
+      };
+    }
+
+    const targets = new Set<string>();
+    for (const rule of state.doc?.rules ?? []) {
+      if (rule.on?.event !== "interact") continue;
+      if (typeof rule.on.entity === "string") targets.add(rule.on.entity);
+      for (const action of rule.then ?? []) {
+        if (typeof action.entity === "string") targets.add(action.entity);
+      }
+    }
+    if (targets.size === 0) {
+      for (const entity of state.entities ?? []) {
+        if (entity.id === undefined) continue;
+        if (
+          entity.kind === "interactable" ||
+          (entity.tags ?? []).includes("interactable")
+        ) {
+          targets.add(entity.id);
+        }
+      }
+    }
+
+    return { runtime, targets: [...targets] };
+  });
+}
+
+/** Holds E long enough for the fixed-step engine to sample a rising edge. */
+async function pressInteract(page: Page): Promise<void> {
+  await page.keyboard.down("e");
+  await page.waitForTimeout(INTERACT_PRESS_MS);
+  await page.keyboard.up("e");
+}
+
+interface RuntimeChange {
+  id: string;
+  reason: string;
+}
+
+/** Position/visibility/color/tag deltas between two snapshots. */
+function interactChanges(
+  before: InteractSnapshot,
+  after: InteractSnapshot
+): RuntimeChange[] {
+  const changes: RuntimeChange[] = [];
+  for (const [id, next] of Object.entries(after.runtime)) {
+    const previous = before.runtime[id];
+    if (previous === undefined) {
+      changes.push({ id, reason: "spawned" });
+      continue;
+    }
+    const moved = Math.hypot(
+      next.position[0] - previous.position[0],
+      next.position[1] - previous.position[1],
+      next.position[2] - previous.position[2]
+    );
+    if (moved > MIN_RUNTIME_CHANGE) {
+      changes.push({ id, reason: `moved ${moved.toFixed(2)}` });
+      continue;
+    }
+    if (previous.visible !== next.visible) {
+      changes.push({
+        id,
+        reason: `visible ${previous.visible}->${next.visible}`,
+      });
+      continue;
+    }
+    if (previous.color !== next.color) {
+      changes.push({
+        id,
+        reason: `color ${previous.color ?? "unset"}->${next.color ?? "unset"}`,
+      });
+      continue;
+    }
+    if (previous.tags.join("|") !== next.tags.join("|")) {
+      changes.push({ id, reason: "tags changed" });
+    }
+  }
+  return changes;
+}
+
+/**
+ * State-keyed reaction wait: polls `__gameDebug` until an entity owned by an
+ * interact rule changes, or the timeout elapses. Returns the last snapshot
+ * plus every delta and the interact-owned subset.
+ */
+async function waitForInteractChange(
+  page: Page,
+  before: InteractSnapshot,
+  targets: ReadonlySet<string>,
+  timeoutMs: number
+): Promise<{
+  after: InteractSnapshot | null;
+  changes: RuntimeChange[];
+  reacted: RuntimeChange[];
+}> {
+  const started = Date.now();
+  let after = await readInteractSnapshot(page);
+  let changes = after === null ? [] : interactChanges(before, after);
+  let reacted = changes.filter((change) => targets.has(change.id));
+  while (reacted.length === 0 && Date.now() - started < timeoutMs) {
+    await page.waitForTimeout(INTERACT_POLL_MS);
+    after = await readInteractSnapshot(page);
+    changes = after === null ? [] : interactChanges(before, after);
+    reacted = changes.filter((change) => targets.has(change.id));
+  }
+  return { after, changes, reacted };
+}
+
+/**
+ * Best-effort fallback for walkthroughs whose interactable spawns out of
+ * range: burst-walk toward the nearest `interactable` entity using the fixed
+ * yaw-0 camera basis, recomputing the direction every step. Returns the final
+ * 3D distance to the target, or null when the debug hook exposes nothing.
+ */
+async function walkTowardNearestInteractable(
+  page: Page,
+  budgetMs: number
+): Promise<number | null> {
+  const started = Date.now();
+  let lastDistance: number | null = null;
+
+  while (Date.now() - started < budgetMs) {
+    const info = await page.evaluate((defaultRange) => {
+      const debug = (
+        window as unknown as {
+          __gameDebug?: { getState: () => unknown };
+        }
+      ).__gameDebug;
+      if (!debug) return null;
+      const state = debug.getState() as {
+        entities?: Array<{
+          id?: string;
+          kind?: string;
+          tags?: string[];
+          props?: { interactRange?: number };
+        }>;
+        entityRuntime?: Record<string, { position?: number[]; visible?: boolean; tags?: string[] }>;
+      };
+      const player = state.entities?.find((entity) => entity.kind === "player");
+      if (!player?.id) return null;
+      const playerPosition = state.entityRuntime?.[player.id]?.position;
+      if (!playerPosition || playerPosition.length < 3) return null;
+
+      let best: {
+        distance: number;
+        dx: number;
+        dz: number;
+        range: number;
+      } | null = null;
+      for (const entity of state.entities ?? []) {
+        if (entity.id === undefined || entity.id === player.id) continue;
+        const runtime = state.entityRuntime?.[entity.id];
+        if (!runtime || runtime.visible === false) continue;
+        const tags = runtime.tags ?? entity.tags ?? [];
+        if (entity.kind !== "interactable" && !tags.includes("interactable")) {
+          continue;
+        }
+        const position = runtime.position;
+        if (!position || position.length < 3) continue;
+        const dx = (position[0] ?? 0) - (playerPosition[0] ?? 0);
+        const dz = (position[2] ?? 0) - (playerPosition[2] ?? 0);
+        const distance = Math.hypot(
+          dx,
+          (position[1] ?? 0) - (playerPosition[1] ?? 0),
+          dz
+        );
+        if (distance < (best?.distance ?? Infinity)) {
+          best = {
+            distance,
+            dx,
+            dz,
+            range:
+              typeof entity.props?.interactRange === "number"
+                ? entity.props.interactRange
+                : defaultRange,
+          };
+        }
+      }
+      return best;
+    }, DEFAULT_INTERACT_RANGE);
+
+    if (info === null) return lastDistance;
+    lastDistance = info.distance;
+    if (info.distance <= Math.max(0.4, info.range * 0.6)) return info.distance;
+
+    const horizontal = Math.hypot(info.dx, info.dz) || 1;
+    const [fx, fz] = YAW_ZERO_FORWARD;
+    const throttle = (info.dx / horizontal) * fx + (info.dz / horizontal) * fz;
+    const strafe = (info.dx / horizontal) * -fz + (info.dz / horizontal) * fx;
+    const keys: string[] = [];
+    if (throttle > AXIS_KEY_THRESHOLD) keys.push("w");
+    else if (throttle < -AXIS_KEY_THRESHOLD) keys.push("s");
+    if (strafe > AXIS_KEY_THRESHOLD) keys.push("d");
+    else if (strafe < -AXIS_KEY_THRESHOLD) keys.push("a");
+    if (keys.length === 0) keys.push("w");
+
+    for (const key of keys) await page.keyboard.down(key);
+    await page.waitForTimeout(WALK_STEP_MS);
+    for (const key of keys) await page.keyboard.up(key);
+  }
+
+  return lastDistance;
 }
 
 export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
@@ -568,6 +937,234 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
     });
   }
 
+  // Kit beats (six to eight): each generates one canonical kit prompt on a
+  // fresh load and asserts the mode-specific interaction, not a playthrough.
+  let inspectedOk = false;
+  if (options.kits && !options.landingOnly && landingOk) {
+    inspectedOk = await runBeat(
+      "inspect",
+      join(outDir, "06-inspect.png"),
+      async () => {
+        const consoleErrorsBefore = consoleErrors.length;
+        const started = await generateFromFreshLoad(page, options.url, QA_INSPECT_PROMPT);
+        await page.waitForFunction(
+          () =>
+            (document.querySelector("#controls")?.textContent ?? "").includes(
+              "Click parts for info"
+            ),
+          undefined,
+          { timeout: RENDER_TIMEOUT_MS }
+        );
+        const hint = ((await page.locator("#controls").textContent()) ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
+        expectCondition(
+          hint.includes("Click parts for info"),
+          `inspect hint missing (got "${hint}")`
+        );
+        const colors = pngStats(await canvasScreenshot(page)).distinct;
+        expectCondition(colors >= MIN_CANVAS_COLORS, `flat canvas (${colors} colors)`);
+
+        // Picking a known chip needs model-space coordinates; hovering sweeps
+        // instead: move across the canvas center until the cursor turns into
+        // the pointer that only a hovered entity sets.
+        const box = await page.locator("#game").boundingBox();
+        expectCondition(box !== null, "canvas has no bounding box");
+        const centerX = box.x + box.width / 2;
+        const centerY = box.y + box.height / 2;
+        let hoverPoint: string | null = null;
+        for (const offsetY of [0, -60, 60, -120, 120, -180, 180]) {
+          for (let offsetX = -220; offsetX <= 220; offsetX += 40) {
+            await page.mouse.move(centerX + offsetX, centerY + offsetY);
+            await page.waitForTimeout(30);
+            const cursor = await page.evaluate(
+              () =>
+                document.querySelector<HTMLCanvasElement>("#game")?.style.cursor ?? ""
+            );
+            if (cursor === "pointer") {
+              hoverPoint = `${offsetX},${offsetY}`;
+              break;
+            }
+          }
+          if (hoverPoint !== null) break;
+        }
+        expectCondition(
+          hoverPoint !== null,
+          "hover never picked an entity (cursor never became pointer)"
+        );
+
+        await page.screenshot({ path: join(outDir, "06-inspect.png") });
+        const newConsoleErrors = consoleErrors.slice(consoleErrorsBefore);
+        expectCondition(
+          newConsoleErrors.length === 0,
+          `console errors during inspect beat: ${newConsoleErrors.join(" | ")}`
+        );
+        return `inspect scene validated after ${started}ms; hint="${hint}"; canvas colors=${colors}; hover pointer at center offset (${hoverPoint}); new console errors=0`;
+      }
+    );
+  } else if (options.kits && !options.landingOnly) {
+    record({
+      beat: "inspect",
+      ok: false,
+      detail: "skipped: landing beat failed",
+      screenshot: join(outDir, "06-inspect.png"),
+    });
+  }
+
+  let walkedOk = false;
+  if (options.kits && !options.landingOnly && landingOk) {
+    walkedOk = await runBeat(
+      "walkthrough",
+      join(outDir, "07-walkthrough.png"),
+      async () => {
+        const consoleErrorsBefore = consoleErrors.length;
+        const started = await generateFromFreshLoad(
+          page,
+          options.url,
+          QA_WALKTHROUGH_PROMPT
+        );
+        await page.waitForFunction(
+          () => {
+            const crosshair = document.querySelector<HTMLElement>("#crosshair");
+            const controls = document.querySelector("#controls")?.textContent ?? "";
+            return (
+              crosshair !== null && !crosshair.hidden && controls.includes("E interact")
+            );
+          },
+          undefined,
+          { timeout: RENDER_TIMEOUT_MS }
+        );
+        const hint = ((await page.locator("#controls").textContent()) ?? "")
+          .replace(/\s+/g, " ")
+          .trim();
+        const crosshairHidden = await page.evaluate(
+          () => document.querySelector("#crosshair")?.hasAttribute("hidden") ?? true
+        );
+        expectCondition(!crosshairHidden, "crosshair is hidden in walkthrough mode");
+        expectCondition(hint.includes("E interact"), `walkthrough hint missing (got "${hint}")`);
+
+        await blurActiveElement(page);
+        const before = await readInteractSnapshot(page);
+        expectCondition(before !== null, "__gameDebug snapshot unavailable before interact");
+        const targets = new Set(before.targets);
+
+        await pressInteract(page);
+        let observation = await waitForInteractChange(
+          page,
+          before,
+          targets,
+          INTERACT_SETTLE_MS
+        );
+        let { after, changes, reacted } = observation;
+        expectCondition(after !== null, "__gameDebug snapshot unavailable after interact");
+        let approach = "interactable already in range";
+
+        if (reacted.length === 0) {
+          // The interactable may spawn out of range: walk toward it using the
+          // fixed yaw-0 basis, then press E again.
+          const distance = await walkTowardNearestInteractable(page, WALK_BUDGET_MS);
+          approach =
+            distance === null
+              ? "no interactable exposed"
+              : `walked to ${distance.toFixed(2)} units`;
+          await pressInteract(page);
+          observation = await waitForInteractChange(
+            page,
+            before,
+            targets,
+            INTERACT_SETTLE_MS
+          );
+          after = observation.after;
+          changes = observation.changes;
+          reacted = observation.reacted;
+          expectCondition(after !== null, "__gameDebug snapshot unavailable after approach");
+        }
+
+        const relevant = targets.size > 0 ? reacted : changes;
+        const changesText = changes
+          .map((change) => `${change.id}(${change.reason})`)
+          .join(", ");
+        expectCondition(
+          relevant.length > 0,
+          `pressing E did not change any interact-owned entity (${approach}; changes: ${
+            changesText || "none"
+          })`
+        );
+
+        await page.screenshot({ path: join(outDir, "07-walkthrough.png") });
+        const newConsoleErrors = consoleErrors.slice(consoleErrorsBefore);
+        expectCondition(
+          newConsoleErrors.length === 0,
+          `console errors during walkthrough beat: ${newConsoleErrors.join(" | ")}`
+        );
+        const reactedText = relevant
+          .map((change) => `${change.id}(${change.reason})`)
+          .join(", ");
+        return `walkthrough validated after ${started}ms; hint="${hint}"; crosshair visible; E reacted: ${reactedText}; ${approach}; new console errors=0`;
+      }
+    );
+  } else if (options.kits && !options.landingOnly) {
+    record({
+      beat: "walkthrough",
+      ok: false,
+      detail: "skipped: landing beat failed",
+      screenshot: join(outDir, "07-walkthrough.png"),
+    });
+  }
+
+  let droveOk = false;
+  if (options.kits && !options.landingOnly && landingOk) {
+    droveOk = await runBeat("drive", join(outDir, "08-race.png"), async () => {
+      const consoleErrorsBefore = consoleErrors.length;
+      const started = await generateFromFreshLoad(page, options.url, QA_RACE_PROMPT);
+      await page.waitForFunction(
+        () => {
+          const hud = document.querySelector<HTMLElement>("#drive-hud");
+          return hud !== null && !hud.hidden;
+        },
+        undefined,
+        { timeout: RENDER_TIMEOUT_MS }
+      );
+
+      await blurActiveElement(page);
+      await page.keyboard.down("w");
+      await page.waitForTimeout(DRIVE_HOLD_MS);
+      const speed = await readPlayerSpeed(page);
+      const speedText = ((await page.locator("#drive-speed").textContent()) ?? "").trim();
+      const lapText = ((await page.locator("#drive-lap").textContent()) ?? "").trim();
+      await page.screenshot({ path: join(outDir, "08-race.png") });
+      await page.keyboard.up("w");
+
+      expectCondition(speed !== null, "__gameDebug did not expose the player speed");
+      expectCondition(
+        speed > MIN_DRIVE_SPEED,
+        `player speed ${speed.toFixed(2)} did not exceed ${MIN_DRIVE_SPEED} after ${DRIVE_HOLD_MS}ms of throttle`
+      );
+      const speedMatch = /^(\d+)\s*km\/h$/.exec(speedText);
+      expectCondition(speedMatch !== null, `drive HUD speed missing (got "${speedText}")`);
+      expectCondition(
+        Number(speedMatch[1]) > 0,
+        `drive HUD speed number not positive (got "${speedText}")`
+      );
+
+      const newConsoleErrors = consoleErrors.slice(consoleErrorsBefore);
+      expectCondition(
+        newConsoleErrors.length === 0,
+        `console errors during drive beat: ${newConsoleErrors.join(" | ")}`
+      );
+      return `race scene validated after ${started}ms; held w ${DRIVE_HOLD_MS}ms; speed=${speed.toFixed(
+        2
+      )} (${speedText}, ${lapText}); new console errors=0`;
+    });
+  } else if (options.kits && !options.landingOnly) {
+    record({
+      beat: "drive",
+      ok: false,
+      detail: "skipped: landing beat failed",
+      screenshot: join(outDir, "08-race.png"),
+    });
+  }
+
   const consoleLines = consoleMessages.map(
     (message) => `${message.type}\t${message.text}${message.location ? `\t${message.location}` : ""}`
   );
@@ -575,10 +1172,15 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
 
   const failedBeats = beats.filter((beat) => !beat.ok);
   const exploreOk = !options.explore || options.landingOnly || exploredOk;
+  const kitsOk =
+    !options.kits ||
+    options.landingOnly ||
+    (inspectedOk && walkedOk && droveOk);
   const ok =
     landingOk &&
     (options.landingOnly || (generatedOk && movedOk && editedOk)) &&
     exploreOk &&
+    kitsOk &&
     consoleErrors.length === 0;
 
   const result: QaResult = {
@@ -612,16 +1214,19 @@ interface CliOptions {
   outDir?: string;
   landingOnly: boolean;
   explore: boolean;
+  kits: boolean;
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
-  const options: CliOptions = { landingOnly: false, explore: false };
+  const options: CliOptions = { landingOnly: false, explore: false, kits: false };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--landing-only") {
       options.landingOnly = true;
     } else if (arg === "--explore") {
       options.explore = true;
+    } else if (arg === "--kits") {
+      options.kits = true;
     } else if (arg === "--out") {
       const value = argv[i + 1];
       if (value === undefined) throw new Error("--out requires a directory");
@@ -646,7 +1251,7 @@ if (isDirectRun) {
     const options = parseArgs(process.argv.slice(2));
     if (!options.url) {
       console.error(
-        "usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only] [--explore]"
+        "usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only] [--explore] [--kits]"
       );
       process.exitCode = 2;
       return;
@@ -666,6 +1271,7 @@ if (isDirectRun) {
         outDir: options.outDir,
         landingOnly: options.landingOnly,
         explore: options.explore,
+        kits: options.kits,
       });
       process.exitCode = result.ok ? 0 : 1;
     } finally {

@@ -17,7 +17,22 @@ The architecture is **schema-first and data-driven**. The LLM emits a validated 
 
 A single JSON document describes the entire game: `meta`, `world`, `entities`, `objectives`, `rules`, and a mutable `scratch` bag. The engine interprets that document every tick; the renderer reflects it. Because game logic lives in data, the same engine plays collect-a-thons, switch puzzles, platformers, and stealth levels — or renders an objective-free scene to roam.
 
-Five modes: the four curated game archetypes (`collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`) plus a free-roam **explore** mode. Place-like prompts ("a quiet forest clearing with a campfire at dusk") produce a lit scene with no objectives and no win/lose; the HUD reads "Explore freely — WASD move · Space jump · drag to orbit".
+Eight modes, five kits — one engine, one document schema:
+
+| Kit (mode) | Example prompt | What to expect |
+|---|---|---|
+| **Game** — `collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase` | "a small room where I collect 3 glowing crystals while avoiding one guard" | WASD move, Space jump, E interact; objectives, patrolling enemies, win and lose states |
+| **Explore** | "a quiet forest clearing with a campfire at dusk" | WASD move, Space jump, drag to orbit; lit scene with no objectives and no win/lose |
+| **Inspect** | "a 3D circuit board with labeled chips I can click" | Click parts for info panels, hover highlights, drag to orbit |
+| **Walkthrough** | "a small house I can walk through that has a door and a lamp" | First person: WASD move, drag to look, E interacts — the door slides and the lamps toggle |
+| **Drive** | "a car racing game on an oval track with three checkpoints" | WASD drive (W throttle, A/D steer) from a chase camera; speed/lap/time HUD, ordered checkpoints, win |
+
+Place-like prompts produce a lit scene with no objectives and no win/lose; the
+HUD reads "Explore freely — WASD move · Space jump · drag to orbit". The
+inspect, walkthrough and drive prompts above are the live kit-eval prompts
+(2026-10-15): **13/13 generated documents usable + 2/2 edits** across that
+evaluation's inspect / walkthrough / drive / game / explore set — see
+[`docs/llm-eval-2026-10-15.md`](docs/llm-eval-2026-10-15.md).
 
 ## Architecture (schema-first)
 
@@ -27,7 +42,7 @@ Browser (client)                       Thin backend (Node/Express)
 │ Chat / command input      │          │ POST /generate                 │
 │ Game runtime (engine)     │ ◄──────► │ POST /edit                     │
 │ Scene renderer (Three.js) │   JSON   │ Archetype classifier           │
-│ HUD / objectives UI       │          │ Structured generator           │
+│ HUD / panels / mode UI    │          │ Structured generator           │
 └──────────────────────────┘          │ Zod validator + repair loop    │
                                        │ Sanity / solvability checks    │
                                        │ API keys stay server-side      │
@@ -51,7 +66,7 @@ Boundaries that the code enforces:
 | `packages/render` | Three.js reconciliation layer (entity `id` → mesh) |
 | `packages/shared` | Shared types, math, seeded RNG, id helpers |
 | `server` | Express API: classifier, generator, validator, repair, sanity, edit patch |
-| `apps/web` | Vite client: canvas, chat input, HUD, validation badge, orbit camera, procedural audio |
+| `apps/web` | Vite client: canvas, chat input, HUD (objectives / explore / mode), click+hover picking, panels, validation badge, cameras, procedural audio |
 | `scripts/eval-corpus.ts` | Prompt-corpus reliability harness |
 
 ## How to run (dev)
@@ -145,14 +160,18 @@ player moves, applies a follow-up edit, and writes screenshots to
 npm run qa:browser -- https://prompt-to-playable-steel.vercel.app
 npm run qa:browser -- <url> --landing-only   # landing-page smoke, no live model calls
 npm run qa:browser -- <url> --explore        # adds a fifth beat: explore-scene generation + free-roam HUD
+npm run qa:browser -- <url> --kits           # adds beats six to eight: inspect hover, walkthrough door/lamp, drive speed
 ```
 
-The offline suite is **42 files / 425 tests**, needs no API key, and includes
+The offline suite is **57 files / 604 tests**, needs no API key, and includes
 the rules evaluator, movement/gravity/jump and obstacle/platform collision,
-enemy patrol/chase, objectives, explore HUD hint and orbit-camera math, audio
-cue mapping, the deterministic input-only playtest over the live fixtures
-(`tests/playtest.test.ts`: 3 auto-won games + label/coverage guards), patch
-application (RFC 6902), validation/sanity, repair loop, generation/edit
+enemy patrol/chase, objectives, explore HUD hint, mode HUDs (inspect /
+walkthrough / drive), picking and hover edges, orbit-camera math, audio cue
+mapping, the deterministic input-only playtests over the live fixtures
+(`tests/playtest.test.ts`: 3 auto-won games + label/coverage guards;
+`tests/playtest-v5.test.ts`: click→panel for inspect, door open/close for
+walkthrough, a won race for drive), patch application (RFC 6902),
+validation/sanity (including per-kit gates), repair loop, generation/edit
 pipelines, renderer reconciliation, and an end-to-end smoke test.
 
 ## Live smoke (real model)
@@ -204,6 +223,18 @@ explorable, 2/2 edits applied as valid RFC 6902 patches. Per-prompt table,
 structural edit diffs and honest limitations:
 [`docs/llm-eval-2026-10-14.md`](docs/llm-eval-2026-10-14.md).
 
+### Kit live evaluation (2026-10-15)
+
+A 15-prompt kit set (6 inspect / walkthrough / drive prompts, 4 goal games, 3
+explore scenes, and 2 conversational edits) was run against
+`deepseek-v4.1-flash` through the same gateway: **13/13 generated documents
+usable** (schema-valid plus per-kit gates: inspect needs parts/labels and a
+click rule, walkthrough needs an interactable, drive needs a vehicle and three
+ordered checkpoints) **and 2/2 edits applied**, with one repair request in
+total. The three documents backing the offline playtests (`kit-pcb`,
+`kit-house`, `kit-race`) are committed as fixtures. Per-prompt table and honest
+limitations: [`docs/llm-eval-2026-10-15.md`](docs/llm-eval-2026-10-15.md).
+
 ## Tech stack
 
 - **Language:** TypeScript (strict) across client and server
@@ -229,7 +260,7 @@ This project is [MIT licensed](LICENSE).
 - **Express** — MIT; the thin Node API.
 - **Playwright** — Apache-2.0; dev-only browser QA (`npm run qa:browser`).
 - **Google Gemini** via its OpenAI-compatible endpoint — used for the live model evaluation on 2026-10-12 (`docs/llm-eval-2026-10-12.md`); the repository ships no API key.
-- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14 (`docs/llm-eval-2026-10-14.md`); no API key is recorded in the repository; endpoint details are limited to the public gateway URL.
+- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14 (`docs/llm-eval-2026-10-14.md`) and the kit live evaluation on 2026-10-15 (`docs/llm-eval-2026-10-15.md`); no API key is recorded in the repository; endpoint details are limited to the public gateway URL.
 
 The app, engine, schema, and tests were written with AI-assisted code
 generation; every generated game document is validated and checked before it

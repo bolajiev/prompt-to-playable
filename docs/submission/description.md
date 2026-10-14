@@ -14,6 +14,8 @@ The core idea: **game logic lives in data, not generated code.** The AI produces
 
 Scene-like prompts — *"a quiet forest clearing with a campfire at dusk"* — open in **free-roam explore** mode: a lit 3D scene with no objectives and no win/lose, where you walk, jump, and orbit the camera (drag; mouse wheel to zoom). Collectibles, enemies, and props are animated, pickups burst into particles, and a small procedural WebAudio layer plays jump/collect/hit/win cues. Everything is generated at runtime from primitives and synthesized sound — no external art or audio assets (Three.js is the only renderer).
 
+The same pipeline also ships three interaction-first kits. **Inspect** prompts (*"a 3D circuit board with labeled chips I can click"*) produce a labeled showcase built from primitive parts: hover highlights, click rules that open info panels, recolor parts and focus the camera. **Walkthrough** prompts (*"a small house I can walk through that has a door and a lamp"*) open in first person with a crosshair; **E** interacts — the door slides on its trigger and the lamps toggle their glow. **Drive** prompts (*"a car racing game on an oval track with three checkpoints"*) put you in an arcade vehicle with a chase camera, throttle/steer physics, a speed/lap/time HUD, ordered checkpoints and a win. All of it rides on one **universal interaction layer**: pointer events (click / hover enter / hover leave), data-driven animations (spin, bob, pulse, slide, orbit), UI panels, and camera focus. The engine and renderer stay generic; the document decides what is interactive.
+
 ## Problem / opportunity
 
 Creating interactive 3D experiences is locked behind specialized skills. Even with modern tools, going from an idea to something with *real mechanics* — objectives, hazards, win conditions, feedback — takes hours or days of scripting and level design. Meanwhile, text-to-3D tools mostly produce static scenes or visuals, not *games*: things you can play, fail, and win.
@@ -24,14 +26,14 @@ The opportunity is to make interactive 3D creation **conversational**: describe 
 
 AI is used only where it adds leverage: turning fuzzy natural language into structured game data. Everything after that is deterministic.
 
-1. **Archetype classifier.** An LLM call maps the prompt to one of five modes: the four curated game archetypes (`collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`) or `explore` for place-like prompts with no stated goal ("a cozy reading room with a fireplace"). Constraining the output set keeps the generator focused and the results predictable.
-2. **Structured generator.** A second LLM call, given the full schema and few-shot examples, emits a complete game document: world settings, entities, objectives, and rules. For `explore` prompts the document keeps `objectives` empty — a scene to roam, not a challenge.
+1. **Archetype classifier.** An LLM call maps the prompt to one of eight labels: the four curated game archetypes (`collect-a-thon`, `puzzle-switch`, `platformer-lite`, `stealth-chase`), `explore` for place-like prompts with no stated goal ("a cozy reading room with a fireplace"), or one of the three interaction kits (`inspect`, `walkthrough`, `drive`). Kit labels are recorded in the document's `meta.mode` while `meta.archetype` stays a schema value. Constraining the output set keeps the generator focused and the results predictable.
+2. **Structured generator.** A second LLM call, given the full schema and few-shot examples, emits a complete game document: world settings, entities, objectives, and rules. For `explore` prompts the document keeps `objectives` empty — a scene to roam, not a challenge. Kit documents carry what their interaction needs: parts and labels plus click rules for inspect, an interactable door/lamp and interact rules for walkthrough, and a vehicle player with ordered checkpoint zones for drive.
 3. **Constrained schema + validation.** The document is parsed against a **Zod** schema — the single source of truth. Types are inferred from it, so client and server agree on the exact shape. Malformed or out-of-bounds output is caught immediately.
 4. **Repair loop.** If validation or sanity checks fail, the errors are fed back to the model with a targeted repair prompt (up to two retries). The model fixes the same document instead of starting over.
-5. **Sanity / solvability checks.** Before anything reaches the client we verify references resolve, the player spawn and bounds are valid, and the game contains a real win path. Explore documents are exempt from the win-path requirement and must instead have zero objectives. Only then is the document returned.
+5. **Sanity / solvability checks.** Before anything reaches the client we verify references resolve, the player spawn and bounds are valid, and goal games (including races) contain a real win path. Per-kit gates enforce the interaction contract too: inspect documents need labeled or multi-part content and at least one click rule, walkthrough documents need an interactable, and drive documents need a vehicle player with at least three ordered checkpoint zones plus a win path. Explore scenes stay free-roam — no win path is required and the generation/edit policy keeps their objectives empty. Only then is the document returned.
 6. **Conversational edits via JSON Patch.** Follow-up requests never regenerate the whole game. The model returns a minimal **RFC 6902 JSON Patch** (add/remove/replace operations). We apply it to the current validated document, re-validate and re-run sanity checks, and only then commit — so "add a second guard and a timer" produces a small, safe, reviewable change. Explore scenes keep their free-roam policy across edits: patches may add decorations but never objectives or win/lose actions.
 
-Because the client only ever receives **validated JSON** and the engine is a fixed interpreter, the AI can never inject code or ship a broken game to the player. The HUD switches to a free-roam hint whenever the validated document has no objectives. The engine itself is pure TypeScript with a fixed timestep and seeded RNG, so gameplay is deterministic and testable.
+Because the client only ever receives **validated JSON** and the engine is a fixed interpreter, the AI can never inject code or ship a broken game to the player. The HUD reflects the active mode: objectives for games, a free-roam hint for explore scenes, and mode hints plus readouts for inspect (click for info), walkthrough (crosshair, E) and drive (speed / lap / time). The engine itself is pure TypeScript with a fixed timestep and seeded RNG, so gameplay is deterministic and testable.
 
 ## Architecture
 
@@ -47,7 +49,7 @@ Browser                              Server (Node/Express)
 │ Chat / command input     │         │ POST /generate  POST /edit     │
 │ Game runtime (engine)    │ ◄─────► │ Archetype classifier           │
 │ Scene renderer (Three.js)│  JSON   │ Structured generator           │
-│ HUD / objectives UI      │         │ Zod validation + repair loop   │
+│ HUD / panels / mode UI   │         │ Zod validation + repair loop   │
 └──────────────────────────┘         │ Sanity / solvability checks    │
                                      └────────────────────────────────┘
 ```
@@ -76,8 +78,9 @@ We treat reliability as a first-class metric. A deterministic prompt-corpus harn
 
 - **2026-10-12** (`gemini-3.1-flash-lite` via an OpenAI-compatible endpoint): **4/4 generated games valid + solvable, plus 1/1 working conversational edit** (one transient `503`, auto-retried) — `docs/llm-eval-2026-10-12.md`.
 - **2026-10-14 judge-style set** (`deepseek-v4.1-flash`; 4 game prompts — one per archetype, 4 explore scenes, 2 conversational edits): **10/10 passed on the first iteration with zero repairs** — 4/4 games valid + winnable, 4/4 scenes valid + objective-free explorable, 2/2 edits applied as valid patches — `docs/llm-eval-2026-10-14.md`.
+- **2026-10-15 kit set** (`deepseek-v4.1-flash`; 6 inspect / walkthrough / drive prompts, 4 goal games, 3 explore scenes, 2 conversational edits): **13/13 generated documents usable** — schema-valid and passing their kit gates (2 inspect, 2 walkthrough, 2 drive, 4 game, 3 explore) — **and 2/2 edits applied**, with one repair request total — `docs/llm-eval-2026-10-15.md`.
 
-Three of the captured 2026-10-12 documents are auto-won by input-only steering in the offline suite, so playability is verified with no model and no network. Note that "solvable" is checked statically (schema + sanity + a win path exists), not by a simulated playthrough; the eval documents list the remaining limitations honestly. The full suite (unit, integration, end-to-end, fixture playtest) runs on every change and needs no API key.
+Three of the captured 2026-10-12 documents are auto-won by input-only steering in the offline suite, and the three kit documents captured on 2026-10-15 are driven offline too (`tests/playtest-v5.test.ts`): a click opens an inspect panel and applies its `setColor`; the walkthrough door is approached and then opened and closed with E (`doorOpen` toggles each press); and the captured race is won by throttle + checkpoint pursuit inside the 6 000-tick budget. Note that "usable" is checked statically for the other generated documents (schema + sanity + kit gate), not by a simulated playthrough; the eval documents list the remaining limitations honestly. The full suite (unit, integration, end-to-end, fixture playtests) runs on every change and needs no API key.
 
 ## Links
 
@@ -87,6 +90,7 @@ Three of the captured 2026-10-12 documents are auto-won by input-only steering i
 - **Deployment guide:** `docs/deployment.md`
 - **Live model evaluation (2026-10-12):** `docs/llm-eval-2026-10-12.md`
 - **Judge-style live evaluation (2026-10-14):** `docs/llm-eval-2026-10-14.md`
+- **Kit live evaluation (2026-10-15):** `docs/llm-eval-2026-10-15.md`
 
 ## Credits & attribution
 
@@ -95,7 +99,7 @@ Three of the captured 2026-10-12 documents are auto-won by input-only steering i
 - **Express** — MIT; thin Node API.
 - **Playwright** — Apache-2.0; dev-only browser QA (`npm run qa:browser -- <url>`).
 - **Google Gemini** via its OpenAI-compatible endpoint — used for the live model evaluation on 2026-10-12; no API key is included in the repository.
-- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14; no API key is recorded in the repository; endpoint details are limited to the public gateway URL.
+- **deepseek-v4.1-flash** via an OpenAI-compatible gateway — used for the judge-style live evaluation on 2026-10-14 and the kit live evaluation on 2026-10-15; no API key is recorded in the repository; endpoint details are limited to the public gateway URL.
 - **AI-assisted code generation:** the app, engine, schema, and tests were written with AI assistance; runtime behavior is verified by the test suite and by schema/sanity checks on every AI-generated game document.
 
 ## API key / environment
