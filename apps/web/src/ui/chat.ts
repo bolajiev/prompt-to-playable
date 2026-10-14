@@ -33,6 +33,45 @@ export function isAbortError(error: unknown): boolean {
   return (error as { name?: unknown }).name === "AbortError";
 }
 
+/**
+ * Auto-retry policy for a generation or edit request: any non-cancel failure
+ * gets exactly one automatic retry. `attemptIndex` is the zero-based index of
+ * the attempt that just failed, so only `0` (the original request) qualifies.
+ * A user cancel - an AbortError or an aborted caller signal - never retries.
+ */
+export function shouldAutoRetry(
+  attemptIndex: number,
+  error: unknown,
+  wasCancelled: boolean
+): boolean {
+  if (wasCancelled || isAbortError(error)) return false;
+  return attemptIndex === 0;
+}
+
+/**
+ * Runs `task` and (per `shouldAutoRetry`) silently retries it once after a
+ * non-cancel failure. `onRetry` fires before each automatic retry so callers
+ * can surface a log line; `isCancelled` is re-checked after every failure so a
+ * cancel that did not arrive as an AbortError still stops the retry.
+ */
+export async function runWithAutoRetry(
+  task: () => Promise<void>,
+  onRetry: () => void,
+  isCancelled: () => boolean = () => false
+): Promise<void> {
+  let attemptIndex = 0;
+  for (;;) {
+    try {
+      await task();
+      return;
+    } catch (error) {
+      if (!shouldAutoRetry(attemptIndex, error, isCancelled())) throw error;
+      attemptIndex += 1;
+      onRetry();
+    }
+  }
+}
+
 /** Maps a thrown value onto a friendly headline plus optional raw detail. */
 export function describeError(error: unknown): FriendlyError {
   const raw = (error instanceof Error ? error.message : String(error)).trim();

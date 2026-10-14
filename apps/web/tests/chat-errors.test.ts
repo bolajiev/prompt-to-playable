@@ -4,6 +4,8 @@ import {
   describeError,
   ERROR_DETAIL_LIMIT,
   isAbortError,
+  runWithAutoRetry,
+  shouldAutoRetry,
   type ChatOptions,
 } from "../src/ui/chat.js";
 import { FakeNode } from "./fakes.js";
@@ -66,6 +68,98 @@ describe("isAbortError", () => {
     expect(isAbortError(new Error("stop"))).toBe(false);
     expect(isAbortError(null)).toBe(false);
     expect(isAbortError("AbortError")).toBe(false);
+  });
+});
+
+function abortError(): Error {
+  return Object.assign(new Error("The operation was aborted."), {
+    name: "AbortError",
+  });
+}
+
+describe("shouldAutoRetry", () => {
+  test("retries the original request once for any non-cancel failure", () => {
+    expect(shouldAutoRetry(0, new Error("boom"), false)).toBe(true);
+    expect(
+      shouldAutoRetry(0, new Error("Could not reach the server (/generate)"), false)
+    ).toBe(true);
+    expect(shouldAutoRetry(0, new Error("Request failed (HTTP 504)"), false)).toBe(
+      true
+    );
+    expect(
+      shouldAutoRetry(0, new Error("Server returned invalid JSON"), false)
+    ).toBe(true);
+  });
+
+  test("never retries more than once", () => {
+    expect(shouldAutoRetry(1, new Error("boom"), false)).toBe(false);
+    expect(shouldAutoRetry(2, new Error("boom"), false)).toBe(false);
+  });
+
+  test("never auto-retries a cancelled or aborted request", () => {
+    expect(shouldAutoRetry(0, abortError(), false)).toBe(false);
+    expect(shouldAutoRetry(0, new Error("boom"), true)).toBe(false);
+    expect(shouldAutoRetry(0, abortError(), true)).toBe(false);
+  });
+});
+
+describe("runWithAutoRetry", () => {
+  test("passes through a first-try success without retrying", async () => {
+    const task = vi.fn(async () => {});
+    const onRetry = vi.fn();
+    await runWithAutoRetry(task, onRetry);
+    expect(task).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  test("retries once after a failure and resolves on success", async () => {
+    let calls = 0;
+    const task = vi.fn(async () => {
+      calls += 1;
+      if (calls === 1) throw new Error("Failed to fetch");
+    });
+    const onRetry = vi.fn();
+    await runWithAutoRetry(task, onRetry);
+    expect(task).toHaveBeenCalledTimes(2);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  test("surfaces the second failure instead of retrying forever", async () => {
+    const first = new Error("Failed to fetch");
+    const second = new Error("Request failed (HTTP 504)");
+    const task = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(first)
+      .mockRejectedValueOnce(second);
+    const onRetry = vi.fn();
+    await expect(runWithAutoRetry(task, onRetry)).rejects.toBe(second);
+    expect(task).toHaveBeenCalledTimes(2);
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  test("never retries after an abort, even on the original attempt", async () => {
+    const cancelled = abortError();
+    const task = vi.fn(async () => {
+      throw cancelled;
+    });
+    const onRetry = vi.fn();
+    await expect(runWithAutoRetry(task, onRetry)).rejects.toBe(cancelled);
+    expect(task).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
+  });
+
+  test("stops when the caller signal reports a cancel", async () => {
+    let aborted = false;
+    const task = vi.fn(async () => {
+      aborted = true;
+      throw new Error("network went away mid-cancel");
+    });
+    const onRetry = vi.fn();
+    await expect(
+      runWithAutoRetry(task, onRetry, () => aborted)
+    ).rejects.toThrow("network went away mid-cancel");
+    expect(task).toHaveBeenCalledTimes(1);
+    expect(onRetry).not.toHaveBeenCalled();
   });
 });
 

@@ -191,17 +191,39 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain("doorOpen");
     expect(text).toContain("lampOn");
     expect(text).toContain("setVisible");
-    expect(text).toContain("Budget: at most 14 entities and 10 rules");
+    expect(text).toContain("Budget: at most 10 entities and 6 rules");
     expect(text).toContain("do not copy the few-shot document verbatim");
     expect(text).not.toContain("The game must be winnable through its rules alone.");
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.walkthrough, null, 2));
   });
 
-  test("inspect and drive prompts carry entity and rule budgets", () => {
-    const inspect = buildGenerationPrompt("a 3D PCB I can inspect", "inspect");
-    expect(inspect).toContain("Budget: at most 12 entities and 8 rules");
-    const drive = buildGenerationPrompt("a car racing game", "drive");
-    expect(drive).toContain("Budget: at most 12 entities and 10 rules");
+  test("every archetype prompt carries its tightened entity and rule budget", () => {
+    const budgets: ReadonlyArray<readonly [KitArchetype, string]> = [
+      ["inspect", "Budget: at most 10 entities and 6 rules"],
+      ["walkthrough", "Budget: at most 10 entities and 6 rules"],
+      ["drive", "Budget: at most 10 entities and 7 rules"],
+      ["explore", "Budget: at most 12 entities and 5 rules"],
+      ["collect-a-thon", "Budget: at most 12 entities and 8 rules"],
+      ["puzzle-switch", "Budget: at most 12 entities and 8 rules"],
+      ["platformer-lite", "Budget: at most 12 entities and 8 rules"],
+      ["stealth-chase", "Budget: at most 12 entities and 8 rules"],
+    ];
+    for (const [archetype, budget] of budgets) {
+      expect(buildGenerationPrompt("make something", archetype), archetype).toContain(
+        budget
+      );
+    }
+  });
+
+  test("every prompt asks for terse JSON", () => {
+    for (const archetype of KIT_ARCHETYPES) {
+      expect(
+        buildGenerationPrompt("make something", archetype),
+        archetype
+      ).toContain(
+        "Prefer terse JSON: minimal labels, no redundant props, no optional fields with default values."
+      );
+    }
   });
 
   test("drive prompt teaches vehicle props, ordered checkpoints and winnability", () => {

@@ -1084,6 +1084,8 @@ const GAME_WINNABILITY_BLOCK: readonly string[] = [
   '- Finish every objective with a rule on {"event":"objectiveComplete",',
   '  "objective":"<objective-id>"} whose actions include {"type":"win",...}.',
   "- The game must be winnable through its rules alone.",
+  "- Budget: at most 12 entities and 8 rules; keep the game compact so it",
+  "  generates quickly and stays winnable.",
 ];
 
 const EXPLORE_KIT_BLOCK: readonly string[] = [
@@ -1103,6 +1105,8 @@ const EXPLORE_KIT_BLOCK: readonly string[] = [
   "  or incVar; every id they reference must exist in the document.",
   "- Keep the ground walkable: flat terrain with no obstacles unless the prompt",
   "  explicitly asks for them.",
+  "- Budget: at most 12 entities and 5 rules; keep the scene small so it",
+  "  generates quickly and stays readable.",
 ];
 
 const INSPECT_KIT_BLOCK: readonly string[] = [
@@ -1120,7 +1124,7 @@ const INSPECT_KIT_BLOCK: readonly string[] = [
   '  is clicked (guard it with a scratch flag such as { "op": "==", "left":',
   '  { "var": "focused" }, "right": 0 }) so the camera eases onto it.',
   "- Keep the scene static and inspectable: no vehicle props, no objectives.",
-  "- Budget: at most 12 entities and 8 rules; keep the showcase compact so it",
+  "- Budget: at most 10 entities and 6 rules; keep the showcase compact so it",
   "  generates quickly and stays readable.",
 ];
 
@@ -1153,7 +1157,7 @@ const WALKTHROUGH_KIT_BLOCK: readonly string[] = [
   '  gated on a scratch var such as { "op": "==", "left": { "var": "lampOn" },',
   '  "right": 0|1 } so the lamp pair also fires one branch per press.',
   "- Put labels on the door and the lamp so the player knows what is interactive.",
-  "- Budget: at most 14 entities and 10 rules. Fewer, richer entities keep",
+  "- Budget: at most 10 entities and 6 rules. Fewer, richer entities keep",
   "  generation fast and the rooms easy to walk.",
   "- Vary every generation instead of copying the example: change the wall colors",
   "  and materials, the room proportions, the furniture (table, chair, shelf,",
@@ -1179,7 +1183,7 @@ const DRIVE_KIT_BLOCK: readonly string[] = [
   '  {"event":"objectiveComplete","objective":"<objective-id>"} wins the race.',
   "- Include a timeLimit objective with a generous time and bump scratch.lap when",
   "  the final checkpoint falls. The race must be winnable through its rules.",
-  "- Budget: at most 12 entities and 10 rules (checkpoint zones included) so the",
+  "- Budget: at most 10 entities and 7 rules (checkpoint zones included) so the",
   "  race generates quickly and the route stays clear.",
 ];
 
@@ -1276,6 +1280,8 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
       : "",
     '- "rules": array of { "id", "on": { "event": ... }, optional "if", "then": [...] }',
     '- "scratch": object of string|number|boolean values (may be empty)',
+    "",
+    "Prefer terse JSON: minimal labels, no redundant props, no optional fields with default values.",
     "",
     "Rule triggers - use only these (the engine emits them):",
     '  {"event":"playerEnter","zone":"<zone-id>"}   fired when the player enters a zone',

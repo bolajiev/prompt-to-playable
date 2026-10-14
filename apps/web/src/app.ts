@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { Engine, resolveMode, type GameState } from "@prompt-to-playable/engine";
 import { applyWorldEnvironment, Renderer } from "@prompt-to-playable/render";
 import type { GameDoc } from "@prompt-to-playable/schema";
-import { Chat, isAbortError } from "./ui/chat.js";
+import { Chat, isAbortError, runWithAutoRetry } from "./ui/chat.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
 import { GenerationProgress } from "./ui/progress.js";
@@ -614,11 +614,17 @@ export class App {
     this.progress.start();
     this.onboarding.setBusy(true);
     try {
-      if (this.lastValidatedDoc === null) {
-        await this.generate(prompt, controller.signal);
-      } else {
-        await this.edit(prompt, controller.signal);
-      }
+      await runWithAutoRetry(
+        async () => {
+          if (this.lastValidatedDoc === null) {
+            await this.generate(prompt, controller.signal);
+          } else {
+            await this.edit(prompt, controller.signal);
+          }
+        },
+        () => this.chat.appendMessage("system", "retrying…"),
+        () => controller.signal.aborted
+      );
     } finally {
       if (this.abortController === controller) this.abortController = null;
       this.progress.stop();
