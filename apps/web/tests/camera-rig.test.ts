@@ -10,10 +10,15 @@ import {
   chaseCameraPosition,
   clampDistance,
   clampPitch,
+  clampPitchFor,
   DEFAULT_CAMERA_OFFSET,
   DEFAULT_DISTANCE,
   DEFAULT_PITCH,
+  dragScaleFor,
+  FIRST_PERSON_DRAG_SCALE,
   FIRST_PERSON_EYE_HEIGHT,
+  FIRST_PERSON_MAX_PITCH,
+  FIRST_PERSON_MIN_PITCH,
   firstPersonEye,
   firstPersonLookAt,
   FOCUS_DISTANCE,
@@ -220,6 +225,68 @@ describe("CameraRig orbit control", () => {
       return [offset[0], offset[1], offset[2]];
     };
     expect(run()).toEqual(run());
+  });
+});
+
+describe("mode-aware pitch and drag", () => {
+  test("orbit and chase keep the historical clamp", () => {
+    for (const mode of ["orbit", "chase"] as const) {
+      expect(clampPitchFor(mode, MAX_PITCH + 1)).toBe(MAX_PITCH);
+      expect(clampPitchFor(mode, MIN_PITCH - 1)).toBe(MIN_PITCH);
+      expect(clampPitchFor(mode, 0.25)).toBe(0.25);
+    }
+  });
+
+  test("first person allows a full up/down look within [-1.2, 1.2]", () => {
+    expect(FIRST_PERSON_MIN_PITCH).toBe(-1.2);
+    expect(FIRST_PERSON_MAX_PITCH).toBe(1.2);
+    expect(clampPitchFor("firstPerson", 100)).toBe(FIRST_PERSON_MAX_PITCH);
+    expect(clampPitchFor("firstPerson", -100)).toBe(FIRST_PERSON_MIN_PITCH);
+    expect(clampPitchFor("firstPerson", 0.9)).toBe(0.9);
+    expect(clampPitchFor("firstPerson", MAX_PITCH)).toBe(
+      FIRST_PERSON_MAX_PITCH
+    );
+  });
+
+  test("first-person dragging clamps at the new limits", () => {
+    const r = rig();
+    r.beginDrag();
+    r.drag(0, -100000, "firstPerson");
+    expect(r.pitch).toBe(FIRST_PERSON_MAX_PITCH);
+
+    r.drag(0, 100000, "firstPerson");
+    expect(r.pitch).toBe(FIRST_PERSON_MIN_PITCH);
+
+    r.drag(0, 100000, "orbit");
+    expect(r.pitch).toBe(MIN_PITCH);
+
+    r.drag(0, -100000, "chase");
+    expect(r.pitch).toBe(MAX_PITCH);
+  });
+
+  test("first-person drag is slightly more sensitive on both axes", () => {
+    expect(dragScaleFor("firstPerson")).toBe(FIRST_PERSON_DRAG_SCALE);
+    expect(dragScaleFor("orbit")).toBe(1);
+    expect(dragScaleFor("chase")).toBe(1);
+    expect(FIRST_PERSON_DRAG_SCALE).toBeGreaterThan(1);
+
+    const fp = rig();
+    fp.beginDrag();
+    fp.drag(100, 0, "firstPerson");
+    expect(fp.yaw).toBeCloseTo(100 * YAW_SENSITIVITY * FIRST_PERSON_DRAG_SCALE, 10);
+
+    const orbit = rig();
+    orbit.beginDrag();
+    orbit.drag(100, 0);
+    expect(orbit.yaw).toBeCloseTo(100 * YAW_SENSITIVITY, 10);
+  });
+
+  test("identical deltas give identical pitch under the mode clamp", () => {
+    const fp = rig({ pitch: 0 });
+    const orbit = rig({ pitch: 0 });
+    fp.drag(0, -10, "firstPerson");
+    orbit.drag(0, -10, "orbit");
+    expect(fp.pitch / FIRST_PERSON_DRAG_SCALE).toBeCloseTo(orbit.pitch, 10);
   });
 });
 

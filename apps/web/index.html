@@ -105,6 +105,24 @@
       #crosshair[hidden] {
         display: none;
       }
+      #interact-prompt {
+        position: absolute;
+        left: 50%;
+        bottom: 44px;
+        transform: translateX(-50%);
+        padding: 5px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--text);
+        background: rgba(15, 23, 42, 0.9);
+        border: 1px solid rgba(56, 189, 248, 0.55);
+        pointer-events: none;
+      }
+      #interact-prompt[hidden] {
+        display: none;
+      }
       #drive-hud {
         position: absolute;
         top: 10px;
@@ -458,6 +476,7 @@
         <span id="badge">unvalidated</span>
         <span id="controls">WASD move · Space jump · E interact</span>
         <div id="crosshair" hidden aria-hidden="true"></div>
+        <div id="interact-prompt" hidden aria-live="polite"></div>
         <div id="drive-hud" hidden>
           <span id="drive-speed">0 km/h</span>
           <span id="drive-lap">Lap —</span>

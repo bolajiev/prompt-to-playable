@@ -84,6 +84,33 @@ export function forwardFromYaw(yaw: number): [number, number] {
 /** Camera behavior selected for a resolved game mode. */
 export type CameraMode = "orbit" | "firstPerson" | "chase";
 
+/** First-person look limits (radians), roughly 69 degrees up and down. */
+export const FIRST_PERSON_MIN_PITCH = -1.2;
+export const FIRST_PERSON_MAX_PITCH = 1.2;
+
+/**
+ * Mode-aware pitch clamp. First person looks freely up/down within
+ * `[FIRST_PERSON_MIN_PITCH, FIRST_PERSON_MAX_PITCH]`; orbit (and chase, which
+ * ignores drag) keeps the historical orbit clamp.
+ */
+export function clampPitchFor(mode: CameraMode, pitch: number): number {
+  if (mode === "firstPerson") {
+    return Math.max(
+      FIRST_PERSON_MIN_PITCH,
+      Math.min(FIRST_PERSON_MAX_PITCH, pitch)
+    );
+  }
+  return clampPitch(pitch);
+}
+
+/** First-person look is slightly faster than orbit drag. */
+export const FIRST_PERSON_DRAG_SCALE = 1.2;
+
+/** Per-mode pointer-drag scale applied to both yaw and pitch deltas. */
+export function dragScaleFor(mode: CameraMode): number {
+  return mode === "firstPerson" ? FIRST_PERSON_DRAG_SCALE : 1;
+}
+
 /** Inspect scenes frame their content tighter than the default orbit view. */
 export const INSPECT_DISTANCE = 15;
 export const INSPECT_PITCH = 0.62;
@@ -269,11 +296,19 @@ export class CameraRig {
     this.dragging = false;
   }
 
-  /** Applies a pointer delta (pixels). Any drag marks the rig as dragging. */
-  drag(dx: number, dy: number): void {
-    if (Number.isFinite(dx)) this.yaw += dx * YAW_SENSITIVITY;
+  /**
+   * Applies a pointer delta (pixels). Any drag marks the rig as dragging. The
+   * camera mode selects the pitch clamp and drag scale: first person looks
+   * further up/down and slightly faster, orbit keeps the historical feel.
+   */
+  drag(dx: number, dy: number, mode: CameraMode = "orbit"): void {
+    const scale = dragScaleFor(mode);
+    if (Number.isFinite(dx)) this.yaw += dx * scale * YAW_SENSITIVITY;
     if (Number.isFinite(dy)) {
-      this.pitch = clampPitch(this.pitch - dy * PITCH_SENSITIVITY);
+      this.pitch = clampPitchFor(
+        mode,
+        this.pitch - dy * scale * PITCH_SENSITIVITY
+      );
     }
     this.dragging = true;
   }

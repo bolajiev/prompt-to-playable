@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import {
+  BUSY_STAGE_MS,
+  CANCEL_STAGE_MS,
   formatElapsed,
   GenerationProgress,
   STAGE_THRESHOLDS_MS,
@@ -9,6 +11,8 @@ import {
 import { FakeNode } from "./fakes.js";
 
 const [buildAt, checkAt, almostAt] = STAGE_THRESHOLDS_MS;
+const BUSY_MESSAGE = "the model is busy — this can take a few minutes";
+const CANCEL_MESSAGE = `${BUSY_MESSAGE} · you can cancel and retry`;
 
 describe("stageMessage", () => {
   test("moves through the four stages deterministically", () => {
@@ -19,14 +23,46 @@ describe("stageMessage", () => {
     expect(stageMessage(checkAt)).toBe("checking the rules…");
     expect(stageMessage(checkAt + 1)).toBe("checking the rules…");
     expect(stageMessage(almostAt)).toBe("almost there…");
-    expect(stageMessage(10 * 60_000)).toBe("almost there…");
+    expect(stageMessage(BUSY_STAGE_MS - 1)).toBe("almost there…");
+  });
+
+  test("explains long gateway waits as a busy model", () => {
+    expect(BUSY_STAGE_MS).toBe(90_000);
+    expect(CANCEL_STAGE_MS).toBe(240_000);
+    expect(stageMessage(BUSY_STAGE_MS)).toBe(BUSY_MESSAGE);
+    expect(stageMessage(BUSY_STAGE_MS + 1)).toBe(BUSY_MESSAGE);
+    expect(stageMessage(CANCEL_STAGE_MS - 1)).toBe(BUSY_MESSAGE);
+  });
+
+  test("adds the cancel-and-retry reminder after 240s", () => {
+    expect(stageMessage(CANCEL_STAGE_MS)).toBe(CANCEL_MESSAGE);
+    expect(stageMessage(CANCEL_STAGE_MS + 1)).toBe(CANCEL_MESSAGE);
+    expect(stageMessage(10 * 60_000)).toBe(CANCEL_MESSAGE);
   });
 
   test("is stable at the exact boundaries (repeated calls agree)", () => {
-    for (const ms of [0, buildAt - 1, buildAt, checkAt - 1, checkAt, almostAt - 1, almostAt]) {
+    for (const ms of [
+      0,
+      buildAt - 1,
+      buildAt,
+      checkAt - 1,
+      checkAt,
+      almostAt - 1,
+      almostAt,
+      BUSY_STAGE_MS - 1,
+      BUSY_STAGE_MS,
+      CANCEL_STAGE_MS - 1,
+      CANCEL_STAGE_MS,
+    ]) {
       expect(stageMessage(ms)).toBe(stageMessage(ms));
     }
     expect(stageMessage(buildAt - 1)).not.toBe(stageMessage(buildAt));
+    expect(stageMessage(BUSY_STAGE_MS - 1)).not.toBe(
+      stageMessage(BUSY_STAGE_MS)
+    );
+    expect(stageMessage(CANCEL_STAGE_MS - 1)).not.toBe(
+      stageMessage(CANCEL_STAGE_MS)
+    );
   });
 
   test("clamps degenerate durations to sensible ends", () => {
@@ -35,7 +71,7 @@ describe("stageMessage", () => {
     expect(stageMessage(Number.NEGATIVE_INFINITY)).toBe(
       "understanding the request…"
     );
-    expect(stageMessage(Number.POSITIVE_INFINITY)).toBe("almost there…");
+    expect(stageMessage(Number.POSITIVE_INFINITY)).toBe(CANCEL_MESSAGE);
   });
 });
 

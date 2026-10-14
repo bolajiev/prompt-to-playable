@@ -1,17 +1,29 @@
 /**
- * Staged progress copy. Boundaries are tuned for the live LLM gateway, where
- * generation typically takes 5-20s: the first stage covers quick cached
- * responses and the last keeps a "still working" signal for long calls.
+ * Staged progress copy. The first thresholds cover quick cached responses;
+ * the last two keep the player informed when the LLM gateway is slow: at 90s
+ * the copy explains the model is busy, and at 240s it adds that cancelling and
+ * retrying is allowed.
  */
-export const STAGE_THRESHOLDS_MS: readonly [number, number, number] = [
-  3_000, 12_000, 25_000,
-];
+export const STAGE_THRESHOLDS_MS: readonly [
+  number,
+  number,
+  number,
+  number,
+  number,
+] = [3_000, 12_000, 25_000, 90_000, 240_000];
+
+/** Elapsed time after which generation is explained as a busy model. */
+export const BUSY_STAGE_MS = STAGE_THRESHOLDS_MS[3];
+/** Elapsed time after which the copy reminds the player they can cancel. */
+export const CANCEL_STAGE_MS = STAGE_THRESHOLDS_MS[4];
 
 const STAGES = [
   "understanding the request…",
   "building the world…",
   "checking the rules…",
   "almost there…",
+  "the model is busy — this can take a few minutes",
+  "the model is busy — this can take a few minutes · you can cancel and retry",
 ] as const;
 
 /**
@@ -22,9 +34,10 @@ export function stageMessage(elapsedMs: number): string {
   if (Number.isNaN(elapsedMs) || elapsedMs < STAGE_THRESHOLDS_MS[0]) {
     return STAGES[0];
   }
-  if (elapsedMs < STAGE_THRESHOLDS_MS[1]) return STAGES[1];
-  if (elapsedMs < STAGE_THRESHOLDS_MS[2]) return STAGES[2];
-  return STAGES[3];
+  for (let index = 1; index < STAGE_THRESHOLDS_MS.length; index += 1) {
+    if (elapsedMs < STAGE_THRESHOLDS_MS[index]) return STAGES[index];
+  }
+  return STAGES[STAGES.length - 1];
 }
 
 /** Elapsed time as tenths of a second, e.g. "12.4s". */

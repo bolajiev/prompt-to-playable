@@ -33,7 +33,7 @@ import {
   PREVENT_DEFAULT_CODES,
   toWorldInput,
 } from "./ui/input.js";
-import { hudForMode } from "./ui/mode-hud.js";
+import { hudForMode, interactPrompt } from "./ui/mode-hud.js";
 import { Panels } from "./ui/panels.js";
 import {
   gestureOutcome,
@@ -59,6 +59,8 @@ export interface AppElements {
   controls: HTMLElement;
   /** First-person reticle, hidden outside walkthrough mode. */
   crosshair: HTMLElement;
+  /** Contextual "press E" chip, hidden when nothing is in interact range. */
+  interactPrompt: HTMLElement;
   /** Speed / lap / time cluster, hidden outside drive mode. */
   driveHud: HTMLElement;
   driveSpeed: HTMLElement;
@@ -201,6 +203,7 @@ export class App {
   private hoveredId: string | null = null;
   private gestureStart: PointerSample | null = null;
   private modeLines: string | null = null;
+  private interactLine: string | null = null;
   private focusState: FocusCameraState = { active: false, savedDistance: null };
 
   constructor(elements: AppElements, options: AppOptions = {}) {
@@ -348,7 +351,9 @@ export class App {
       this.lastPointerX = event.clientX;
       this.lastPointerY = event.clientY;
       // The chase camera owns its orientation; orbit/first-person drag looks.
-      if (this.cameraMode !== "chase") this.cameraRig.drag(dx, dy);
+      if (this.cameraMode !== "chase") {
+        this.cameraRig.drag(dx, dy, this.cameraMode);
+      }
       return;
     }
     this.updateHover(event);
@@ -463,6 +468,7 @@ export class App {
       this.hud.update(state);
       this.panels.update(state.ui.panels);
       this.updateModeHud(state);
+      this.updateInteractPrompt(state);
       this.updateCamera(state, dt / 1000);
       this.updateAudio(state);
     }
@@ -510,14 +516,29 @@ export class App {
   }
 
   /**
-   * Mode-dependent camera update. Every mode drives the camera with
-   * `position.lerp` so the renderer's lose-shake offsets (applied during
-   * `reconcile` and undone at the next one) compose without accumulating.
+   * Contextual interact chip. Recomputes the mirrored engine selection every
+   * frame but only touches the DOM when the copy changes. Won/lost states are
+   * skipped because the engine is no longer stepped, so E could not fire.
+   */
+  private updateInteractPrompt(state: GameState): void {
+    const line = state.status === "running" ? interactPrompt(state) : null;
+    if (line === this.interactLine) return;
+    this.interactLine = line;
+    this.dom.interactPrompt.hidden = line === null;
+    this.dom.interactPrompt.textContent = line ?? "";
+  }
+
+  /**
+   * Mode-dependent camera update. Orbit and chase ease toward their desired
+   * positions with `position.lerp` so the renderer's lose-shake offsets
+   * (applied during `reconcile` and undone at the next one) compose without
+   * accumulating.
    *
    * - orbit: existing rig behavior (inspect keeps its closer defaults; an
    *   active `ui.focus` frames that entity and eases the distance toward
    *   `FOCUS_DISTANCE`, restoring the pre-focus distance when cleared);
-   * - firstPerson: eye at the player + eye height, looking along rig yaw/pitch;
+   * - firstPerson: eye snapped directly to the player + eye height (no trail),
+   *   looking along rig yaw/pitch immediately;
    * - chase: fixed distance behind the vehicle heading, no orbit drag.
    */
   private updateCamera(state: GameState, dtSeconds: number): void {
@@ -537,10 +558,9 @@ export class App {
         this.cameraRig.yaw,
         this.cameraRig.pitch
       );
-      this.camera.position.lerp(
-        new THREE.Vector3(eye[0], eye[1], eye[2]),
-        0.4
-      );
+      // First person must not trail the player: snap the eye to the target
+      // and apply the look immediately (no positional lag while walking).
+      this.camera.position.set(eye[0], eye[1], eye[2]);
       this.camera.lookAt(look[0], look[1], look[2]);
       return;
     }
@@ -648,6 +668,9 @@ export class App {
     this.modeLines = null;
     this.previousCueState = null;
     this.resetHover();
+    this.interactLine = null;
+    this.dom.interactPrompt.hidden = true;
+    this.dom.interactPrompt.textContent = "";
     const state = this.engine.getState();
     this.badge.setValidated(true);
     this.hud.update(state);
@@ -712,6 +735,7 @@ export function resolveElements(root: ParentNode): AppElements {
   const progressCancel = root.querySelector<HTMLButtonElement>("#progress-cancel");
   const controls = root.querySelector<HTMLElement>("#controls");
   const crosshair = root.querySelector<HTMLElement>("#crosshair");
+  const interactPrompt = root.querySelector<HTMLElement>("#interact-prompt");
   const driveHud = root.querySelector<HTMLElement>("#drive-hud");
   const driveSpeed = root.querySelector<HTMLElement>("#drive-speed");
   const driveLap = root.querySelector<HTMLElement>("#drive-lap");
@@ -733,6 +757,7 @@ export function resolveElements(root: ParentNode): AppElements {
   if (!progressCancel) missing.push("#progress-cancel");
   if (!controls) missing.push("#controls");
   if (!crosshair) missing.push("#crosshair");
+  if (!interactPrompt) missing.push("#interact-prompt");
   if (!driveHud) missing.push("#drive-hud");
   if (!driveSpeed) missing.push("#drive-speed");
   if (!driveLap) missing.push("#drive-lap");
@@ -754,6 +779,7 @@ export function resolveElements(root: ParentNode): AppElements {
     !progressCancel ||
     !controls ||
     !crosshair ||
+    !interactPrompt ||
     !driveHud ||
     !driveSpeed ||
     !driveLap ||
@@ -778,6 +804,7 @@ export function resolveElements(root: ParentNode): AppElements {
     progressCancel,
     controls,
     crosshair,
+    interactPrompt,
     driveHud,
     driveSpeed,
     driveLap,

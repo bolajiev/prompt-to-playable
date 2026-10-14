@@ -1,3 +1,4 @@
+import { DEFAULT_INTERACT_RANGE } from "@prompt-to-playable/engine";
 import type { GameState } from "@prompt-to-playable/engine";
 import type { GameMode } from "@prompt-to-playable/schema";
 
@@ -21,6 +22,69 @@ export interface ModeHudViewModel {
 
 function finiteNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+/** Base copy for the contextual interact chip. */
+export const INTERACT_PROMPT = "Press E to interact";
+
+function isActive(state: GameState, id: string): boolean {
+  const runtime = state.entityRuntime[id];
+  if (runtime) return runtime.active;
+  return state.entities.find((entity) => entity.id === id)?.active ?? false;
+}
+
+function positionOf(
+  state: GameState,
+  entity: GameState["entities"][number]
+): readonly [number, number, number] {
+  return state.entityRuntime[entity.id]?.position ?? entity.position;
+}
+
+function distance(
+  a: readonly [number, number, number],
+  b: readonly [number, number, number]
+): number {
+  return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+}
+
+/**
+ * Contextual "press E" copy for the nearest in-range interactable, mirroring
+ * the engine's interact selection exactly: active player, active entities whose
+ * kind or runtime tags say `interactable`, 3D center distance within the
+ * entity's `props.interactRange ?? DEFAULT_INTERACT_RANGE`, nearest wins with
+ * entity-list order breaking ties. Returns `null` when nothing is selectable.
+ */
+export function interactPrompt(state: GameState): string | null {
+  const player = state.entities.find(
+    (entity) => entity.kind === "player" && isActive(state, entity.id)
+  );
+  if (!player) return null;
+
+  const playerPos = positionOf(state, player);
+  let target: GameState["entities"][number] | undefined;
+  let targetDistance = Infinity;
+
+  for (const entity of state.entities) {
+    if (entity.id === player.id || !isActive(state, entity.id)) continue;
+
+    const tags = state.entityRuntime[entity.id]?.tags ?? entity.tags;
+    if (entity.kind !== "interactable" && !tags.includes("interactable")) {
+      continue;
+    }
+
+    const range =
+      typeof entity.props?.interactRange === "number"
+        ? entity.props.interactRange
+        : DEFAULT_INTERACT_RANGE;
+    const d = distance(playerPos, positionOf(state, entity));
+    if (d <= range && d < targetDistance) {
+      target = entity;
+      targetDistance = d;
+    }
+  }
+
+  if (!target) return null;
+  return target.name ? `${INTERACT_PROMPT} — ${target.name}` : INTERACT_PROMPT;
 }
 
 /**
