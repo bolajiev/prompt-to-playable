@@ -5,3 +5,5 @@ export type Archetype =
   | "platformer-lite"
   | "stealth-chase"
   | "explore";
+
+export type Mode = "inspect" | "walkthrough" | "drive" | "explore" | "game";

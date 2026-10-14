@@ -25,6 +25,52 @@ export const EntityKindSchema = z.enum([
 
 export const EnemyStateSchema = z.enum(["idle", "patrol", "chase", "return"]);
 
+export const PartShapeSchema = z.enum([
+  "box",
+  "sphere",
+  "cylinder",
+  "cone",
+  "torus",
+  "capsule",
+  "wedge",
+  "plane",
+]);
+
+export const PartTextureSchema = z.enum([
+  "circuit",
+  "wood",
+  "brick",
+  "metal",
+  "grid",
+  "glass",
+]);
+
+export const PartMaterialSchema = z
+  .object({
+    metalness: z.number(),
+    roughness: z.number(),
+    emissive: z.string(),
+    opacity: z.number(),
+    texture: PartTextureSchema,
+  })
+  .partial()
+  .optional();
+
+export const PartSchema = z.object({
+  shape: PartShapeSchema,
+  offset: Vec3Schema.default([0, 0, 0]),
+  size: Vec3Schema.default([1, 1, 1]),
+  rotation: Vec3Schema.optional(),
+  color: z.string().optional(),
+  material: PartMaterialSchema,
+});
+
+export const EntityLabelSchema = z.object({
+  text: z.string(),
+  offset: Vec3Schema.optional(),
+  size: z.number().positive().optional(),
+});
+
 export const EntitySchema = z.object({
   id: EntityIdSchema,
   kind: EntityKindSchema,
@@ -42,6 +88,8 @@ export const EntitySchema = z.object({
   sight: z.number().nonnegative().optional(),
   state: EnemyStateSchema.optional(),
   props: z.record(ScratchValueSchema).optional(),
+  parts: z.array(PartSchema).optional(),
+  label: EntityLabelSchema.optional(),
 });
 
 export const ObjectiveTypeSchema = z.enum([
@@ -79,6 +127,9 @@ export const EventTypeSchema = z.enum([
   "stateChange",
   "playerDeath",
   "tick",
+  "click",
+  "hoverEnter",
+  "hoverLeave",
 ]);
 
 export const RuleTriggerSchema = z.object({
@@ -140,6 +191,14 @@ export const ConditionSchema: z.ZodType<Condition> = z.lazy(() =>
   ])
 );
 
+export const AnimationKindSchema = z.enum([
+  "spin",
+  "bob",
+  "pulse",
+  "slide",
+  "orbit",
+]);
+
 export const ActionSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("spawn"), entity: EntitySchema }),
   z.object({ type: z.literal("despawn"), entity: z.string().min(1) }),
@@ -188,6 +247,40 @@ export const ActionSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("openDoor"), entity: z.string().min(1) }),
   z.object({ type: z.literal("toggle"), target: z.string().min(1) }),
+  z.object({
+    type: z.literal("setVisible"),
+    entity: z.string().min(1),
+    visible: z.boolean(),
+  }),
+  z.object({
+    type: z.literal("setColor"),
+    entity: z.string().min(1),
+    color: z.string(),
+  }),
+  z.object({
+    type: z.literal("animate"),
+    entity: z.string().min(1),
+    kind: AnimationKindSchema,
+    axis: Vec3Schema.optional(),
+    amplitude: z.number().optional(),
+    speed: z.number().optional(),
+    to: Vec3Schema.optional(),
+    duration: z.number().nonnegative().optional(),
+  }),
+  z.object({
+    type: z.literal("cameraFocus"),
+    entity: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal("showPanel"),
+    title: z.string(),
+    body: z.string(),
+    entity: z.string().min(1).optional(),
+  }),
+  z.object({
+    type: z.literal("hidePanel"),
+    entity: z.string().min(1).optional(),
+  }),
 ]);
 
 export const RuleSchema = z.object({
@@ -227,12 +320,21 @@ export const ArchetypeSchema = z.enum([
   "explore",
 ]);
 
+export const GameModeSchema = z.enum([
+  "inspect",
+  "walkthrough",
+  "drive",
+  "explore",
+  "game",
+]);
+
 export const MetaSchema = z.object({
   title: z.string().min(1),
   archetype: ArchetypeSchema,
   genre: z.string().optional(),
   difficulty: z.number().min(0).max(1).default(0.5),
   seed: z.number().int().optional(),
+  mode: GameModeSchema.optional(),
 });
 
 export const GameSchema = z
@@ -262,12 +364,18 @@ export type RuleId = z.infer<typeof RuleIdSchema>;
 export type ScratchValue = z.infer<typeof ScratchValueSchema>;
 export type EntityKind = z.infer<typeof EntityKindSchema>;
 export type EnemyState = z.infer<typeof EnemyStateSchema>;
+export type PartShape = z.infer<typeof PartShapeSchema>;
+export type PartTexture = z.infer<typeof PartTextureSchema>;
+export type PartMaterial = z.infer<typeof PartMaterialSchema>;
+export type Part = z.infer<typeof PartSchema>;
+export type EntityLabel = z.infer<typeof EntityLabelSchema>;
 export type Entity = z.infer<typeof EntitySchema>;
 export type ObjectiveType = z.infer<typeof ObjectiveTypeSchema>;
 export type ObjectiveStatus = z.infer<typeof ObjectiveStatusSchema>;
 export type Objective = z.infer<typeof ObjectiveSchema>;
 export type EventType = z.infer<typeof EventTypeSchema>;
 export type RuleTrigger = z.infer<typeof RuleTriggerSchema>;
+export type AnimationKind = z.infer<typeof AnimationKindSchema>;
 export type Action = z.infer<typeof ActionSchema>;
 export type Rule = z.infer<typeof RuleSchema>;
 export type Lighting = z.infer<typeof LightingSchema>;
@@ -275,5 +383,6 @@ export type Skybox = z.infer<typeof SkyboxSchema>;
 export type Terrain = z.infer<typeof TerrainSchema>;
 export type World = z.infer<typeof WorldSchema>;
 export type Archetype = z.infer<typeof ArchetypeSchema>;
+export type GameMode = z.infer<typeof GameModeSchema>;
 export type Meta = z.infer<typeof MetaSchema>;
 export type GameDoc = z.infer<typeof GameSchema>;
