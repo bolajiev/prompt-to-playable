@@ -26,6 +26,7 @@ import {
   entityColor,
   entityTransform,
   kindDefaultScale,
+  RUNTIME_EMISSIVE_BASE,
   TRANSLUCENT_KINDS,
   TRANSLUCENT_OPACITY,
   type EntityTransform,
@@ -383,12 +384,20 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
       applyShapeColor(view, color);
     } else {
       const material = (view as THREE.Mesh).material;
-      const emissive = EMISSIVE_STRENGTH[entity.kind];
+      const baseEmissive = EMISSIVE_STRENGTH[entity.kind];
+      const runtimeEmissive = transform.emissive;
+      const emissive =
+        runtimeEmissive === undefined
+          ? baseEmissive
+          : (baseEmissive ?? RUNTIME_EMISSIVE_BASE) *
+            Math.max(0, runtimeEmissive);
       const applyColor = (target: THREE.Material): void => {
         const shaded = target as THREE.MeshStandardMaterial;
         shaded.color?.set(color);
-        if (emissive !== undefined && shaded.emissive) {
-          shaded.emissive.copy(color).multiplyScalar(emissive * emissiveScale);
+        if (shaded.emissive) {
+          shaded.emissive
+            .copy(color)
+            .multiplyScalar((emissive ?? 0) * emissiveScale);
         }
       };
       if (Array.isArray(material)) {

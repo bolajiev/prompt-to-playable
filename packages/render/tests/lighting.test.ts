@@ -8,6 +8,7 @@ import { validateGame } from "@prompt-to-playable/schema";
 import {
   applyWorldEnvironment,
   DEFAULT_WORLD,
+  EMPTY_SCENE_BACKGROUND,
   fogSettings,
   FOG_FAR_RATIO,
   FOG_NEAR_RATIO,
@@ -300,6 +301,22 @@ describe("applyWorldEnvironment", () => {
     ) as THREE.AmbientLight;
     expect(ambient.intensity).toBe(
       LIGHTING_PROFILES[DEFAULT_WORLD.lighting].ambient
+    );
+  });
+
+  test("the empty scene reads near-black (no document loaded)", () => {
+    const scene = new THREE.Scene();
+    applyWorldEnvironment(scene);
+    const background = scene.background as THREE.Color;
+    expect(background.getHexString()).toBe(EMPTY_SCENE_BACKGROUND.slice(1));
+    expect(EMPTY_SCENE_BACKGROUND).toMatch(/^#[0-9a-f]{6}$/);
+
+    // Loading a document restores the per-world look (mood fallback color in
+    // node, where no canvas exists for the sky gradient).
+    applyWorldEnvironment(scene, worldFor({ lighting: "day" }));
+    const loaded = scene.background as THREE.Color;
+    expect(loaded.getHexString()).toBe(
+      LIGHTING_PROFILES.day.background.slice(1)
     );
   });
 });

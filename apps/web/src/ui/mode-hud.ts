@@ -10,6 +10,8 @@ export const WALKTHROUGH_HINT = "WASD move · drag to look · E interact";
 export const DRIVE_HINT = "WASD drive";
 /** Control hint shared by game and explore scenes (objectives live in the HUD). */
 export const DEFAULT_HINT = "WASD move · Space jump · E interact";
+/** Control hint for machine scenes driven from the sidebar controls. */
+export const MACHINE_HINT = "Drag to orbit · use the controls to drive the machine";
 
 /** Pure view model for the mode-specific HUD copy. */
 export interface ModeHudViewModel {
@@ -99,6 +101,8 @@ export function hudForMode(mode: GameMode, state: GameState): ModeHudViewModel {
       return { lines: [INSPECT_HINT], crosshair: false };
     case "walkthrough":
       return { lines: [WALKTHROUGH_HINT], crosshair: true };
+    case "machine":
+      return { lines: [MACHINE_HINT], crosshair: false };
     case "drive": {
       const player = state.entities.find((entity) => entity.kind === "player");
       const runtime = player ? state.entityRuntime[player.id] : undefined;

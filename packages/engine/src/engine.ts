@@ -1,5 +1,6 @@
 import type { GameDoc, GameMode } from "@prompt-to-playable/schema";
-import type { ExternalEvent } from "./events.js";
+import { docControls, setControlValue } from "./controls.js";
+import type { ExternalEvent, GameEvent } from "./events.js";
 import { NEUTRAL_INPUT, type InputState } from "./input.js";
 import { createState, type GameState } from "./state.js";
 import { tick } from "./tick.js";
@@ -28,7 +29,8 @@ export class Engine {
 
   private state: GameState | null = null;
   private accumulator = 0;
-  private pendingEvents: ExternalEvent[] = [];
+  /** Queued external / control events, merged into the next tick. */
+  private pendingEvents: GameEvent[] = [];
 
   constructor(options: EngineOptions = {}) {
     this.fixedDtMs = options.fixedDtMs ?? FIXED_DT_MS;
@@ -57,6 +59,31 @@ export class Engine {
    */
   pushEvent(event: ExternalEvent): void {
     this.pendingEvents.push({ ...event });
+  }
+
+  /**
+   * Set the live value of a control (slider drag, toggle flip). The value is
+   * read by the per-tick bindings; unknown control ids, an unloaded engine and
+   * non-finite values are no-ops.
+   */
+  setControl(id: string, value: number): void {
+    const state = this.state;
+    if (!state) return;
+    this.state = setControlValue(state, id, value);
+  }
+
+  /**
+   * Press a control: its live value becomes 1 and a `controlPressed` event
+   * (`controlId`) is queued for the next tick, where rules and the control's
+   * own `bind.onPress` actions react. Button values pulse back to 0 at the end
+   * of that tick. Unknown ids and an unloaded engine are no-ops.
+   */
+  pressControl(id: string): void {
+    const state = this.state;
+    if (!state) return;
+    if (!docControls(state.doc).some((control) => control.id === id)) return;
+    this.state = setControlValue(state, id, 1);
+    this.pendingEvents.push({ type: "controlPressed", controlId: id });
   }
 
   /**

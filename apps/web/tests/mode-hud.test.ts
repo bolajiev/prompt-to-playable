@@ -7,6 +7,7 @@ import {
   INSPECT_HINT,
   INTERACT_PROMPT,
   interactPrompt,
+  MACHINE_HINT,
   WALKTHROUGH_HINT,
 } from "../src/ui/mode-hud.js";
 
@@ -48,6 +49,12 @@ describe("hudForMode", () => {
     const view = hudForMode("walkthrough", driveState());
     expect(view.lines).toEqual([WALKTHROUGH_HINT]);
     expect(view.crosshair).toBe(true);
+  });
+
+  test("machine points at the sidebar controls instead of WASD", () => {
+    const view = hudForMode("machine", driveState());
+    expect(view.lines).toEqual([MACHINE_HINT]);
+    expect(view.crosshair).toBe(false);
   });
 
   test("drive reports speed in km/h, lap and time", () => {

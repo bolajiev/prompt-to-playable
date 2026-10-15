@@ -341,6 +341,13 @@ export function createGroundTexture(
 export const WORLD_ENVIRONMENT_NAME = "__worldEnvironment";
 const ENVIRONMENT_OWNED = "__worldEnvironmentOwned";
 
+/**
+ * Background for the empty studio scene (no document loaded yet): near-black so
+ * the stage matches the black theme. Explicit world presets keep their own
+ * sky/background untouched - only the no-document default look changes.
+ */
+export const EMPTY_SCENE_BACKGROUND = "#050507";
+
 /** Neutral world used before a game loads (and for any undefined field). */
 export const DEFAULT_WORLD: World = {
   bounds: [40, 20, 40],
@@ -403,12 +410,16 @@ export function applyWorldEnvironment(
 
   clearEnvironment(scene);
 
-  const skyTexture = createSkyTexture(value.skybox, value.lighting);
-  if (skyTexture) {
-    skyTexture.userData[ENVIRONMENT_OWNED] = true;
-    scene.background = skyTexture;
+  if (world === undefined) {
+    scene.background = new THREE.Color(EMPTY_SCENE_BACKGROUND);
   } else {
-    scene.background = new THREE.Color(preset.background);
+    const skyTexture = createSkyTexture(value.skybox, value.lighting);
+    if (skyTexture) {
+      skyTexture.userData[ENVIRONMENT_OWNED] = true;
+      scene.background = skyTexture;
+    } else {
+      scene.background = new THREE.Color(preset.background);
+    }
   }
 
   const fog = fogSettings(value.skybox, value.lighting, bounds);

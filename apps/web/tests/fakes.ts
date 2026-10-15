@@ -11,6 +11,10 @@ export class FakeNode {
   type = "";
   hidden = false;
   value = "";
+  checked = false;
+  min = "";
+  max = "";
+  step = "";
   disabled = false;
   placeholder = "";
   scrollTop = 0;

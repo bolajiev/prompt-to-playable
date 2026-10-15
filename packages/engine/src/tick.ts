@@ -10,6 +10,11 @@ import {
   resolveY,
 } from "./collision.js";
 import type { GameEvent } from "./events.js";
+import {
+  applyControlBindings,
+  controlRules,
+  resetButtonPulses,
+} from "./controls.js";
 import { NEUTRAL_INPUT, sanitizeInput, type InputState } from "./input.js";
 import { updateObjectives } from "./objectives.js";
 import { evaluateRules } from "./rules.js";
@@ -673,6 +678,10 @@ export function tick(
   };
   next = integrate(next, dt, sanitized);
   next = { ...next, time: state.time + dt, ticks: state.ticks + 1 };
+  // Control bindings overwrite runtime overrides (rotation / position /
+  // visible / color / emissive) from the live `ui.controls` values, so
+  // broadphase, interactions and rules all see the driven pose.
+  next = applyControlBindings(next);
 
   const broad = broadphase(next);
   next = broad.state;
@@ -687,13 +696,15 @@ export function tick(
   let ruleEvents: GameEvent[] = baseEvents;
   let applyEvents: GameEvent[] = baseEvents;
   let passes = 0;
+  // Controls' onPress actions run through the same evaluator as doc rules.
+  const onPressRules = controlRules(next.doc);
 
   while (ruleEvents.length > 0 && passes < MAX_RULE_PASSES) {
     passes++;
 
     const beforeStatus = statusMap(next.objectives);
     const beforeProgress = progressMap(next.objectives);
-    const { state: afterRules } = evaluateRules(next, ruleEvents);
+    const { state: afterRules } = evaluateRules(next, ruleEvents, onPressRules);
     next = updateObjectives(afterRules, applyEvents);
 
     const progress = progressSince(beforeProgress, next.objectives);
@@ -713,6 +724,7 @@ export function tick(
   }
 
   next = cleanup(next);
+  next = resetButtonPulses(next);
   next = { ...next, events: emitted };
   return next;
 }

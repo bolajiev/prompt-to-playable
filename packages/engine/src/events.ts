@@ -16,5 +16,6 @@ export type GameEvent =
   | { type: "playerDeath" }
   | { type: "enemyContact"; entityId: string; targetId: string }
   | { type: "interact"; targetId: string; entityId: string }
+  | { type: "controlPressed"; controlId: string }
   | { type: "tick" }
   | ExternalEvent;

@@ -287,7 +287,7 @@ describe("backward compatibility (docs without new fields)", () => {
 
   test("new runtime/ui fields default cleanly on legacy docs", () => {
     const state = createState(legacyDoc(), 7);
-    expect(state.ui).toEqual({ panels: [], nextPanelId: 0 });
+    expect(state.ui).toEqual({ panels: [], nextPanelId: 0, controls: {} });
     for (const runtime of Object.values(state.entityRuntime)) {
       expect(runtime.visible).toBe(true);
       expect(runtime.animations).toEqual([]);

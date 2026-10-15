@@ -8,6 +8,7 @@ import type {
   Vec3,
 } from "@prompt-to-playable/schema";
 import { SeededRng } from "@prompt-to-playable/shared";
+import { defaultControlValues } from "./controls.js";
 import type { GameEvent } from "./events.js";
 import { NEUTRAL_INPUT, type InputState } from "./input.js";
 
@@ -44,6 +45,8 @@ export interface EntityRuntime {
   tags: string[];
   visible: boolean;
   color?: string;
+  /** Numeric emissive factor written by control bindings (1 = authored look). */
+  emissive?: number;
   speed?: number;
   heading?: number;
   animations: AnimationRuntime[];
@@ -60,6 +63,18 @@ export interface GameUiState {
   panels: PanelState[];
   focus?: string;
   nextPanelId: number;
+  /**
+   * Live interactive-control values keyed by `doc.controls[].id`, initialized
+   * from `control.value ?? 0`. Buttons pulse 1 after `Engine.pressControl` and
+   * reset to 0 at the end of the tick that consumed the press.
+   */
+  controls: Record<string, number>;
+}
+
+/** Authored pose anchor of one entity, captured when the document loads. */
+export interface ControlBase {
+  position: Vec3;
+  rotation: Vec3;
 }
 
 export interface GameState {
@@ -78,6 +93,8 @@ export interface GameState {
   input: InputState;
   prevInput: InputState;
   ui: GameUiState;
+  /** Load-time authored poses used as control binding bases. */
+  controlBases: Record<string, ControlBase>;
 }
 
 export const DEFAULT_SEED = 123456789;
@@ -112,8 +129,13 @@ export function createState(doc: GameDoc, seed?: number): GameState {
   const resolvedSeed = seed ?? gameDoc.meta.seed ?? DEFAULT_SEED;
 
   const entityRuntime: Record<string, EntityRuntime> = {};
+  const controlBases: Record<string, ControlBase> = {};
   for (const entity of gameDoc.entities) {
     entityRuntime[entity.id] = createEntityRuntime(entity);
+    controlBases[entity.id] = {
+      position: [...entity.position] as Vec3,
+      rotation: entity.rotation ? ([...entity.rotation] as Vec3) : [0, 0, 0],
+    };
   }
 
   return {
@@ -131,6 +153,11 @@ export function createState(doc: GameDoc, seed?: number): GameState {
     events: [],
     input: { ...NEUTRAL_INPUT },
     prevInput: { ...NEUTRAL_INPUT },
-    ui: { panels: [], nextPanelId: 0 },
+    ui: {
+      panels: [],
+      nextPanelId: 0,
+      controls: defaultControlValues(gameDoc),
+    },
+    controlBases,
   };
 }

@@ -119,6 +119,8 @@ function eventEntityIds(event: GameEvent): string[] {
     case "hoverEnter":
     case "hoverLeave":
       return [event.targetId];
+    case "controlPressed":
+      return [event.controlId];
     case "enemyContact":
       return [event.entityId];
     case "objectiveComplete":
@@ -168,9 +170,16 @@ function matchesTrigger(
   return true;
 }
 
+/**
+ * Evaluate the document's rules against `events` and apply their actions.
+ * `extraRules` are evaluated with the same semantics; the engine passes the
+ * synthetic rules that run each control's `bind.onPress` actions, so controls
+ * and rules share one trigger matcher, condition evaluator and action executor.
+ */
 export function evaluateRules(
   state: GameState,
-  events: GameEvent[]
+  events: GameEvent[],
+  extraRules: readonly Rule[] = []
 ): RuleEvaluation {
   let entities = state.entities;
   let entityRuntime = state.entityRuntime;
@@ -435,7 +444,10 @@ export function evaluateRules(
   };
 
   const actions: Action[] = [];
-  const rules = state.doc.rules;
+  const rules =
+    extraRules.length === 0
+      ? state.doc.rules
+      : [...state.doc.rules, ...extraRules];
 
   const matched: Rule[] = [];
   for (const event of events) {

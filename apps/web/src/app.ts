@@ -3,6 +3,7 @@ import { Engine, resolveMode, type GameState } from "@prompt-to-playable/engine"
 import { applyWorldEnvironment, Renderer } from "@prompt-to-playable/render";
 import type { GameDoc, GameMode } from "@prompt-to-playable/schema";
 import { Chat, isAbortError, runWithAutoRetry } from "./ui/chat.js";
+import { ControlsPanel } from "./ui/controls-panel.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
 import { GenerationProgress } from "./ui/progress.js";
@@ -71,6 +72,8 @@ export interface AppElements {
   driveTime: HTMLElement;
   /** Overlay for `state.ui.panels` cards. */
   panels: HTMLElement;
+  /** Sidebar section with the document's interactive controls (machine docs). */
+  controlsPanel: HTMLElement;
   /** Optional top-bar chip showing the active game mode. */
   modeBadge?: HTMLElement;
 }
@@ -82,6 +85,7 @@ const MODE_LABELS: Record<GameMode, string> = {
   drive: "Drive",
   explore: "Explore",
   game: "Game",
+  machine: "Machine",
 };
 
 export interface AppOptions {
@@ -206,6 +210,7 @@ export class App {
   private readonly onboarding: Onboarding;
   private readonly progress: GenerationProgress;
   private readonly panels: Panels;
+  private readonly controlsPanel: ControlsPanel;
   private readonly keyboard = createKeyboardState();
   private readonly cameraRig = new CameraRig();
   private readonly audio = new AudioPlayer();
@@ -294,6 +299,10 @@ export class App {
     );
     this.panels = new Panels(elements.panels, {
       onClose: (id) => this.closePanel(id),
+    });
+    this.controlsPanel = new ControlsPanel(elements.controlsPanel, {
+      onInput: (id, value) => this.engine.setControl(id, value),
+      onPress: (id) => this.engine.pressControl(id),
     });
 
     this.handleResize();
@@ -531,6 +540,7 @@ export class App {
       this.renderer.reconcile(state);
       this.hud.update(state);
       this.panels.update(state.ui.panels);
+      this.controlsPanel.update(state.doc.controls ?? [], state.ui.controls);
       this.updateModeHud(state);
       this.updateInteractPrompt(state);
       this.updateCamera(state, dt / 1000);
@@ -769,6 +779,7 @@ export class App {
     this.badge.setValidated(true);
     this.hud.update(state);
     this.panels.update(state.ui.panels);
+    this.controlsPanel.update(state.doc.controls ?? [], state.ui.controls);
     this.updateModeHud(state);
     this.renderer.reconcile(state);
     this.lastTime = this.now();
@@ -835,6 +846,7 @@ export function resolveElements(root: ParentNode): AppElements {
   const driveLap = root.querySelector<HTMLElement>("#drive-lap");
   const driveTime = root.querySelector<HTMLElement>("#drive-time");
   const panels = root.querySelector<HTMLElement>("#panels");
+  const controlsPanel = root.querySelector<HTMLElement>("#controls-panel");
   const modeBadge = root.querySelector<HTMLElement>("#mode-badge");
 
   const missing: string[] = [];
@@ -858,6 +870,7 @@ export function resolveElements(root: ParentNode): AppElements {
   if (!driveLap) missing.push("#drive-lap");
   if (!driveTime) missing.push("#drive-time");
   if (!panels) missing.push("#panels");
+  if (!controlsPanel) missing.push("#controls-panel");
   if (
     missing.length > 0 ||
     !canvas ||
@@ -879,7 +892,8 @@ export function resolveElements(root: ParentNode): AppElements {
     !driveSpeed ||
     !driveLap ||
     !driveTime ||
-    !panels
+    !panels ||
+    !controlsPanel
   ) {
     throw new Error(`Missing required DOM elements: ${missing.join(", ")}`);
   }
@@ -905,6 +919,7 @@ export function resolveElements(root: ParentNode): AppElements {
     driveLap,
     driveTime,
     panels,
+    controlsPanel,
     ...(modeBadge === null ? {} : { modeBadge }),
   };
 }

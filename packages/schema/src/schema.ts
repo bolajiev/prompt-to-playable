@@ -132,6 +132,7 @@ export const EventTypeSchema = z.enum([
   "click",
   "hoverEnter",
   "hoverLeave",
+  "controlPressed",
 ]);
 
 export const RuleTriggerSchema = z.object({
@@ -292,6 +293,48 @@ export const RuleSchema = z.object({
   then: z.array(ActionSchema).min(1),
 });
 
+/** Entity property a control can drive every tick. */
+export const ControlBindPropertySchema = z.enum([
+  "rotation.x",
+  "rotation.y",
+  "rotation.z",
+  "position.x",
+  "position.y",
+  "position.z",
+  "visible",
+  "color",
+  "emissive",
+]);
+
+/**
+ * One interactive control (slider / toggle / button). `bind` connects the live
+ * value to an entity property, a scratch var, and/or `onPress` rule actions.
+ */
+export const ControlSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["slider", "toggle", "button"]),
+  label: z.string().min(1),
+  /** Slider bounds; the panel renders `min..max` and the engine stores raw values. */
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().positive().optional(),
+  /** Initial live value (`state.ui.controls[id] ?? 0` when omitted). */
+  value: z.number().optional(),
+  bind: z
+    .object({
+      entity: z.string().optional(),
+      property: ControlBindPropertySchema.optional(),
+      /** Applied to the value: `property = base + value * scale + offset`. */
+      scale: z.number().optional(),
+      offset: z.number().optional(),
+      /** Write the live value into `state.scratch[var]` instead of a property. */
+      var: z.string().min(1).optional(),
+      /** Button actions, executed through the rules action vocabulary. */
+      onPress: z.array(ActionSchema).optional(),
+    })
+    .optional(),
+});
+
 export const LightingSchema = z.enum(["dawn", "day", "dusk", "night", "indoor"]);
 export const SkyboxSchema = z.enum(["cave", "outdoor", "lab"]);
 export const TerrainTypeSchema = z.enum(["flat", "mesh"]);
@@ -328,6 +371,7 @@ export const GameModeSchema = z.enum([
   "drive",
   "explore",
   "game",
+  "machine",
 ]);
 
 export const MetaSchema = z.object({
@@ -347,6 +391,7 @@ export const GameSchema = z
     entities: z.array(EntitySchema).min(1),
     objectives: z.array(ObjectiveSchema).default([]),
     rules: z.array(RuleSchema).default([]),
+    controls: z.array(ControlSchema).default([]),
     scratch: z.record(ScratchValueSchema).default({}),
   })
   .superRefine((doc, ctx) => {
@@ -380,6 +425,8 @@ export type RuleTrigger = z.infer<typeof RuleTriggerSchema>;
 export type AnimationKind = z.infer<typeof AnimationKindSchema>;
 export type Action = z.infer<typeof ActionSchema>;
 export type Rule = z.infer<typeof RuleSchema>;
+export type ControlBindProperty = z.infer<typeof ControlBindPropertySchema>;
+export type Control = z.infer<typeof ControlSchema>;
 export type Lighting = z.infer<typeof LightingSchema>;
 export type Skybox = z.infer<typeof SkyboxSchema>;
 export type Terrain = z.infer<typeof TerrainSchema>;

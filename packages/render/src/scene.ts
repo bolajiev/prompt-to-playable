@@ -49,6 +49,8 @@ export interface EntityRuntimeTransform {
   active?: boolean;
   visible?: boolean;
   color?: string;
+  /** Numeric emissive factor written by control bindings (1 = authored look). */
+  emissive?: number;
   animations?: readonly AnimationRuntimeTransform[];
 }
 
@@ -59,6 +61,8 @@ export interface EntityTransform {
   visible: boolean;
   /** Runtime color override; when set it replaces the entity/kind color. */
   color?: string;
+  /** Numeric emissive factor; multiplies the per-kind emissive strength. */
+  emissive?: number;
   /** Latest pulse animation value (0..1); undefined when not pulsing. */
   pulse?: number;
 }
@@ -109,6 +113,7 @@ export function entityTransform(
     scale: [...scale] as Vec3,
     visible: active !== false && runtime?.visible !== false,
     color: runtime?.color,
+    emissive: runtime?.emissive,
     pulse,
   };
 }
@@ -133,6 +138,12 @@ export const EMISSIVE_STRENGTH: Readonly<Record<string, number>> = {
   interactable: 0.5,
   exitDoor: 0.45,
 };
+
+/**
+ * Emissive strength a runtime (control-binding) emissive factor multiplies on
+ * kinds that have no authored emissive strength: a driven prop still glows.
+ */
+export const RUNTIME_EMISSIVE_BASE = 0.35;
 
 export const KIND_COLORS: Record<string, string> = {
   player: "#4ade80",
