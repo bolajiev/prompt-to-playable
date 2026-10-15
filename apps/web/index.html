@@ -3,531 +3,342 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Prompt-to-Playable</title>
-    <style>
-      :root {
-        color-scheme: dark;
-        --bg: #0b1020;
-        --panel: rgba(15, 23, 42, 0.92);
-        --border: #1e293b;
-        --text: #e2e8f0;
-        --muted: #94a3b8;
-        --accent: #38bdf8;
-        --ok: #4ade80;
-        --bad: #f87171;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      html,
-      body {
-        margin: 0;
-        height: 100%;
-        background: var(--bg);
-        color: var(--text);
-        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      }
-      #app {
-        display: grid;
-        grid-template-columns: 1fr 320px;
-        grid-template-rows: auto 1fr auto;
-        height: 100vh;
-        gap: 8px;
-        padding: 8px;
-      }
-      #topbar {
-        grid-column: 1 / -1;
-        grid-row: 1;
-        display: flex;
-        align-items: baseline;
-        gap: 10px;
-        padding: 0 4px;
-      }
-      #topbar h1 {
-        margin: 0;
-        font-size: 18px;
-        letter-spacing: 0.2px;
-      }
-      #tagline {
-        margin: 0;
-        color: var(--muted);
-        font-size: 13px;
-      }
-      #stage {
-        position: relative;
-        grid-column: 1;
-        grid-row: 2;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        overflow: hidden;
-        background: #05070f;
-      }
-      #controls {
-        position: absolute;
-        left: 10px;
-        bottom: 10px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 12px;
-        color: var(--muted);
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid var(--border);
-        pointer-events: none;
-      }
-      #crosshair {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 18px;
-        height: 18px;
-        margin: -9px 0 0 -9px;
-        pointer-events: none;
-      }
-      #crosshair::before,
-      #crosshair::after {
-        content: "";
-        position: absolute;
-        background: rgba(226, 232, 240, 0.85);
-        box-shadow: 0 0 2px rgba(5, 7, 15, 0.8);
-      }
-      #crosshair::before {
-        left: 8px;
-        top: 0;
-        width: 2px;
-        height: 18px;
-      }
-      #crosshair::after {
-        left: 0;
-        top: 8px;
-        width: 18px;
-        height: 2px;
-      }
-      #crosshair[hidden] {
-        display: none;
-      }
-      #interact-prompt {
-        position: absolute;
-        left: 50%;
-        bottom: 44px;
-        transform: translateX(-50%);
-        padding: 5px 14px;
-        border-radius: 999px;
-        font-size: 13px;
-        font-weight: 600;
-        white-space: nowrap;
-        color: var(--text);
-        background: rgba(15, 23, 42, 0.9);
-        border: 1px solid rgba(56, 189, 248, 0.55);
-        pointer-events: none;
-      }
-      #interact-prompt[hidden] {
-        display: none;
-      }
-      #drive-hud {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        display: flex;
-        gap: 12px;
-        padding: 4px 12px;
-        border-radius: 999px;
-        font-size: 13px;
-        font-variant-numeric: tabular-nums;
-        background: rgba(15, 23, 42, 0.8);
-        border: 1px solid var(--border);
-        pointer-events: none;
-      }
-      #drive-hud[hidden] {
-        display: none;
-      }
-      #drive-lap {
-        color: var(--muted);
-      }
-      #panels {
-        position: absolute;
-        right: 10px;
-        bottom: 10px;
-        width: min(300px, 70%);
-        max-height: 70%;
-        overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      #panels[hidden] {
-        display: none;
-      }
-      .panel-card {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        padding: 10px 12px;
-      }
-      .panel-head {
-        display: flex;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      .panel-title {
-        margin: 0;
-        font-size: 14px;
-        font-weight: 700;
-      }
-      button.panel-close {
-        padding: 0 7px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--muted);
-        font-size: 14px;
-        font-weight: 700;
-        line-height: 1.4;
-      }
-      button.panel-close:hover {
-        color: var(--text);
-        border-color: var(--accent);
-      }
-      .panel-body {
-        margin: 6px 0 0;
-        font-size: 13px;
-        color: var(--muted);
-        white-space: pre-wrap;
-      }
-      #empty-state {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        padding: 24px;
-        text-align: center;
-        pointer-events: none;
-      }
-      #empty-state[hidden] {
-        display: none;
-      }
-      #empty-state h2 {
-        margin: 0;
-        font-size: 20px;
-      }
-      #empty-state ol {
-        margin: 0;
-        padding-left: 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        color: var(--muted);
-        font-size: 14px;
-        text-align: left;
-      }
-      #progress {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        background: rgba(5, 7, 15, 0.75);
-        text-align: center;
-      }
-      #progress[hidden] {
-        display: none;
-      }
-      #progress-stage {
-        font-size: 15px;
-      }
-      #progress-time {
-        color: var(--muted);
-        font-size: 13px;
-        font-variant-numeric: tabular-nums;
-      }
-      .spinner {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        border: 3px solid rgba(148, 163, 184, 0.25);
-        border-top-color: var(--accent);
-        animation: spin 0.9s linear infinite;
-      }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      @media (prefers-reduced-motion: reduce) {
-        .spinner {
-          animation: none;
-        }
-      }
-      #game {
-        display: block;
-        width: 100%;
-        height: 100%;
-      }
-      #webgl-fallback {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        max-width: min(480px, 85%);
-        padding: 14px 18px;
-        border-radius: 10px;
-        border: 1px solid rgba(248, 113, 113, 0.6);
-        background: rgba(15, 23, 42, 0.95);
-        color: var(--text);
-        font-size: 14px;
-        text-align: center;
-        z-index: 2;
-      }
-      #badge {
-        position: absolute;
-        top: 10px;
-        right: 10px;
-        padding: 4px 10px;
-        border-radius: 999px;
-        font-size: 13px;
-        font-weight: 600;
-        background: rgba(148, 163, 184, 0.18);
-        color: var(--muted);
-        border: 1px solid var(--border);
-      }
-      #badge.validated {
-        background: rgba(74, 222, 128, 0.16);
-        color: var(--ok);
-        border-color: rgba(74, 222, 128, 0.5);
-      }
-      #hud {
-        grid-column: 2;
-        grid-row: 2 / span 2;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        background: var(--panel);
-        padding: 14px;
-        overflow-y: auto;
-      }
-      #chat {
-        grid-column: 1;
-        grid-row: 3;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      #chat-log {
-        max-height: 150px;
-        overflow-y: auto;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        background: var(--panel);
-        padding: 10px;
-        font-size: 14px;
-      }
-      #chat-log .line {
-        margin: 2px 0;
-        white-space: pre-wrap;
-      }
-      #chat-log .line.user {
-        color: var(--accent);
-      }
-      #chat-log .line.system {
-        color: var(--muted);
-      }
-      #chat-log .line.error {
-        color: var(--bad);
-      }
-      #chat-form {
-        display: flex;
-        gap: 8px;
-      }
-      #chat-input {
-        flex: 1;
-        padding: 10px 12px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: #020617;
-        color: var(--text);
-        font-size: 15px;
-      }
-      #chat-input:focus {
-        outline: 2px solid var(--accent);
-      }
-      button {
-        padding: 10px 16px;
-        border-radius: 8px;
-        border: none;
-        background: var(--accent);
-        color: #04121f;
-        font-weight: 700;
-        cursor: pointer;
-      }
-      button:disabled {
-        opacity: 0.5;
-        cursor: progress;
-      }
-      #examples {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-      }
-      button.chip {
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid var(--border);
-        background: rgba(56, 189, 248, 0.08);
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 600;
-      }
-      button.chip:hover {
-        color: var(--text);
-        border-color: var(--accent);
-      }
-      #chat-log .line.error {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: baseline;
-        gap: 8px;
-      }
-      .error-headline {
-        flex: 1;
-      }
-      #chat-log .line.error button.retry {
-        padding: 2px 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(56, 189, 248, 0.5);
-        background: transparent;
-        color: var(--accent);
-        font-size: 12px;
-      }
-      .error-technical,
-      .error-details {
-        flex-basis: 100%;
-        color: var(--muted);
-        font-size: 12px;
-      }
-      .error-raw {
-        margin-top: 4px;
-        white-space: pre-wrap;
-      }
-      .hud-title {
-        font-size: 16px;
-        font-weight: 700;
-        margin: 0 0 4px;
-      }
-      .hud-sub {
-        color: var(--muted);
-        font-size: 13px;
-        margin: 0 0 12px;
-      }
-      .hud-meta {
-        font-size: 13px;
-        color: var(--muted);
-        margin-bottom: 12px;
-      }
-      ul.objectives {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-      ul.objectives li {
-        padding: 8px 10px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        font-size: 13px;
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-      }
-      li.objective.active {
-        border-color: rgba(56, 189, 248, 0.5);
-      }
-      li.objective.done {
-        border-color: rgba(74, 222, 128, 0.5);
-        color: var(--ok);
-      }
-      li.objective.failed {
-        border-color: rgba(248, 113, 113, 0.5);
-        color: var(--bad);
-      }
-      .progress {
-        color: var(--muted);
-        white-space: nowrap;
-      }
-      .banner {
-        margin-top: 14px;
-        padding: 12px;
-        border-radius: 8px;
-        text-align: center;
-        font-weight: 700;
-      }
-      .banner.won {
-        background: rgba(74, 222, 128, 0.18);
-        color: var(--ok);
-      }
-      .banner.lost {
-        background: rgba(248, 113, 113, 0.18);
-        color: var(--bad);
-      }
-      .hud-empty {
-        color: var(--muted);
-        font-size: 14px;
-      }
-    </style>
+    <title>Prompt-to-Playable — describe it, play it, reshape it</title>
+    <meta
+      name="description"
+      content="Turn a plain-language prompt into a playable 3D browser scene with working logic, validated as data. Then keep reshaping it by talking."
+    />
+    <script>
+      document.documentElement.classList.add("js");
+    </script>
   </head>
-  <body>
-    <div id="app">
-      <header id="topbar">
-        <h1>Prompt-to-Playable</h1>
-        <p id="tagline">— describe a game, play it, reshape it by talking</p>
-      </header>
-      <div id="stage">
-        <canvas id="game"></canvas>
-        <span id="badge">unvalidated</span>
-        <span id="controls">WASD move · Space jump · E interact</span>
-        <div id="crosshair" hidden aria-hidden="true"></div>
-        <div id="interact-prompt" hidden aria-live="polite"></div>
-        <div id="drive-hud" hidden>
-          <span id="drive-speed">0 km/h</span>
-          <span id="drive-lap">Lap —</span>
-          <span id="drive-time">0.0s</span>
+  <body class="landing">
+    <div class="backdrop" aria-hidden="true"></div>
+
+    <header class="nav">
+      <div class="container nav-inner">
+        <a class="wordmark" href="/">
+          <span class="wordmark-mark" aria-hidden="true"></span>
+          Prompt-to-Playable
+        </a>
+        <nav class="nav-links" aria-label="Primary">
+          <a class="nav-link" href="#how">How it works</a>
+          <a class="nav-link" href="#kits">Kits</a>
+          <a
+            class="nav-link"
+            href="https://github.com/bolajiev/prompt-to-playable"
+            rel="noreferrer"
+            >GitHub</a
+          >
+          <a class="btn btn-primary btn-sm" href="/app.html">Open the studio</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div class="container hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow reveal">
+              Prompt &rarr; validated game data &rarr; playable 3D
+            </p>
+            <h1 class="display reveal">Describe it. Play it. Reshape it.</h1>
+            <p class="lede reveal">
+              Plain language goes in; an interactive 3D scene comes back —
+              movement, collisions, rules and objectives — running in your
+              browser. Keep talking and the world changes while you are inside
+              it.
+            </p>
+            <div class="cta-row reveal">
+              <a class="btn btn-primary" href="/app.html">Open the studio</a>
+              <a class="btn btn-ghost" href="#how">See how it works</a>
+            </div>
+            <p class="hero-note reveal">
+              Runs the generation pipeline live. The first scene takes about a
+              minute — the model is writing real game data, not picking a
+              template. No account, no install.
+            </p>
+          </div>
+
+          <figure class="hero-visual reveal">
+            <div class="frame">
+              <img
+                src="/shots/pcb.jpg"
+                width="1920"
+                height="1200"
+                alt="Studio screenshot: the inspect kit renders a circuit board in 3D with an info panel open for a clicked chip."
+              />
+            </div>
+            <figcaption class="figcaption">
+              FIG. 01 — inspect kit &middot; &ldquo;a 3D PCB I can click and
+              inspect&rdquo;
+            </figcaption>
+          </figure>
         </div>
-        <div id="panels" hidden aria-live="polite"></div>
-        <div id="empty-state">
-          <h2>Make a game by talking</h2>
-          <ol>
-            <li><strong>Describe</strong> — type a game idea or pick an example.</li>
-            <li><strong>Play</strong> — WASD move, Space jump, drag to orbit.</li>
-            <li><strong>Refine</strong> — keep chatting to reshape the world.</li>
-          </ol>
+      </section>
+
+      <section class="prompts" aria-label="Example prompts">
+        <div class="container">
+          <p class="section-label reveal">Start from a prompt</p>
+          <div class="prompt-row reveal">
+            <a
+              class="prompt-chip"
+              href="/app.html"
+              data-prompt="a room where I collect 3 glowing crystals while avoiding one guard"
+              >Collect three crystals</a
+            >
+            <a
+              class="prompt-chip"
+              href="/app.html"
+              data-prompt="sneak past patrolling guards to the exit"
+              >Sneak past guards</a
+            >
+            <a
+              class="prompt-chip"
+              href="/app.html"
+              data-prompt="a quiet forest clearing with a campfire at dusk"
+              >Forest at dusk</a
+            >
+            <a
+              class="prompt-chip"
+              href="/app.html"
+              data-prompt="a 3D PCB I can click and inspect"
+              >Inspect a PCB</a
+            >
+            <a
+              class="prompt-chip"
+              href="/app.html"
+              data-prompt="a house I can walk through"
+              >Walk through a house</a
+            >
+            <a
+              class="prompt-chip"
+              href="/app.html"
+              data-prompt="a car racing game"
+              >Race a car</a
+            >
+          </div>
+          <p class="prompts-note reveal">
+            Each chip opens the studio with that prompt filled in and submitted.
+          </p>
         </div>
-        <div id="progress" hidden>
-          <div class="spinner" aria-hidden="true"></div>
-          <div id="progress-stage">understanding the request…</div>
-          <div id="progress-time">0.0s</div>
-          <button id="progress-cancel" class="chip" type="button">Cancel</button>
+      </section>
+
+      <section id="how" class="how">
+        <div class="container">
+          <p class="section-label reveal">How it works</p>
+          <h2 class="section-title reveal">One conversation, three moves</h2>
+          <div class="steps">
+            <article class="step reveal">
+              <span class="step-num" aria-hidden="true">01</span>
+              <h3 class="step-title">Describe</h3>
+              <p class="step-body">
+                Type a game idea — a room, a race, a circuit board. The server
+                asks the model for a structured game document, validates it
+                against the schema and sanity-checks it before anything runs.
+              </p>
+            </article>
+            <article class="step reveal">
+              <span class="step-num" aria-hidden="true">02</span>
+              <h3 class="step-title">Play</h3>
+              <p class="step-body">
+                A deterministic TypeScript engine interprets that document:
+                WASD moves, walls collide, switches fire, checkpoints count.
+                Click parts in inspect scenes for their details.
+              </p>
+            </article>
+            <article class="step reveal">
+              <span class="step-num" aria-hidden="true">03</span>
+              <h3 class="step-title">Reshape by talking</h3>
+              <p class="step-body">
+                &ldquo;Add a second guard&rdquo;, &ldquo;raise the
+                platforms&rdquo;, &ldquo;make the door open on a pressure
+                plate&rdquo; — edits arrive as JSON patches, re-validated before
+                they touch the running scene.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="kits" class="kits">
+        <div class="container">
+          <p class="section-label reveal">The kits</p>
+          <h2 class="section-title reveal">Five kinds of world, one pipeline</h2>
+          <p class="section-lede reveal">
+            The same generate &rarr; validate &rarr; play loop; the kit only
+            changes what the scene is made of. Every screenshot below is a real
+            generation captured from the studio.
+          </p>
+          <div class="kit-grid">
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/game.jpg"
+                  alt="A collect-a-thon room with glowing crystals, a guard and an objectives list."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Game</h3>
+              <p class="kit-body">
+                Win and lose archetypes — collect-a-thon, switch puzzle,
+                platform course, stealth chase — with objectives, hazards and
+                rules.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/forest.jpg"
+                  alt="A forest clearing at dusk with a campfire, no objectives in the HUD."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Explore</h3>
+              <p class="kit-body">
+                Atmospheric free-roam scenes with no objectives and no win
+                state — a clearing, a campfire, ambient light.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/pcb.jpg"
+                  alt="A 3D circuit board with chips, LEDs and silkscreen labels, plus an open info panel."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Inspect</h3>
+              <p class="kit-body">
+                Click-to-learn assemblies like a 3D PCB: silkscreen labels,
+                per-component info panels, camera focus on the first click.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/house.jpg"
+                  alt="First-person view inside a small house with a door and a lamp."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Walkthrough</h3>
+              <p class="kit-body">
+                First-person interiors: a house with doors that slide open,
+                lamps that toggle, and walls that actually stop you.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/race.jpg"
+                  alt="Chase-camera view of a race car on a closed course with a speed and lap HUD."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Drive</h3>
+              <p class="kit-body">
+                Chase-camera vehicles on a closed course: throttle and steering,
+                ordered checkpoints, speed, lap and timer HUD.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="container">
+          <p class="section-label reveal">Reliability</p>
+          <div class="stat-grid">
+            <div class="stat reveal">
+              <span class="stat-num">13/13</span>
+              <span class="stat-label"
+                >generated documents usable in the live kit evaluation</span
+              >
+            </div>
+            <div class="stat reveal">
+              <span class="stat-num">10/10</span>
+              <span class="stat-label"
+                >judge-style prompts passed on the first iteration, zero
+                repairs</span
+              >
+            </div>
+            <div class="stat reveal">
+              <span class="stat-num">682</span>
+              <span class="stat-label"
+                >automated tests across engine, renderer, server and web</span
+              >
+            </div>
+          </div>
+          <p class="stats-note reveal">
+            Every generated document is schema-validated and sanity-checked
+            server-side before the browser sees it, and the committed kit
+            fixtures are replayed offline — click rules, door interact, race
+            win path. Generated content is data-validated, not hand-authored.
+          </p>
+        </div>
+      </section>
+
+      <section class="closing">
+        <div class="container">
+          <div class="closing-inner reveal">
+            <h2 class="section-title">Bring an idea. Leave with a playable.</h2>
+            <a class="btn btn-primary btn-lg" href="/app.html"
+              >Open the studio</a
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-grid">
+        <div class="footer-brand">
+          <a class="wordmark" href="/">
+            <span class="wordmark-mark" aria-hidden="true"></span>
+            Prompt-to-Playable
+          </a>
+          <p class="footer-line">
+            An open-source demo: schema-first generation, a deterministic
+            engine, no generated code ever runs.
+          </p>
+        </div>
+        <div class="footer-col">
+          <p class="footer-heading">Project</p>
+          <a
+            class="footer-link"
+            href="https://github.com/bolajiev/prompt-to-playable"
+            rel="noreferrer"
+            >GitHub repository</a
+          >
+          <a class="footer-link" href="/app.html">Studio</a>
+        </div>
+        <div class="footer-col">
+          <p class="footer-heading">Built with</p>
+          <span class="footer-text">Three.js &middot; Zod &middot; Express &middot; Playwright</span>
+        </div>
+        <div class="footer-col">
+          <p class="footer-heading">Notes</p>
+          <span class="footer-text"
+            >AI-assisted build; generated content is data-validated.</span
+          >
+          <span class="footer-text"
+            >Screenshots captured from live generations.</span
+          >
         </div>
       </div>
-      <aside id="hud"></aside>
-      <section id="chat">
-        <div id="chat-log" aria-live="polite"></div>
-        <div id="examples" aria-label="Example prompts"></div>
-        <form id="chat-form" autocomplete="off">
-          <input
-            id="chat-input"
-            type="text"
-            placeholder="Describe a game…"
-            aria-label="Describe a game"
-          />
-          <button id="chat-submit" type="submit">Send</button>
-        </form>
-      </section>
-    </div>
-    <script type="module" src="/src/main.ts"></script>
+    </footer>
+
+    <script type="module" src="/src/landing.ts"></script>
   </body>
 </html>

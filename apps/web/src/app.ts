@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { Engine, resolveMode, type GameState } from "@prompt-to-playable/engine";
 import { applyWorldEnvironment, Renderer } from "@prompt-to-playable/render";
-import type { GameDoc } from "@prompt-to-playable/schema";
+import type { GameDoc, GameMode } from "@prompt-to-playable/schema";
 import { Chat, isAbortError, runWithAutoRetry } from "./ui/chat.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
@@ -71,7 +71,18 @@ export interface AppElements {
   driveTime: HTMLElement;
   /** Overlay for `state.ui.panels` cards. */
   panels: HTMLElement;
+  /** Optional top-bar chip showing the active game mode. */
+  modeBadge?: HTMLElement;
 }
+
+/** Top-bar copy for the resolved game mode. */
+const MODE_LABELS: Record<GameMode, string> = {
+  inspect: "Inspect",
+  walkthrough: "Walkthrough",
+  drive: "Drive",
+  explore: "Explore",
+  game: "Game",
+};
 
 export interface AppOptions {
   /** Base URL prepended to /generate and /edit (default: same origin). */
@@ -534,6 +545,7 @@ export class App {
   private updateModeHud(state: GameState): void {
     const mode = resolveMode(state.doc);
     const view = hudForMode(mode, state);
+    this.setModeBadge(mode);
 
     const lines = view.lines.join(" · ");
     if (lines !== this.modeLines) {
@@ -549,6 +561,14 @@ export class App {
     this.dom.driveLap.textContent =
       view.lap === undefined ? "Lap —" : `Lap ${view.lap}`;
     this.dom.driveTime.textContent = `${(view.time ?? 0).toFixed(1)}s`;
+  }
+
+  /** Top-bar badge copy; change-only so the DOM stays quiet each frame. */
+  private setModeBadge(mode: GameMode): void {
+    const badge = this.dom.modeBadge;
+    if (badge === undefined || badge.dataset.mode === mode) return;
+    badge.dataset.mode = mode;
+    badge.textContent = MODE_LABELS[mode];
   }
 
   /**
@@ -815,6 +835,7 @@ export function resolveElements(root: ParentNode): AppElements {
   const driveLap = root.querySelector<HTMLElement>("#drive-lap");
   const driveTime = root.querySelector<HTMLElement>("#drive-time");
   const panels = root.querySelector<HTMLElement>("#panels");
+  const modeBadge = root.querySelector<HTMLElement>("#mode-badge");
 
   const missing: string[] = [];
   if (!canvas) missing.push("#game");
@@ -884,6 +905,7 @@ export function resolveElements(root: ParentNode): AppElements {
     driveLap,
     driveTime,
     panels,
+    ...(modeBadge === null ? {} : { modeBadge }),
   };
 }
 

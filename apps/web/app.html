@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Studio — Prompt-to-Playable</title>
+    <meta
+      name="description"
+      content="Describe a game, play it, then reshape it by talking. The Prompt-to-Playable studio."
+    />
+  </head>
+  <body class="studio">
+    <div class="backdrop" aria-hidden="true"></div>
+
+    <div id="app">
+      <header id="topbar">
+        <a class="wordmark" href="/" title="Back to the landing page">
+          <span class="wordmark-mark" aria-hidden="true"></span>
+          Prompt-to-Playable
+        </a>
+        <span class="topbar-divider" aria-hidden="true"></span>
+        <span class="topbar-title">Studio</span>
+        <span class="topbar-spacer"></span>
+        <span id="mode-badge" class="topbar-chip" data-mode="idle">Idle</span>
+        <span id="badge" class="topbar-chip">unvalidated</span>
+      </header>
+
+      <div id="stage">
+        <canvas id="game" aria-label="3D game viewport"></canvas>
+
+        <div id="drive-hud" hidden>
+          <span id="drive-speed">0 km/h</span>
+          <span id="drive-lap">Lap —</span>
+          <span id="drive-time">0.0s</span>
+        </div>
+
+        <div id="crosshair" hidden aria-hidden="true"></div>
+        <div id="interact-prompt" hidden aria-live="polite"></div>
+        <span id="controls">WASD move &middot; Space jump &middot; E interact</span>
+
+        <div id="panels" hidden aria-live="polite"></div>
+
+        <div id="empty-state">
+          <div class="empty-card">
+            <p class="section-label">First run</p>
+            <h2>Make a game by talking</h2>
+            <ol>
+              <li><strong>Describe</strong> — type a game idea or pick an example chip.</li>
+              <li><strong>Play</strong> — WASD move, Space jump, drag to orbit.</li>
+              <li><strong>Reshape</strong> — keep chatting to change the world.</li>
+            </ol>
+          </div>
+        </div>
+
+        <div id="progress" hidden role="status" aria-live="polite">
+          <div class="progress-card">
+            <div class="spinner" aria-hidden="true"></div>
+            <div class="progress-copy">
+              <div id="progress-stage">understanding the request…</div>
+              <div id="progress-time">0.0s</div>
+            </div>
+            <div class="progress-bar" aria-hidden="true"><span></span></div>
+            <button id="progress-cancel" class="chip" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <aside id="sidebar">
+        <div id="hud"></div>
+        <section id="chat">
+          <div id="chat-log" aria-live="polite"></div>
+          <div id="examples" aria-label="Example prompts"></div>
+          <form id="chat-form" autocomplete="off">
+            <input
+              id="chat-input"
+              type="text"
+              placeholder="Describe a game…"
+              aria-label="Describe a game"
+            />
+            <button id="chat-submit" type="submit">Send</button>
+          </form>
+        </section>
+      </aside>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
