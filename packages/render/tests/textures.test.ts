@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import * as THREE from "three";
 import {
+  CIRCUIT_TILE_SIZE,
   GLASS_OPACITY,
   GLASS_ROUGHNESS,
   TEXTURE_IMAGE_NAMES,
+  TEXTURE_IMAGE_SIZE,
   TEXTURE_NAMES,
+  TEXTURE_CLONE_KEY,
   textureForName,
+  textureMapForPart,
 } from "../src/textures.js";
 import { installFakeDocument, type FakeDom } from "./fake-dom.js";
 
@@ -85,5 +89,112 @@ describe("textureForName", () => {
 
     expect(firstCalls.length).toBeGreaterThan(0);
     expect(fake.calls).toEqual(firstCalls);
+  });
+
+  test("circuit is a 1024px solder-mask tile; legacy patterns keep 128px", async () => {
+    vi.resetModules();
+    fake = installFakeDocument();
+    const module = await import("../src/textures.js");
+    expect(CIRCUIT_TILE_SIZE).toBe(1024);
+
+    module.textureForName("circuit");
+    expect(fake.canvases).toHaveLength(1);
+    expect(fake.canvases[0]!.width).toBe(CIRCUIT_TILE_SIZE);
+    expect(fake.canvases[0]!.height).toBe(CIRCUIT_TILE_SIZE);
+
+    module.textureForName("wood");
+    expect(fake.canvases).toHaveLength(2);
+    expect(fake.canvases[1]!.width).toBe(TEXTURE_IMAGE_SIZE);
+    expect(fake.canvases[1]!.height).toBe(TEXTURE_IMAGE_SIZE);
+  });
+
+  test("circuit draws traces, pads and vias", async () => {
+    vi.resetModules();
+    fake = installFakeDocument();
+    const module = await import("../src/textures.js");
+    module.textureForName("circuit");
+
+    const lineTos = fake.calls.filter((call) => call === "lineTo").length;
+    const arcs = fake.calls.filter((call) => call === "arc").length;
+    expect(lineTos).toBeGreaterThan(10);
+    expect(arcs).toBeGreaterThan(5);
+    expect(fake.calls).toContain("set:lineJoin");
+    expect(fake.calls).toContain("set:strokeStyle");
+    expect(fake.calls).toContain("fill");
+    expect(fake.calls).toContain("fillRect");
+  });
+
+  test("circuit draws deterministically: same commands across module loads", async () => {
+    vi.resetModules();
+    const first = installFakeDocument();
+    const firstModule = await import("../src/textures.js");
+    firstModule.textureForName("circuit");
+    const firstCalls = [...first.calls];
+    const firstSizes = first.canvases.map((canvas) => ({
+      width: canvas.width,
+      height: canvas.height,
+    }));
+    first.restore();
+
+    vi.resetModules();
+    fake = installFakeDocument();
+    const secondModule = await import("../src/textures.js");
+    secondModule.textureForName("circuit");
+
+    expect(firstCalls.length).toBeGreaterThan(100);
+    expect(fake.calls).toEqual(firstCalls);
+    expect(
+      fake.canvases.map((canvas) => ({
+        width: canvas.width,
+        height: canvas.height,
+      }))
+    ).toEqual(firstSizes);
+  });
+});
+
+describe("textureMapForPart", () => {
+  test("node fallback returns null for every name", async () => {
+    vi.resetModules();
+    const module = await import("../src/textures.js");
+    expect(typeof document).toBe("undefined");
+    expect(module.textureMapForPart("circuit", [2, 0.1, 1])).toBeNull();
+    expect(module.textureMapForPart("wood", [2, 0.1, 1])).toBeNull();
+  });
+
+  test("glass and unknown names return null", async () => {
+    vi.resetModules();
+    fake = installFakeDocument();
+    const module = await import("../src/textures.js");
+    expect(module.textureMapForPart("glass", [1, 1, 1])).toBeNull();
+    expect(module.textureMapForPart("marble", [1, 1, 1])).toBeNull();
+  });
+
+  test("non-circuit names reuse the shared cached texture", async () => {
+    vi.resetModules();
+    fake = installFakeDocument();
+    const module = await import("../src/textures.js");
+    const wood = module.textureMapForPart("wood", [2, 0.1, 2]);
+    expect(wood).toBe(module.textureForName("wood"));
+  });
+
+  test("circuit clones per part with repeat derived from the board footprint", async () => {
+    vi.resetModules();
+    fake = installFakeDocument();
+    const module = await import("../src/textures.js");
+    const base = module.textureForName("circuit")!;
+    const map = module.textureMapForPart("circuit", [3, 0.12, 2])!;
+
+    expect(map).toBeInstanceOf(THREE.CanvasTexture);
+    expect(map).not.toBe(base);
+    expect(map.image).toBe(base.image);
+    expect(map.wrapS).toBe(THREE.RepeatWrapping);
+    expect(map.wrapT).toBe(THREE.RepeatWrapping);
+    expect(map.repeat.x).toBe(3);
+    expect(map.repeat.y).toBe(2);
+    expect(map.userData[TEXTURE_CLONE_KEY]).toBe(true);
+
+    const tiny = module.textureMapForPart("circuit", [0.2, 0.1, 0.2])!;
+    expect(tiny.repeat.x).toBe(1);
+    expect(tiny.repeat.y).toBe(1);
   });
 });

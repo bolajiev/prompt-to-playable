@@ -275,3 +275,31 @@ describe("GameSchema v1.1 additions", () => {
     expect(res.data?.entities[0]?.label).toBeUndefined();
   });
 });
+
+describe("GameSchema label.flat", () => {
+  test("label.flat parses when true and is undefined when omitted", () => {
+    const flat = minimalDoc();
+    (flat.entities[0] as Record<string, unknown>).label = {
+      text: "U1",
+      flat: true,
+    };
+    const flatRes = validateGame(flat);
+    expect(flatRes.ok).toBe(true);
+    expect(flatRes.data?.entities[0]?.label?.flat).toBe(true);
+
+    const sprite = minimalDoc();
+    (sprite.entities[0] as Record<string, unknown>).label = { text: "U1" };
+    const spriteRes = validateGame(sprite);
+    expect(spriteRes.ok).toBe(true);
+    expect(spriteRes.data?.entities[0]?.label?.flat).toBeUndefined();
+  });
+
+  test("non-boolean label.flat fails validation", () => {
+    const doc = minimalDoc();
+    (doc.entities[0] as Record<string, unknown>).label = {
+      text: "U1",
+      flat: "yes",
+    };
+    expect(isGame(doc)).toBe(false);
+  });
+});

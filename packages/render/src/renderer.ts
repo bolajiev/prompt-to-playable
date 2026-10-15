@@ -18,13 +18,14 @@ import {
   walkBob,
 } from "./animation.js";
 import { ParticleSystem, type ParticleBurstKind } from "./particles.js";
-import { buildLabelSprite } from "./labels.js";
+import { buildLabelObject, LABEL_FLAT_NAME } from "./labels.js";
 import { applyPartsColor, buildPartsObject, hasParts } from "./parts.js";
 import {
   diffEntities,
   EMISSIVE_STRENGTH,
   entityColor,
   entityTransform,
+  kindDefaultScale,
   TRANSLUCENT_KINDS,
   TRANSLUCENT_OPACITY,
   type EntityTransform,
@@ -34,6 +35,7 @@ import {
   createShapeObject,
   resolvePropShape,
 } from "./shapes.js";
+import { TEXTURE_CLONE_KEY } from "./textures.js";
 
 /**
  * Adapter boundary so reconciliation can be tested without Three.js.
@@ -217,6 +219,18 @@ function clampPulse(value: number | undefined): number {
 }
 
 /**
+ * Dispose one mesh material. Per-part texture clones (tagged by
+ * `textureMapForPart`) own a private GPU upload and are released here; shared
+ * cached textures are never disposed, so they survive view disposal.
+ */
+function disposeMaterial(material: THREE.Material | null | undefined): void {
+  if (!material) return;
+  const map = (material as THREE.MeshStandardMaterial).map;
+  if (map && map.userData?.[TEXTURE_CLONE_KEY] === true) map.dispose();
+  material.dispose();
+}
+
+/**
  * Materializes entities as Three.js objects. Animation is applied to the ROOT
  * object only (position bob, yaw/roll rotation, emissive modulation), so
  * physics extents derived from the root's Box3 never change. Props with a
@@ -244,16 +258,20 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
               geometryForKind(entity.kind),
               materialForEntity(entity)
             )
-          : createShapeObject(shape, entityColor(entity));
+          : createShapeObject(
+              shape,
+              entityColor(entity),
+              entity.size ?? entity.scale ?? kindDefaultScale(entity.kind)
+            );
     }
     view.name = entity.id;
     view.userData.entityId = entity.id;
     view.userData.kind = entity.kind;
     if (entity.kind === "interactable") this.attachHighlightRing(view);
     if (entity.label) {
-      const sprite = buildLabelSprite(entity.label);
-      sprite.userData.entityId = entity.id;
-      view.add(sprite);
+      const label = buildLabelObject(entity.label);
+      label.userData.entityId = entity.id;
+      view.add(label);
     }
     return view;
   }
@@ -378,13 +396,23 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
         sprite.material.dispose();
         return;
       }
+      if (object.name === LABEL_FLAT_NAME) {
+        const label = object as THREE.Mesh<
+          THREE.BufferGeometry,
+          THREE.MeshBasicMaterial
+        >;
+        label.geometry?.dispose?.();
+        label.material?.map?.dispose();
+        label.material?.dispose?.();
+        return;
+      }
       const mesh = object as THREE.Mesh;
       mesh.geometry?.dispose?.();
       const material = mesh.material;
       if (Array.isArray(material)) {
-        material.forEach((entry) => entry.dispose());
+        material.forEach(disposeMaterial);
       } else {
-        material?.dispose?.();
+        disposeMaterial(material);
       }
     });
   }

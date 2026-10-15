@@ -38,8 +38,17 @@ export const TEXTURE_IMAGE_NAMES = [
 
 export type TextureImageName = (typeof TEXTURE_IMAGE_NAMES)[number];
 
-/** Square canvas edge in pixels; patterns are drawn for any size but tested at this one. */
+/** Square canvas edge for legacy patterns (wood/brick/metal/grid). */
 export const TEXTURE_IMAGE_SIZE = 128;
+
+/** Square canvas edge of the circuit solder-mask tile: high-res PCB detail. */
+export const CIRCUIT_TILE_SIZE = 1024;
+
+/** World units (entity-local) one circuit tile spans when mapped to a part. */
+export const CIRCUIT_TILE_WORLD_SIZE = 1;
+
+/** userData flag on per-part texture clones so renderer disposal can free them. */
+export const TEXTURE_CLONE_KEY = "textureClone";
 
 /** Translucent material parameters applied to `texture: "glass"` parts. */
 export const GLASS_OPACITY = 0.25;
@@ -72,9 +81,43 @@ export function textureForName(name: string): THREE.CanvasTexture | null {
   return texture;
 }
 
+/** Canvas edge per drawn name: circuit gets a high-res tile, others stay small. */
+const TEXTURE_IMAGE_SIZES: Record<TextureImageName, number> = {
+  circuit: CIRCUIT_TILE_SIZE,
+  wood: TEXTURE_IMAGE_SIZE,
+  brick: TEXTURE_IMAGE_SIZE,
+  metal: TEXTURE_IMAGE_SIZE,
+  grid: TEXTURE_IMAGE_SIZE,
+};
+
+/**
+ * Texture map for one part of the given local size. Non-circuit names return
+ * the shared cached texture unchanged. `circuit` returns a cheap per-part clone
+ * whose `repeat` follows the part footprint, so traces keep their real-world
+ * scale on boards of any size (clone images share the cached canvas). Clones
+ * are tagged with `TEXTURE_CLONE_KEY` for disposal; `glass` and unknown names
+ * resolve to `null` (glass uses translucent material parameters instead).
+ */
+export function textureMapForPart(
+  name: string,
+  size: readonly [number, number, number]
+): THREE.CanvasTexture | null {
+  const texture = textureForName(name);
+  if (!texture) return null;
+  if (name !== "circuit") return texture;
+  const clone = texture.clone();
+  clone.repeat.set(
+    Math.max(1, Math.round(Math.abs(size[0]) / CIRCUIT_TILE_WORLD_SIZE)),
+    Math.max(1, Math.round(Math.abs(size[2]) / CIRCUIT_TILE_WORLD_SIZE))
+  );
+  clone.userData[TEXTURE_CLONE_KEY] = true;
+  clone.needsUpdate = true;
+  return clone;
+}
+
 function drawTexture(name: TextureImageName): THREE.CanvasTexture | null {
   const canvas = document.createElement("canvas");
-  const size = TEXTURE_IMAGE_SIZE;
+  const size = TEXTURE_IMAGE_SIZES[name];
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
@@ -105,38 +148,141 @@ function drawTexture(name: TextureImageName): THREE.CanvasTexture | null {
   return texture;
 }
 
-/** Dark board with glowing traces and solder pads. */
+/** Dark green solder mask with gold traces, pads and vias. */
+const CIRCUIT_MASK_COLOR = "#1b4d2e";
+const CIRCUIT_MASK_SHADOW = "#123a22";
+const CIRCUIT_GOLD = "#d4af37";
+/** Fixed seed: the tile must be pixel-identical across runs and processes. */
+const CIRCUIT_SEED = 0x1b4d2e;
+
+/** Tiny deterministic PRNG (mulberry32); no Math.random anywhere. */
+function mulberry32(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Diagonal + orthogonal walk directions, indexed so +1/-1 turns are 45 degrees. */
+const CIRCUIT_DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+];
+
+/**
+ * PCB-grade circuit tile: dark solder mask, subtle mask mottling, 5 routed
+ * traces that only turn in 45-degree steps, gold pads with dark drill centers
+ * and small vias. Every sequence is driven by a fixed-seed PRNG, so the tile is
+ * identical for every run.
+ */
 function drawCircuit(ctx: CanvasRenderingContext2D, size: number): void {
-  ctx.fillStyle = "#04231a";
+  const unit = size / 1024;
+  const rand = mulberry32(CIRCUIT_SEED);
+
+  ctx.fillStyle = CIRCUIT_MASK_COLOR;
   ctx.fillRect(0, 0, size, size);
 
-  const step = size / 4;
-  ctx.strokeStyle = "#34d399";
-  ctx.lineWidth = 3;
-  for (let i = 0; i < 4; i += 1) {
-    const y = step / 2 + i * step;
+  for (let i = 0; i < 64; i += 1) {
+    const x = rand() * size;
+    const y = rand() * size;
+    const radius = (18 + rand() * 70) * unit;
+    ctx.fillStyle =
+      rand() < 0.5 ? "rgba(255, 255, 255, 0.022)" : "rgba(0, 0, 0, 0.045)";
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(size, y);
-    ctx.stroke();
-
-    const x = step / 2 + ((i + 1) % 4) * step;
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, size);
-    ctx.stroke();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  ctx.fillStyle = "#a7f3d0";
-  for (let i = 0; i < 4; i += 1) {
-    for (let j = 0; j < 4; j += 1) {
-      ctx.fillRect(
-        i * step + step / 2 - 4,
-        j * step + step / 2 - 4,
-        8,
-        8
-      );
+  const step = size / 16;
+  const margin = size * 0.04;
+  ctx.strokeStyle = CIRCUIT_GOLD;
+  ctx.lineWidth = 6 * unit;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  const traceEnds: Array<readonly [number, number]> = [];
+  for (let trace = 0; trace < 5; trace += 1) {
+    let x = (0.25 + rand() * 0.5) * size;
+    let y = (0.25 + rand() * 0.5) * size;
+    let direction = Math.floor(rand() * 8) % 8;
+    const segments = 4 + Math.floor(rand() * 3);
+
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    for (let segment = 0; segment < segments; segment += 1) {
+      const length = (1 + Math.floor(rand() * 3)) * step;
+      const turn = Math.floor(rand() * 3) - 1;
+      const candidates = turn === 0 ? [1, -1] : [turn, -turn];
+      let advanced = false;
+      for (const delta of candidates) {
+        const nextDirection = (direction + delta + 8) % 8;
+        const [dx, dy] = CIRCUIT_DIRECTIONS[nextDirection]!;
+        const nextX = x + dx * length;
+        const nextY = y + dy * length;
+        if (
+          nextX < margin ||
+          nextX > size - margin ||
+          nextY < margin ||
+          nextY > size - margin
+        ) {
+          continue;
+        }
+        direction = nextDirection;
+        x = nextX;
+        y = nextY;
+        ctx.lineTo(x, y);
+        advanced = true;
+        break;
+      }
+      if (!advanced) break;
     }
+    ctx.stroke();
+    traceEnds.push([x, y]);
+  }
+
+  const padRadius = 18 * unit;
+  const padSpots: Array<readonly [number, number]> = [...traceEnds];
+  const grid = size / 4;
+  for (let i = 0; i < 4; i += 1) {
+    const column = Math.floor(rand() * 4);
+    const row = Math.floor(rand() * 4);
+    padSpots.push([column * grid + grid / 2, row * grid + grid / 2]);
+  }
+
+  ctx.fillStyle = CIRCUIT_GOLD;
+  for (const [padX, padY] of padSpots) {
+    ctx.fillStyle = CIRCUIT_GOLD;
+    ctx.beginPath();
+    ctx.arc(padX, padY, padRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = CIRCUIT_MASK_SHADOW;
+    ctx.beginPath();
+    ctx.arc(padX, padY, padRadius * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.lineWidth = 3 * unit;
+  for (let i = 0; i < 14; i += 1) {
+    const x = rand() * size;
+    const y = rand() * size;
+    ctx.strokeStyle = CIRCUIT_GOLD;
+    ctx.beginPath();
+    ctx.arc(x, y, 6 * unit, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = CIRCUIT_MASK_SHADOW;
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5 * unit, 0, Math.PI * 2);
+    ctx.fill();
   }
 }
 

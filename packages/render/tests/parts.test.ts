@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import * as THREE from "three";
 import type { Entity, GameDoc, Part, PartShape } from "@prompt-to-playable/schema";
 import { validateGame } from "@prompt-to-playable/schema";
@@ -9,6 +9,7 @@ import {
 } from "@prompt-to-playable/engine";
 import { buildPartsObject } from "../src/parts.js";
 import { Renderer } from "../src/renderer.js";
+import { TEXTURE_CLONE_KEY, textureForName } from "../src/textures.js";
 import { installFakeDocument, type FakeDom } from "./fake-dom.js";
 
 let fake: FakeDom | null = null;
@@ -213,6 +214,27 @@ describe("buildPartsObject", () => {
     expect(materialOf(glowing).emissive.r).toBeCloseTo(1, 6);
     expect(materialOf(textured).map).toBeInstanceOf(THREE.CanvasTexture);
   });
+
+  test("circuit repeats per part footprint; other textures stay shared", () => {
+    fake = installFakeDocument();
+    const group = buildPartsObject(
+      ent("p", "prop", {
+        parts: [
+          part("box", { size: [3, 0.1, 2], material: { texture: "circuit" } }),
+          part("box", { size: [2, 0.1, 2], material: { texture: "wood" } }),
+        ],
+      })
+    );
+
+    const [board, plank] = group.children as THREE.Mesh[];
+    const boardMap = materialOf(board).map;
+    expect(boardMap).toBeInstanceOf(THREE.CanvasTexture);
+    expect(boardMap!.repeat.x).toBe(3);
+    expect(boardMap!.repeat.y).toBe(2);
+    expect(boardMap!.userData[TEXTURE_CLONE_KEY]).toBe(true);
+
+    expect(materialOf(plank).map).toBe(textureForName("wood"));
+  });
 });
 
 describe("parts in the renderer", () => {
@@ -342,6 +364,32 @@ describe("parts in the renderer", () => {
     expect(view.scale.x).toBeCloseTo(1, 6);
     renderer.setHighlight(null);
 
+    renderer.dispose();
+  });
+
+  test("removing a circuit board disposes its cloned map, never the cached texture", () => {
+    fake = installFakeDocument();
+    const { scene, renderer } = newRenderer();
+    const board = ent("board", "prop", {
+      parts: [
+        part("box", {
+          size: [2, 0.1, 2],
+          material: { texture: "circuit" },
+        }),
+      ],
+    });
+    renderer.reconcile(createState(validDoc([board]), 1));
+
+    const mesh = (scene.getObjectByName("board") as THREE.Group)
+      .children[0] as THREE.Mesh;
+    const map = materialOf(mesh).map!;
+    const mapSpy = vi.spyOn(map, "dispose");
+    const cachedSpy = vi.spyOn(textureForName("circuit")!, "dispose");
+
+    renderer.reconcile(createState(validDoc([]), 1));
+
+    expect(mapSpy).toHaveBeenCalledTimes(1);
+    expect(cachedSpy).not.toHaveBeenCalled();
     renderer.dispose();
   });
 

@@ -69,6 +69,8 @@ export const EntityLabelSchema = z.object({
   text: z.string(),
   offset: Vec3Schema.optional(),
   size: z.number().positive().optional(),
+  /** Flat silkscreen plane on the entity (true) vs camera-facing sprite. */
+  flat: z.boolean().optional(),
 });
 
 export const EntitySchema = z.object({

@@ -4,7 +4,7 @@ import { entityColor } from "./scene.js";
 import {
   GLASS_OPACITY,
   GLASS_ROUGHNESS,
-  textureForName,
+  textureMapForPart,
 } from "./textures.js";
 
 /**
@@ -101,7 +101,9 @@ function applyMaterialEmissive(
  * Material for one part: numeric fields are clamped to sane ranges
  * (metalness/roughness/opacity to 0..1, numeric emissive to 0..4), colors are
  * honored, `texture: "glass"` switches to translucent parameters, and every
- * other texture name becomes a cached canvas map when the DOM allows.
+ * other texture name becomes a cached canvas map when the DOM allows
+ * (`circuit` maps repeat with the part footprint so trace scale follows board
+ * size; see `textureMapForPart`).
  *
  * Color-less parts are tagged tintable and remember their base color so the
  * renderer can re-tint (or restore) them when `runtime.color` changes.
@@ -140,9 +142,10 @@ function partMaterial(
   if (params?.texture === "glass") {
     material.side = THREE.DoubleSide;
   } else {
+    const size = part.size ?? ([1, 1, 1] as Vec3);
     const map =
       typeof params?.texture === "string"
-        ? textureForName(params.texture)
+        ? textureMapForPart(params.texture, size)
         : null;
     if (map) material.map = map;
     if (part.shape === "plane") material.side = THREE.DoubleSide;

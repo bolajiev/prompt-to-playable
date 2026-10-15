@@ -5,7 +5,9 @@ import { validateGame } from "@prompt-to-playable/schema";
 import { createState } from "@prompt-to-playable/engine";
 import { Renderer } from "../src/renderer.js";
 import {
+  applyShapeColor,
   createShapeObject,
+  PIN_GOLD_COLOR,
   PROP_SHAPES,
   resolvePropShape,
   type PropShape,
@@ -70,7 +72,18 @@ const SHAPE_CHILD_COUNT: Record<PropShape, number> = {
   table: 5,
   flower: 2,
   building: 5,
+  chip: 9,
+  header: 11,
+  capacitor: 2,
+  led: 1,
+  hole: 1,
 };
+
+const GOLD_HEX = new THREE.Color(PIN_GOLD_COLOR).getHexString();
+
+function materialAt(mesh: THREE.Object3D): THREE.MeshStandardMaterial {
+  return (mesh as THREE.Mesh).material as THREE.MeshStandardMaterial;
+}
 
 describe("resolvePropShape", () => {
   test("resolves every vocabulary shape id", () => {
@@ -137,6 +150,114 @@ describe("createShapeObject", () => {
   });
 });
 
+describe("PCB composite shapes", () => {
+  test("chip has a dark body and two gold pin rows", () => {
+    const group = createShapeObject("chip", "#ff0000");
+    expect(group.children.length).toBe(9);
+
+    const body = materialAt(group.children[0]!);
+    expect(body.color.r).toBeGreaterThan(0);
+    expect(body.color.g).toBe(0);
+    expect(body.color.r).toBeLessThan(0.3);
+
+    const pins = group.children.slice(1) as THREE.Mesh[];
+    for (const pin of pins) {
+      expect(pin.geometry.type).toBe("CylinderGeometry");
+      expect(materialAt(pin).color.getHexString()).toBe(GOLD_HEX);
+    }
+    const xPositions = new Set(pins.map((pin) => pin.position.x.toFixed(4)));
+    expect(xPositions.size).toBe(2);
+  });
+
+  test("chip pin count follows the size aspect ratio, clamped to 10 per row", () => {
+    const wide = createShapeObject("chip", "#94a3b8", [2, 0.2, 1]);
+    expect(wide.children.length).toBe(1 + 2 * 8);
+
+    const extreme = createShapeObject("chip", "#94a3b8", [4, 0.2, 0.5]);
+    expect(extreme.children.length).toBe(1 + 2 * 10);
+  });
+
+  test("applyShapeColor re-tints the chip body but never the gold pins", () => {
+    const group = createShapeObject("chip", "#00ff00");
+    applyShapeColor(group, "#0000ff");
+
+    const body = materialAt(group.children[0]!);
+    expect(body.color.b).toBeGreaterThan(0);
+    expect(body.color.g).toBe(0);
+
+    for (const pin of group.children.slice(1)) {
+      expect(materialAt(pin).color.getHexString()).toBe(GOLD_HEX);
+    }
+  });
+
+  test("header is a black strip with a double row of gold pins on top", () => {
+    const group = createShapeObject("header", "#94a3b8");
+    expect(group.children.length).toBe(11);
+
+    const strip = group.children[0] as THREE.Mesh;
+    expect(strip.geometry.type).toBe("BoxGeometry");
+    const stripTop = strip.position.y + 0.5 * (strip.geometry as THREE.BoxGeometry).parameters.height;
+    expect(stripTop).toBeCloseTo(-0.21, 6);
+
+    const pins = group.children.slice(1) as THREE.Mesh[];
+    const zPositions = new Set(pins.map((pin) => pin.position.z.toFixed(4)));
+    expect(zPositions.size).toBe(2);
+    for (const pin of pins) {
+      expect(pin.geometry.type).toBe("CylinderGeometry");
+      expect(materialAt(pin).color.getHexString()).toBe(GOLD_HEX);
+      expect(pin.position.y).toBeGreaterThan(stripTop);
+      const bottom =
+        pin.position.y -
+        0.5 * (pin.geometry as THREE.CylinderGeometry).parameters.height;
+      expect(bottom).toBeGreaterThan(stripTop - 0.01);
+    }
+  });
+
+  test("capacitor is a black can with a lighter top disc", () => {
+    const group = createShapeObject("capacitor", "#94a3b8");
+    expect(group.children.length).toBe(2);
+
+    const [body, disc] = group.children as THREE.Mesh[];
+    expect(body.geometry.type).toBe("CylinderGeometry");
+    expect(disc.geometry.type).toBe("CylinderGeometry");
+    const bodyColor = materialAt(body).color;
+    const discColor = materialAt(disc).color;
+    const bodyLuma = bodyColor.r + bodyColor.g + bodyColor.b;
+    const discLuma = discColor.r + discColor.g + discColor.b;
+    expect(bodyLuma).toBeLessThan(discLuma);
+    expect(disc.position.y).toBeGreaterThan(body.position.y);
+  });
+
+  test("led is a single emissive cylinder using the entity color", () => {
+    const group = createShapeObject("led", "#ff0000");
+    expect(group.children.length).toBe(1);
+    const lens = materialAt(group.children[0]!);
+    expect(lens.color.r).toBeCloseTo(1, 6);
+    expect(lens.emissive.r).toBeGreaterThan(0.5);
+    expect(lens.emissive.g).toBe(0);
+  });
+
+  test("hole is a flat black torus spanning the unit box", () => {
+    const group = createShapeObject("hole", "#94a3b8");
+    expect(group.children.length).toBe(1);
+    const torus = group.children[0] as THREE.Mesh;
+    expect(torus.geometry.type).toBe("TorusGeometry");
+    expect(torus.rotation.x).toBeCloseTo(-Math.PI / 2, 6);
+    const color = materialAt(torus).color;
+    expect(color.r).toBeLessThan(0.15);
+    expect(color.g).toBeLessThan(0.15);
+    expect(color.b).toBeLessThan(0.15);
+
+    group.updateWorldMatrix(true, true);
+    const size = new THREE.Box3()
+      .setFromObject(group)
+      .getSize(new THREE.Vector3());
+    expect(size.x).toBeCloseTo(1, 3);
+    expect(size.z).toBeCloseTo(1, 3);
+    expect(size.y).toBeCloseTo(0.2, 3);
+  });
+});
+
 describe("shaped props in the renderer", () => {
   test("prop without props.shape keeps the default unit box", () => {
     const { scene, renderer } = newRenderer();
@@ -198,6 +319,26 @@ describe("shaped props in the renderer", () => {
     expect(group.children.length).toBe(SHAPE_CHILD_COUNT.tree);
     expect(group.position.toArray()).toEqual([2, 1, -3]);
     expect(group.scale.toArray()).toEqual([2, 4, 2]);
+    renderer.dispose();
+  });
+
+  test("chip pin count reflects the authored entity size", () => {
+    const { scene, renderer } = newRenderer();
+    renderer.reconcile(
+      createState(
+        validDoc([
+          ent("u1", "prop", {
+            props: { shape: "chip" },
+            size: [2, 0.2, 1] as Vec3,
+          }),
+        ]),
+        1
+      )
+    );
+
+    const group = scene.getObjectByName("u1") as THREE.Group;
+    expect(group).toBeInstanceOf(THREE.Group);
+    expect(group.children.length).toBe(1 + 2 * 8);
     renderer.dispose();
   });
 

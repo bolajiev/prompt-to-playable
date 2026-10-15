@@ -17,6 +17,11 @@ export const PROP_SHAPES = [
   "table",
   "flower",
   "building",
+  "chip",
+  "header",
+  "capacitor",
+  "led",
+  "hole",
 ] as const;
 
 export type PropShape = (typeof PROP_SHAPES)[number];
@@ -43,6 +48,40 @@ export function resolvePropShape(
 /** userData keys used to re-tint shape parts when the entity color changes. */
 export const PROP_TINT_KEY = "propTint";
 export const PROP_EMISSIVE_KEY = "propEmissive";
+
+/**
+ * Fixed gold for component leads/pins. Pin materials are deliberately NOT
+ * tagged tintable, so `applyShapeColor` never recolors them: PCB pins stay
+ * gold no matter what entity color the author picked.
+ */
+export const PIN_GOLD_COLOR = "#d4af37";
+
+function pinMaterial(): THREE.MeshStandardMaterial {
+  return new THREE.MeshStandardMaterial({
+    color: new THREE.Color(PIN_GOLD_COLOR),
+    roughness: 0.32,
+    metalness: 0.7,
+  });
+}
+
+/** Evenly spread `count` positions across a centered span. */
+function spread(count: number, span: number): number[] {
+  if (count <= 1) return [0];
+  const positions: number[] = [];
+  for (let i = 0; i < count; i += 1) {
+    positions.push(-span / 2 + (i / (count - 1)) * span);
+  }
+  return positions;
+}
+
+/** Planar footprint aspect (long/short edge), clamped to 1..2.5. */
+function footprintAspect(size: readonly [number, number, number]): number {
+  const x = Math.abs(size[0]);
+  const z = Math.abs(size[2]);
+  const long = Math.max(x, z, 1e-6);
+  const short = Math.max(Math.min(x, z), 1e-6);
+  return Math.min(2.5, Math.max(1, long / short));
+}
 
 /** Per-part material: base color scaled by `tint`, emissive when requested. */
 function shapeMaterial(
@@ -81,10 +120,15 @@ function part(
  * scale the whole shape, and every part owns fresh geometry; materials are
  * shared between identical parts within one group, never across entities, so
  * disposal can release a removed entity's resources unconditionally.
+ *
+ * `size` (the entity's absolute extents, default unit) only steers composite
+ * details that must follow proportions: PCB pin counts and long-edge
+ * orientation for chip/header. Geometry itself stays unit-box normalized.
  */
 export function createShapeObject(
   shape: PropShape,
-  color: THREE.ColorRepresentation
+  color: THREE.ColorRepresentation,
+  size: readonly [number, number, number] = [1, 1, 1]
 ): THREE.Group {
   const base = new THREE.Color(color);
   const group = new THREE.Group();
@@ -203,6 +247,130 @@ export function createShapeObject(
           );
         }
       }
+      break;
+    }
+    case "chip": {
+      const pinsPerRow = Math.min(
+        10,
+        Math.max(4, Math.round(4 * footprintAspect(size)))
+      );
+      const longIsX = Math.abs(size[0]) > Math.abs(size[2]);
+      const body = shapeMaterial(base, 0.12);
+      const pins = pinMaterial();
+      const offsets = spread(pinsPerRow, 0.44);
+      if (longIsX) {
+        group.add(
+          part(new THREE.BoxGeometry(0.64, 0.16, 0.56), body, [0, 0.02, 0])
+        );
+        for (const x of offsets) {
+          for (const z of [-0.36, 0.36]) {
+            group.add(
+              part(
+                new THREE.CylinderGeometry(0.035, 0.035, 0.18, 8),
+                pins,
+                [x, -0.055, z],
+                [Math.PI / 2, 0, 0]
+              )
+            );
+          }
+        }
+      } else {
+        group.add(
+          part(new THREE.BoxGeometry(0.56, 0.16, 0.64), body, [0, 0.02, 0])
+        );
+        for (const z of offsets) {
+          for (const x of [-0.36, 0.36]) {
+            group.add(
+              part(
+                new THREE.CylinderGeometry(0.035, 0.035, 0.18, 8),
+                pins,
+                [x, -0.055, z],
+                [0, 0, Math.PI / 2]
+              )
+            );
+          }
+        }
+      }
+      break;
+    }
+    case "header": {
+      const pinCount = Math.min(
+        12,
+        Math.max(4, Math.round(5 * footprintAspect(size)))
+      );
+      const x = Math.abs(size[0]);
+      const z = Math.abs(size[2]);
+      const longIsX = x >= z;
+      const rowCount = Math.min(x, z) / Math.max(x, z, 1e-6) >= 0.7 ? 2 : 1;
+      const rows = rowCount === 2 ? [-0.075, 0.075] : [0];
+      const strip = shapeMaterial(base, 0.12);
+      const pins = pinMaterial();
+      const offsets = spread(pinCount, 0.72);
+      if (longIsX) {
+        group.add(
+          part(new THREE.BoxGeometry(0.92, 0.24, 0.3), strip, [0, -0.33, 0])
+        );
+        for (const offset of offsets) {
+          for (const row of rows) {
+            group.add(
+              part(
+                new THREE.CylinderGeometry(0.028, 0.028, 0.4, 8),
+                pins,
+                [offset, -0.01, row]
+              )
+            );
+          }
+        }
+      } else {
+        group.add(
+          part(new THREE.BoxGeometry(0.3, 0.24, 0.92), strip, [0, -0.33, 0])
+        );
+        for (const offset of offsets) {
+          for (const row of rows) {
+            group.add(
+              part(
+                new THREE.CylinderGeometry(0.028, 0.028, 0.4, 8),
+                pins,
+                [row, -0.01, offset]
+              )
+            );
+          }
+        }
+      }
+      break;
+    }
+    case "capacitor": {
+      const can = shapeMaterial(base, 0.12);
+      const top = shapeMaterial(base, 0.9);
+      group.add(
+        part(new THREE.CylinderGeometry(0.26, 0.26, 0.6, 20), can, [0, -0.1, 0]),
+        part(
+          new THREE.CylinderGeometry(0.262, 0.262, 0.035, 20),
+          top,
+          [0, 0.215, 0]
+        )
+      );
+      break;
+    }
+    case "led": {
+      const lens = shapeMaterial(base, 1, 0.8);
+      group.add(
+        part(new THREE.CylinderGeometry(0.09, 0.09, 0.16, 12), lens, [
+          0, -0.05, 0,
+        ])
+      );
+      break;
+    }
+    case "hole": {
+      const ring = shapeMaterial(base, 0.1);
+      group.add(
+        part(
+          new THREE.TorusGeometry(0.4, 0.1, 12, 24),
+          ring,
+          [0, 0, 0],
+          [-Math.PI / 2, 0, 0]
+        )
+      );
       break;
     }
   }
