@@ -745,6 +745,38 @@ describe("entity parenting sanity", () => {
     expect(codes(result)).toContain("parent-cycle");
   });
 
+  test("rejects a parented player or enemy (actors own their world transform)", () => {
+    const doc = docWith({});
+    doc.entities.push({
+      id: "carrier",
+      kind: "prop",
+      position: [0, 0, 0],
+    } as (typeof doc.entities)[number]);
+    const player = doc.entities.find((entity) => entity.id === "player");
+    if (!player) throw new Error("fixture has no player");
+    player.parent = "carrier";
+    doc.entities.push({
+      id: "guard",
+      kind: "enemy",
+      parent: "carrier",
+      position: [0, 0, 0],
+    } as (typeof doc.entities)[number]);
+
+    const result = sanityCheck(doc);
+
+    expect(result.ok).toBe(false);
+    const actorIssues = result.errors.filter(
+      (issue) => issue.code === "parented-actor"
+    );
+    expect(actorIssues).toHaveLength(2);
+    expect(actorIssues.some((issue) => issue.path === "entities[player].parent")).toBe(
+      true
+    );
+    expect(actorIssues.some((issue) => issue.path === "entities[guard].parent")).toBe(
+      true
+    );
+  });
+
   test("accepts a clean parent chain", () => {
     const doc = docWith({});
     doc.entities.push(

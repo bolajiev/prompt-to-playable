@@ -138,6 +138,47 @@ describe("POST /generate", () => {
     expect(res.body.details.join("\n")).toContain("ghost-gem");
   });
 
+  test("returns the GameDoc at the top level plus the agent trace", async () => {
+    const doc = validDoc();
+    const app = createApp({
+      generate: async () => ({
+        doc,
+        steps: [
+          { tool: "plan", status: "ok", detail: "kit: puzzle-switch", ms: 4 },
+          { tool: "generate", status: "ok", detail: "generated 1 entities", ms: 900 },
+          { tool: "simulate", status: "ok", detail: "simulated 3 checks", ms: 12 },
+        ],
+        repairs: 1,
+      }),
+    });
+    const res = await request(app)
+      .post("/generate")
+      .send({ prompt: "a tiny room" });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      version: "1.0.0",
+      meta: { title: "Route Room" },
+      agent: { repairs: 1 },
+    });
+    expect(res.body.agent.steps).toHaveLength(3);
+    expect(res.body.agent.steps[0]).toEqual({
+      tool: "plan",
+      status: "ok",
+      detail: "kit: puzzle-switch",
+      ms: 4,
+    });
+  });
+
+  test("legacy doc-only handlers still respond with an empty agent trace", async () => {
+    const app = createApp({ generate: async () => validDoc() });
+    const res = await request(app)
+      .post("/generate")
+      .send({ prompt: "a tiny room" });
+    expect(res.status).toBe(200);
+    expect(res.body.meta.title).toBe("Route Room");
+    expect(res.body.agent).toEqual({ steps: [], repairs: 0 });
+  });
+
   test("accepts an objective-less explore scene through the sanity gate", async () => {
     const res = validateGame({
       version: "1.0.0",

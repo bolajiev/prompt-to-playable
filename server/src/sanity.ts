@@ -25,6 +25,7 @@ export type SanityCode =
   | "missing-machine-control"
   | "missing-parent"
   | "parent-cycle"
+  | "parented-actor"
   | "invalid-control-bind";
 
 export type Kit = GameMode;
@@ -181,6 +182,10 @@ function checkPosition(pos: Vec3, path: string, bounds: Vec3, issues: SanityIssu
  * Entity parenting references: `parent` must name an existing entity (zod
  * cannot check cross-references) and the parent links must be acyclic so the
  * engine's forward-kinematics pass always terminates.
+ *
+ * Actors (player/enemy) may never be parented: their physics owns the world
+ * transform, so a parent link would be silently overwritten by integration
+ * (review M1).
  */
 function parentIssues(doc: GameDoc): SanityIssue[] {
   const issues: SanityIssue[] = [];
@@ -191,6 +196,15 @@ function parentIssues(doc: GameDoc): SanityIssue[] {
   for (const entity of doc.entities) {
     const parentId = entity.parent;
     if (parentId === undefined) continue;
+
+    if (entity.kind === "player" || entity.kind === "enemy") {
+      issues.push({
+        code: "parented-actor",
+        path: `entities[${entity.id}].parent`,
+        message: `Entity '${entity.id}' is a ${entity.kind} and cannot be parented; actors own their world transform`,
+      });
+      continue;
+    }
 
     if (!byId.has(parentId)) {
       issues.push({
@@ -723,5 +737,6 @@ export const SANITY_CODES = [
   "missing-machine-control",
   "missing-parent",
   "parent-cycle",
+  "parented-actor",
   "invalid-control-bind",
 ] as const;

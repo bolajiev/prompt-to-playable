@@ -9,6 +9,7 @@ import type {
   Response,
 } from "express";
 import type { GameDoc } from "@prompt-to-playable/schema";
+import type { AgentResult, AgentStep } from "./agent.js";
 import type { EditResult } from "./edit.js";
 import { validatePatch } from "./patch.js";
 import { sanityCheck } from "./sanity.js";
@@ -16,15 +17,37 @@ import type { SanityIssue } from "./sanity.js";
 import { validateDoc } from "./validate.js";
 import type { ValidationIssue } from "./validate.js";
 
-export type { EditResult };
+export type { AgentResult, AgentStep, EditResult };
+
+/** Trace payload the client renders next to the generated document. */
+export interface AgentTracePayload {
+  steps: AgentStep[];
+  repairs: number;
+}
 
 export interface RouteHandlers {
-  generate?: (prompt: string) => Promise<GameDoc>;
+  /**
+   * Generation handler. An `AgentResult` carries the agent trace; a bare
+   * GameDoc is still accepted (legacy injectors and tests) and reported with
+   * an empty trace.
+   */
+  generate?: (prompt: string) => Promise<GameDoc | AgentResult>;
   edit?: (
     prompt: string,
     game: GameDoc,
     history: unknown[]
   ) => Promise<EditResult>;
+}
+
+function isAgentResult(value: unknown): value is AgentResult {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as { doc?: unknown; steps?: unknown; repairs?: unknown };
+  return (
+    typeof record.doc === "object" &&
+    record.doc !== null &&
+    Array.isArray(record.steps) &&
+    typeof record.repairs === "number"
+  );
 }
 
 export class RouteError extends Error {
@@ -140,7 +163,13 @@ export function createApp(
         return;
       }
 
-      const doc = await handlers.generate(prompt.value);
+      const result = await handlers.generate(prompt.value);
+      const agent: AgentTracePayload = isAgentResult(result)
+        ? { steps: result.steps, repairs: result.repairs }
+        : { steps: [], repairs: 0 };
+      const doc = isAgentResult(result) ? result.doc : result;
+      // Defense in depth: the agent already validated and sanity-checked the
+      // document, but the route re-checks whatever the handler returned.
       const validated = validateDoc(doc);
       if (!validated.ok || !validated.data) {
         throw new RouteError(
@@ -157,10 +186,18 @@ export function createApp(
           sanityDetails(sanity.errors)
         );
       }
-      res.status(200).json(validated.data);
+      // Backward compatible shape: the GameDoc fields stay at the top level
+      // and the agent trace rides alongside as `agent`.
+      res.status(200).json({ ...validated.data, agent });
     })
   );
 
+  // /edit intentionally stays on the dedicated patch pipeline: an edit is a
+  // bounded RFC 6902 patch against an already-valid document, its repair loop
+  // re-validates and re-sanity-checks every candidate patch, and running the
+  // full agent (classify/generate/simulate) again would add nothing but LLM
+  // latency and a second chance to drift the document. `runAgent` is the
+  // full-document generation tool; patches remain patch-sized.
   app.post(
     "/edit",
     asyncHandler(async (req, res) => {

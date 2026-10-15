@@ -3,6 +3,11 @@ import { Engine, resolveMode, type GameState } from "@prompt-to-playable/engine"
 import { applyWorldEnvironment, Renderer } from "@prompt-to-playable/render";
 import type { GameDoc, GameMode } from "@prompt-to-playable/schema";
 import { Chat, isAbortError, runWithAutoRetry } from "./ui/chat.js";
+import {
+  AgentTraceStrip,
+  parseAgentTrace,
+  type AgentTrace,
+} from "./ui/agent-trace.js";
 import { ControlsPanel } from "./ui/controls-panel.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
@@ -76,6 +81,8 @@ export interface AppElements {
   panels: HTMLElement;
   /** Sidebar section with the document's interactive controls (machine docs). */
   controlsPanel: HTMLElement;
+  /** Collapsible agent tool-trace strip shown above the controls panel. */
+  agentTrace: HTMLElement;
   /** Optional top-bar chip showing the active game mode. */
   modeBadge?: HTMLElement;
 }
@@ -103,6 +110,13 @@ interface EditResponse {
   doc: GameDoc;
   patch: unknown[];
 }
+
+/**
+ * POST /generate keeps the GameDoc fields at the top level (the pre-agent
+ * contract) and adds an optional `agent` trace alongside them. The trace is
+ * parsed tolerantly so older servers (no agent field) keep working.
+ */
+type GenerateResponse = GameDoc & { agent?: unknown };
 
 export function isTextEntry(target: EventTarget | null): boolean {
   return (
@@ -213,6 +227,7 @@ export class App {
   private readonly progress: GenerationProgress;
   private readonly panels: Panels;
   private readonly controlsPanel: ControlsPanel;
+  private readonly agentTrace: AgentTraceStrip;
   private readonly keyboard = createKeyboardState();
   private readonly cameraRig = new CameraRig();
   private readonly audio = new AudioPlayer();
@@ -306,6 +321,7 @@ export class App {
       onInput: (id, value) => this.engine.setControl(id, value),
       onPress: (id) => this.engine.pressControl(id),
     });
+    this.agentTrace = new AgentTraceStrip(elements.agentTrace);
 
     this.handleResize();
     globalThis.addEventListener("resize", this.handleResize);
@@ -721,10 +737,29 @@ export class App {
   }
 
   private async generate(prompt: string, signal: AbortSignal): Promise<void> {
-    const doc = await this.postJson<GameDoc>("/generate", { prompt }, signal);
-    this.loadGame(doc);
+    const response = await this.postJson<GenerateResponse>(
+      "/generate",
+      { prompt },
+      signal
+    );
+    const { agent, ...doc } = response;
+    this.loadGame(doc as GameDoc);
+    this.renderAgentTrace(agent);
     this.history.push(prompt);
     this.chat.appendMessage("system", `Loaded "${doc.meta.title}".`);
+  }
+
+  /**
+   * Renders the server's agent trace after generation completes. A missing or
+   * malformed payload clears the strip instead of failing the load.
+   */
+  private renderAgentTrace(payload: unknown): void {
+    const trace: AgentTrace | null = parseAgentTrace(payload);
+    if (trace === null) {
+      this.agentTrace.clear();
+      return;
+    }
+    this.agentTrace.show(trace);
   }
 
   private async edit(prompt: string, signal: AbortSignal): Promise<void> {
@@ -867,6 +902,7 @@ export function resolveElements(root: ParentNode): AppElements {
   const driveTime = root.querySelector<HTMLElement>("#drive-time");
   const panels = root.querySelector<HTMLElement>("#panels");
   const controlsPanel = root.querySelector<HTMLElement>("#controls-panel");
+  const agentTrace = root.querySelector<HTMLElement>("#agent-trace");
   const modeBadge = root.querySelector<HTMLElement>("#mode-badge");
 
   const missing: string[] = [];
@@ -891,6 +927,7 @@ export function resolveElements(root: ParentNode): AppElements {
   if (!driveTime) missing.push("#drive-time");
   if (!panels) missing.push("#panels");
   if (!controlsPanel) missing.push("#controls-panel");
+  if (!agentTrace) missing.push("#agent-trace");
   if (
     missing.length > 0 ||
     !canvas ||
@@ -913,7 +950,8 @@ export function resolveElements(root: ParentNode): AppElements {
     !driveLap ||
     !driveTime ||
     !panels ||
-    !controlsPanel
+    !controlsPanel ||
+    !agentTrace
   ) {
     throw new Error(`Missing required DOM elements: ${missing.join(", ")}`);
   }
@@ -940,6 +978,7 @@ export function resolveElements(root: ParentNode): AppElements {
     driveTime,
     panels,
     controlsPanel,
+    agentTrace,
     ...(modeBadge === null ? {} : { modeBadge }),
   };
 }

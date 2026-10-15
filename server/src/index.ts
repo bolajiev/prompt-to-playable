@@ -1,10 +1,12 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Express } from "express";
+import { runAgent } from "./agent.js";
+import type { AgentDeps } from "./agent.js";
 import { createDefaultEditDeps, createEditPipeline } from "./edit.js";
 import { loadEnvFile } from "./env.js";
 import { createOpenAiLlm } from "./llm.js";
-import { createDefaultPipelineDeps, createGenerationPipeline } from "./pipeline.js";
+import { createDefaultPipelineDeps } from "./pipeline.js";
 import { createApp } from "./routes.js";
 import type { CreateAppOptions, RouteHandlers } from "./routes.js";
 
@@ -41,10 +43,15 @@ export function buildApp(
 
 export function createDefaultHandlers(): RouteHandlers {
   const llm = createOpenAiLlm({ apiKey: getApiKey() });
-  const pipeline = createGenerationPipeline(createDefaultPipelineDeps(llm));
+  const defaults = createDefaultPipelineDeps(llm);
+  const agentDeps: AgentDeps = {
+    plan: (prompt) => defaults.classifier(prompt),
+    generate: (prompt, archetype) => defaults.generator(prompt, archetype),
+    repair: (doc, errors, attempt) => defaults.repairer(doc, errors, attempt),
+  };
   const editPipeline = createEditPipeline(createDefaultEditDeps(llm));
   return {
-    generate: (prompt) => pipeline.generateGame(prompt),
+    generate: (prompt) => runAgent(prompt, agentDeps),
     edit: (prompt, game, history) => editPipeline.editGame(prompt, game, history),
   };
 }
