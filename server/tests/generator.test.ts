@@ -412,6 +412,65 @@ describe("kit few-shot examples", () => {
     }
   });
 
+  test("machine example stands up at a readable world scale", () => {
+    const doc = ARCHETYPE_EXAMPLES.machine;
+    const segments = doc.entities.filter((entity) =>
+      entity.id.startsWith("arm-")
+    );
+    expect(segments).toHaveLength(5);
+
+    // Union AABB of every segment part. Segments are unsized, so part offsets
+    // and sizes are world units and the camera's parts-bbox auto-fit matches
+    // the visible rig exactly.
+    const min: [number, number, number] = [Infinity, Infinity, Infinity];
+    const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+    for (const entity of segments) {
+      expect(
+        entity.size,
+        `${entity.id} parts are authored in world units`
+      ).toBeUndefined();
+      for (const part of entity.parts ?? []) {
+        const offset = part.offset ?? [0, 0, 0];
+        const size = part.size ?? [1, 1, 1];
+        for (let axis = 0; axis < 3; axis += 1) {
+          const center = entity.position[axis] + offset[axis];
+          min[axis] = Math.min(min[axis], center - size[axis] / 2);
+          max[axis] = Math.max(max[axis], center + size[axis] / 2);
+        }
+      }
+    }
+    const spanX = max[0] - min[0];
+    const spanY = max[1] - min[1];
+    const spanZ = max[2] - min[2];
+    const diagonal = Math.hypot(spanX, spanY, spanZ);
+    expect(
+      Math.max(spanX, spanY, spanZ),
+      "the arm spans a readable fraction of the frame"
+    ).toBeGreaterThanOrEqual(5.5);
+    expect(diagonal).toBeGreaterThanOrEqual(6.5);
+    expect(diagonal).toBeLessThanOrEqual(8.5);
+    expect(min[1], "the rig stands on the ground plane").toBeGreaterThanOrEqual(0);
+
+    // Base turret about 1.2 units in radius.
+    const base = doc.entities.find((entity) => entity.id === "arm-base");
+    const baseCylinder = base?.parts?.[0];
+    expect(baseCylinder?.shape).toBe("cylinder");
+    expect((baseCylinder?.size?.[0] ?? 0) / 2).toBeCloseTo(1.2, 1);
+
+    // The shoulder pivot is raised and the upper link stands up to the elbow.
+    const shoulder = doc.entities.find((entity) => entity.id === "arm-shoulder");
+    const elbow = doc.entities.find((entity) => entity.id === "arm-elbow");
+    const wrist = doc.entities.find((entity) => entity.id === "arm-wrist");
+    expect(shoulder?.position[1] ?? 0).toBeGreaterThanOrEqual(1.5);
+    expect(elbow?.position[1] ?? 0).toBeGreaterThan(shoulder?.position[1] ?? 0);
+    const upperLink = (elbow?.position[1] ?? 0) - (shoulder?.position[1] ?? 0);
+    expect(upperLink).toBeGreaterThanOrEqual(2.5);
+    expect(upperLink).toBeLessThanOrEqual(3);
+    const forearmReach = (wrist?.position[0] ?? 0) - (elbow?.position[0] ?? 0);
+    expect(forearmReach).toBeGreaterThanOrEqual(2.5);
+    expect(forearmReach).toBeLessThanOrEqual(3.2);
+  });
+
   test("drive example is a winnable, ordered checkpoint race", () => {
     const doc = ARCHETYPE_EXAMPLES.drive;
     expect(doc.meta.mode).toBe("drive");

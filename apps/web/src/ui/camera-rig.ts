@@ -138,6 +138,18 @@ export const INSPECT_FIT_SCALE = 0.6;
 export const INSPECT_FIT_MIN_DISTANCE = 8;
 export const INSPECT_FIT_MAX_DISTANCE = 26;
 
+/**
+ * Machine scenes reuse the inspect assembly framing (bbox-centered orbit,
+ * hidden player, auto-fitted clamped distance) but are viewed in perspective
+ * instead of straight down: `MACHINE_PITCH` is a classic product-shot
+ * elevation (~31 degrees, well clear of the top-down `INSPECT_PITCH`), and
+ * `MACHINE_YAW` is the straight-on inspect yaw turned a quarter turn so the
+ * camera sits exactly on the +X/+Z diagonal - the textbook three-quarter
+ * view. Derived from the existing pure constants, never hardcoded.
+ */
+export const MACHINE_PITCH = 0.55;
+export const MACHINE_YAW = INSPECT_YAW + Math.PI / 4;
+
 /** Axis-aligned footprint of one entity that participates in the camera fit. */
 export interface InspectBoundsBox {
   position: readonly [number, number, number];
@@ -408,7 +420,8 @@ export interface CameraRigOptions {
  * (the app owns the DOM listeners). While a drag is active the yaw stays put;
  * once the drag ends it eases exponentially back to the rig's home orientation
  * (`YAW_RETURN_SECONDS` to ~1%), which defaults to the behind-player view but
- * can be set to `INSPECT_YAW` for the straight-on inspect framing.
+ * can be set to `INSPECT_YAW` (straight-on board) or `MACHINE_YAW`
+ * (three-quarter assembly) for the assembly framings.
  * `update(dt)` takes seconds.
  */
 export class CameraRig {
@@ -417,8 +430,9 @@ export class CameraRig {
   distance: number;
   /**
    * Yaw the ease-back returns to. `0` is the historical behind-player view;
-   * inspect mode sets `INSPECT_YAW` so a drag relaxes back to the straight
-   * board framing instead of the default diagonal.
+   * inspect mode sets `INSPECT_YAW` (straight-on board) and machine mode
+   * `MACHINE_YAW` (three-quarter assembly), so a drag relaxes back to the
+   * framing instead of the default diagonal.
    */
   homeYaw = 0;
   private dragging = false;

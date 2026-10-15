@@ -32,6 +32,8 @@ import {
   inspectAssemblyCenter,
   inspectAssemblyDiagonal,
   inspectCameraDistance,
+  MACHINE_PITCH,
+  MACHINE_YAW,
   MAX_DISTANCE,
   MAX_PITCH,
   MIN_DISTANCE,
@@ -330,6 +332,7 @@ describe("resolveCameraMode", () => {
     expect(resolveCameraMode(doc({ mode: "walkthrough" }))).toBe("firstPerson");
     expect(resolveCameraMode(doc({ mode: "drive" }))).toBe("chase");
     expect(resolveCameraMode(doc({ mode: "inspect" }))).toBe("orbit");
+    expect(resolveCameraMode(doc({ mode: "machine" }))).toBe("orbit");
     expect(resolveCameraMode(doc({ mode: "explore" }))).toBe("orbit");
     expect(resolveCameraMode(doc({ mode: "game" }))).toBe("orbit");
   });
@@ -382,6 +385,35 @@ describe("resolveCameraMode", () => {
     expect(offset[2]).toBeGreaterThan(0);
     // Sanity: the default rig yaw really is diagonal (non-zero x).
     expect(cameraOffset(0, INSPECT_PITCH, 10)[0]).toBeGreaterThan(1);
+  });
+
+  test("machine framing is a three-quarter view of the same auto-fit assembly", () => {
+    // A moderate product-shot elevation, inside the orbit clamp and clearly
+    // lower than the top-down inspect pitch.
+    expect(MACHINE_PITCH).toBeGreaterThanOrEqual(0.5);
+    expect(MACHINE_PITCH).toBeLessThanOrEqual(0.6);
+    expect(MACHINE_PITCH).toBeGreaterThanOrEqual(MIN_PITCH);
+    expect(MACHINE_PITCH).toBeLessThanOrEqual(MAX_PITCH);
+    expect(MACHINE_PITCH).toBeLessThan(INSPECT_PITCH);
+
+    // Derived from the existing pure constants: the straight-on inspect yaw
+    // turned 45 degrees onto the +X/+Z diagonal, not an independent magic angle.
+    expect(MACHINE_YAW).toBeCloseTo(INSPECT_YAW + Math.PI / 4, 10);
+    const offset = cameraOffset(MACHINE_YAW, MACHINE_PITCH, 10);
+    expect(offset[0]).toBeCloseTo(offset[2], 10);
+    expect(offset[0]).toBeGreaterThan(0);
+    expect(offset[1]).toBeGreaterThan(0);
+    // Sanity: it is a genuine turn away from the straight-on inspect yaw.
+    expect(Math.abs(MACHINE_YAW - INSPECT_YAW)).toBeCloseTo(Math.PI / 4, 10);
+  });
+
+  test("machine reuses the inspect auto-fit distance and clamp", () => {
+    const arm = [{ position: [1.5, 2.5, 0], size: [5.4, 5, 2.4] }];
+    const distance = clampDistance(inspectCameraDistance(arm));
+    expect(distance).toBeGreaterThanOrEqual(MIN_DISTANCE);
+    expect(distance).toBeLessThanOrEqual(MAX_DISTANCE);
+    // Same center/boxes feed the orbit target for both assembly modes.
+    expect(inspectAssemblyCenter(arm)).toEqual([1.5, 2.5, 0]);
   });
 
   test("inspect assembly center is the union bbox center", () => {
