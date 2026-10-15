@@ -73,8 +73,8 @@ body.studio {
 }
 
 #mode-badge {
-  color: #c8d4ee;
-  border-color: rgba(110, 168, 254, 0.32);
+  color: #cfc6ff;
+  border-color: rgba(124, 92, 255, 0.35);
   background: var(--accent-soft);
 }
 
@@ -103,8 +103,8 @@ body.studio {
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--bg-deep);
-  box-shadow: var(--shadow-float);
+  background: #000;
+  box-shadow: 0 40px 90px -52px rgba(0, 0, 0, 1);
 }
 
 #game {
@@ -123,9 +123,9 @@ body.studio {
   padding: 6px 13px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(7, 9, 13, 0.72);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--muted);
   font-size: 0.76rem;
   font-weight: 550;
@@ -153,8 +153,8 @@ body.studio {
 #crosshair::after {
   content: "";
   position: absolute;
-  background: rgba(232, 234, 240, 0.85);
-  box-shadow: 0 0 3px rgba(5, 7, 15, 0.9);
+  background: rgba(245, 246, 248, 0.9);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.9);
 }
 
 #crosshair::before {
@@ -185,15 +185,15 @@ body.studio {
   padding: 7px 16px;
   border-radius: 999px;
   border: 1px solid var(--accent-ring);
-  background: rgba(7, 9, 13, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   color: var(--text);
   font-size: 0.82rem;
   font-weight: 600;
   white-space: nowrap;
   pointer-events: none;
-  box-shadow: 0 10px 30px -12px rgba(110, 168, 254, 0.55);
+  box-shadow: 0 10px 30px -12px rgba(124, 92, 255, 0.5);
 }
 
 #interact-prompt[hidden] {
@@ -212,9 +212,9 @@ body.studio {
   padding: 7px 15px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(7, 9, 13, 0.72);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   font-size: 0.82rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -263,13 +263,9 @@ body.studio {
   border: 1px solid var(--border-strong);
   border-radius: 14px;
   padding: 13px 15px;
-  background: linear-gradient(
-    180deg,
-    rgba(24, 28, 38, 0.97) 0%,
-    rgba(18, 21, 28, 0.97) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(10, 10, 11, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   box-shadow: var(--shadow-float);
 }
 
@@ -291,7 +287,7 @@ button.panel-close {
   padding: 1px 8px;
   border-radius: 7px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
   color: var(--muted);
   font-size: 0.85rem;
   font-weight: 700;
@@ -299,12 +295,14 @@ button.panel-close {
   cursor: pointer;
   transition:
     color var(--dur) var(--ease),
-    border-color var(--dur) var(--ease);
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
 }
 
 button.panel-close:hover {
   color: var(--text);
   border-color: var(--accent-ring);
+  background: var(--accent-soft);
 }
 
 .panel-body {
@@ -333,21 +331,21 @@ button.panel-close:hover {
 
 .empty-card {
   max-width: 430px;
-  padding: 26px 28px;
+  padding: 28px 30px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-strong);
-  background: rgba(12, 15, 21, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(10, 10, 11, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   box-shadow: var(--shadow-float);
   text-align: left;
 }
 
 .empty-card h2 {
-  margin: 10px 0 14px;
-  font-size: 1.3rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
+  margin: 12px 0 16px;
+  font-size: 1.36rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
 }
 
 .empty-card ol {
@@ -374,9 +372,9 @@ button.panel-close:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(7, 9, 13, 0.66);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 #progress[hidden] {
@@ -389,10 +387,10 @@ button.panel-close:hover {
   align-items: center;
   gap: 14px;
   width: min(380px, 84%);
-  padding: 26px 28px;
+  padding: 28px 30px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-strong);
-  background: linear-gradient(180deg, #171b24 0%, #10131a 100%);
+  background: var(--panel-2);
   box-shadow: var(--shadow-float);
   text-align: center;
 }
@@ -401,7 +399,7 @@ button.panel-close:hover {
   width: 26px;
   height: 26px;
   border-radius: 50%;
-  border: 3px solid rgba(154, 163, 178, 0.22);
+  border: 3px solid rgba(255, 255, 255, 0.1);
   border-top-color: var(--accent);
   animation: spin 0.9s linear infinite;
 }
@@ -433,7 +431,7 @@ button.panel-close:hover {
   width: 100%;
   height: 4px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.08);
   overflow: hidden;
 }
 
@@ -477,8 +475,8 @@ button.panel-close:hover {
   max-width: min(460px, 85%);
   padding: 16px 20px;
   border-radius: 14px;
-  border: 1px solid rgba(248, 113, 113, 0.55);
-  background: rgba(24, 12, 14, 0.94);
+  border: 1px solid rgba(248, 113, 113, 0.5);
+  background: rgba(24, 10, 12, 0.96);
   box-shadow: var(--shadow-float);
   color: var(--text);
   font-size: 0.88rem;
@@ -557,7 +555,7 @@ ul.objectives li {
 }
 
 li.objective.active {
-  border-color: rgba(110, 168, 254, 0.42);
+  border-color: rgba(124, 92, 255, 0.45);
   background: var(--accent-soft);
 }
 
@@ -648,8 +646,8 @@ li.objective.failed {
 
 #chat-log .line.user {
   background: var(--accent-soft);
-  border-color: rgba(110, 168, 254, 0.24);
-  color: #dbe6ff;
+  border-color: rgba(124, 92, 255, 0.28);
+  color: #e9e4ff;
   font-weight: 550;
 }
 
@@ -734,7 +732,7 @@ li.objective.failed {
   padding: 11px 13px;
   border-radius: 10px;
   border: 1px solid var(--border-strong);
-  background: var(--bg-deep);
+  background: var(--panel);
   color: var(--text);
   font-size: 0.9rem;
   transition:
@@ -749,7 +747,7 @@ li.objective.failed {
 #chat-input:focus {
   outline: none;
   border-color: var(--accent-ring);
-  box-shadow: 0 0 0 3px rgba(110, 168, 254, 0.18);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 #chat-input:disabled {
@@ -763,9 +761,9 @@ li.objective.failed {
   border: none;
   border-radius: 10px;
   background: var(--accent-gradient);
-  color: #0a0d14;
+  color: #0a0a0b;
   font-size: 0.88rem;
-  font-weight: 650;
+  font-weight: 700;
   cursor: pointer;
   transition:
     transform var(--dur) var(--ease),
@@ -775,7 +773,7 @@ li.objective.failed {
 
 #chat-submit:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 10px 26px -12px rgba(110, 168, 254, 0.7);
+  box-shadow: 0 12px 30px -12px rgba(124, 92, 255, 0.7);
 }
 
 #chat-submit:disabled {

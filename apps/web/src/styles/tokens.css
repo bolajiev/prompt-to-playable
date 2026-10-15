@@ -3,34 +3,35 @@
 
 /*
  * Shared design tokens for the landing page and the studio.
- * Palette: near-black canvas, panel surfaces, hairline borders, one accent
- * gradient. Keep values here; pages only compose them.
+ * Palette: pure-black OLED canvas, flat near-black panels, hairline borders,
+ * one violet→blue accent gradient used sparingly. Keep values here; pages only
+ * compose them.
  */
 :root {
   color-scheme: dark;
 
-  --bg: #0a0c10;
-  --bg-deep: #07090d;
-  --panel: #12151c;
-  --panel-2: #161a23;
-  --panel-3: #1b202a;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  --bg: #000000;
+  --bg-deep: #000000;
+  --panel: #0a0a0b;
+  --panel-2: #101013;
+  --panel-3: #17171b;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.13);
 
-  --text: #e8eaf0;
-  --muted: #9aa3b2;
-  --faint: #6b7383;
+  --text: #f5f6f8;
+  --muted: #8b8f98;
+  --faint: #6e727b;
 
-  --accent: #6ea8fe;
-  --accent-2: #7c5cff;
-  --accent-gradient: linear-gradient(135deg, #6ea8fe 0%, #7c5cff 100%);
-  --accent-soft: rgba(110, 168, 254, 0.12);
-  --accent-ring: rgba(110, 168, 254, 0.55);
+  --accent: #7c5cff;
+  --accent-2: #6ea8fe;
+  --accent-gradient: linear-gradient(135deg, #7c5cff 0%, #6ea8fe 100%);
+  --accent-soft: rgba(124, 92, 255, 0.12);
+  --accent-ring: rgba(124, 92, 255, 0.55);
 
   --ok: #4ade80;
-  --ok-soft: rgba(74, 222, 128, 0.14);
+  --ok-soft: rgba(74, 222, 128, 0.12);
   --bad: #f87171;
-  --bad-soft: rgba(248, 113, 113, 0.14);
+  --bad-soft: rgba(248, 113, 113, 0.12);
   --warn: #fbbf24;
 
   --radius-sm: 8px;
@@ -48,9 +49,10 @@
   --dur: 200ms;
   --dur-slow: 250ms;
 
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
-    0 14px 34px -18px rgba(0, 0, 0, 0.75);
-  --shadow-float: 0 18px 50px -20px rgba(0, 0, 0, 0.85);
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 24px 48px -32px rgba(0, 0, 0, 0.9);
+  --shadow-float: 0 32px 80px -40px rgba(0, 0, 0, 0.95);
+  --shadow-cta: 0 12px 32px -14px rgba(245, 246, 248, 0.32);
 
   --container: 1140px;
 }
@@ -116,14 +118,14 @@ textarea {
 }
 
 ::selection {
-  background: rgba(110, 168, 254, 0.35);
+  background: rgba(124, 92, 255, 0.35);
   color: #fff;
 }
 
 /* Slim scrollbars that match the panels. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
 }
 
 *::-webkit-scrollbar {
@@ -132,7 +134,7 @@ textarea {
 }
 
 *::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
 }
 
@@ -152,25 +154,27 @@ textarea {
 }
 
 .section-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--accent);
 }
 
 .section-title {
-  font-size: clamp(1.7rem, 3.2vw, 2.3rem);
-  font-weight: 650;
-  letter-spacing: -0.022em;
-  line-height: 1.12;
+  font-size: clamp(1.85rem, 3.5vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
   color: var(--text);
+  text-wrap: balance;
 }
 
 .section-lede {
   max-width: 62ch;
   color: var(--muted);
-  font-size: 0.98rem;
+  font-size: 1rem;
+  line-height: 1.65;
 }
 
 .btn {
@@ -203,25 +207,26 @@ textarea {
 }
 
 .btn-primary {
-  background: var(--accent-gradient);
-  color: #0a0d14;
-  box-shadow: 0 10px 28px -12px rgba(110, 168, 254, 0.65);
+  background: #f5f6f8;
+  color: #050506;
+  box-shadow: var(--shadow-cta);
 }
 
 .btn-primary:hover {
+  background: #ffffff;
   transform: translateY(-1px);
-  box-shadow: 0 16px 34px -14px rgba(124, 92, 255, 0.7);
+  box-shadow: 0 16px 40px -16px rgba(245, 246, 248, 0.45);
 }
 
 .btn-ghost {
   border-color: var(--border-strong);
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
   color: var(--text);
 }
 
 .btn-ghost:hover {
-  border-color: rgba(255, 255, 255, 0.24);
-  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.04);
   transform: translateY(-1px);
 }
 
@@ -244,7 +249,7 @@ textarea {
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.03);
+  background: transparent;
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 550;
@@ -261,7 +266,7 @@ textarea {
   background: var(--accent-soft);
 }
 
-/* Faint grid + radial glow used behind both pages. */
+/* Single subtle top glow over pure black; no page-wide wash. */
 .backdrop {
   position: fixed;
   inset: 0;
@@ -269,30 +274,9 @@ textarea {
   pointer-events: none;
   background:
     radial-gradient(
-      900px 520px at 78% -12%,
-      rgba(124, 92, 255, 0.16),
+      1100px 520px at 50% -18%,
+      rgba(124, 92, 255, 0.13),
       transparent 62%
     ),
-    radial-gradient(
-      760px 460px at 4% -6%,
-      rgba(110, 168, 254, 0.11),
-      transparent 60%
-    ),
-    var(--bg);
-}
-
-.backdrop::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
-  background-size: 46px 46px;
-  -webkit-mask-image: radial-gradient(
-    78% 52% at 50% 0%,
-    #000 0%,
-    transparent 100%
-  );
-  mask-image: radial-gradient(78% 52% at 50% 0%, #000 0%, transparent 100%);
+    #000;
 }
