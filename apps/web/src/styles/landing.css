@@ -122,6 +122,20 @@ body.landing {
   margin-top: 30px;
 }
 
+.cta-link {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 550;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 4px;
+  transition: color var(--dur) var(--ease);
+}
+
+.cta-link:hover {
+  color: var(--text);
+}
+
 .hero-note {
   margin-top: 20px;
   max-width: 44ch;
@@ -506,6 +520,79 @@ body.landing {
 }
 
 /* ------------------------------------------------------------------ */
+/* Demo modal                                                           */
+/* ------------------------------------------------------------------ */
+
+.demo-dialog {
+  width: min(920px, 92vw);
+  max-height: 90vh;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--shadow-float);
+}
+
+.demo-dialog::backdrop {
+  background: rgba(4, 6, 10, 0.74);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.demo-dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.demo-dialog-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.demo-dialog-close {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 550;
+  cursor: pointer;
+  transition:
+    color var(--dur) var(--ease),
+    border-color var(--dur) var(--ease),
+    background-color var(--dur) var(--ease);
+}
+
+.demo-dialog-close:hover {
+  color: var(--text);
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.demo-video {
+  display: block;
+  width: 100%;
+  max-height: calc(90vh - 110px);
+  background: #000;
+}
+
+.demo-dialog-note {
+  padding: 10px 16px 13px;
+  color: var(--faint);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ */
 /* Scroll reveal (progressive enhancement: .js gates the hidden state)  */
 /* ------------------------------------------------------------------ */
 
@@ -520,6 +607,14 @@ body.landing {
 .js .reveal.is-visible {
   opacity: 1;
   transform: none;
+}
+
+/* Armed by an inline timer in index.html; fires only if the module never
+   completes, so a failed script load can never leave content invisible. */
+.js.reveal-fallback .reveal {
+  opacity: 1;
+  transform: none;
+  transition: none;
 }
 
 .js .steps .reveal:nth-child(2),

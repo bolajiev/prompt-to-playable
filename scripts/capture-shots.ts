@@ -12,7 +12,7 @@
  * every shot gets exactly one retry on failure.
  */
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium, type Browser, type Page } from "playwright";
@@ -30,6 +30,8 @@ const NAVIGATION_TIMEOUT_MS = 60_000;
 const RENDER_TIMEOUT_MS = 290_000;
 const MAX_SHOT_BYTES = 400 * 1024;
 const JPEG_QUALITIES = [85, 70, 55];
+/** How long SIGTERM gets before the server child is SIGKILLed. */
+const SERVER_STOP_GRACE_MS = 2_000;
 
 /** Fixed yaw-0 camera-relative input basis (see `forwardFromYaw(0)`). */
 const YAW_ZERO_FORWARD: readonly [number, number] = [
@@ -81,7 +83,13 @@ function expectCondition(condition: unknown, message: string): asserts condition
 /* Server                                                               */
 /* ------------------------------------------------------------------ */
 
-function startServer(): ChildProcess {
+interface ServerHandle {
+  child: ChildProcess;
+  /** Set by the child's `error` listener (e.g. missing `server/dist`). */
+  spawnError: Error | null;
+}
+
+function startServer(): ServerHandle {
   const child = spawn(
     process.execPath,
     [join(ROOT, "server", "dist", "index.js")],
@@ -91,15 +99,28 @@ function startServer(): ChildProcess {
       stdio: ["ignore", "pipe", "pipe"],
     }
   );
+  const handle: ServerHandle = { child, spawnError: null };
+  // Without this listener a missing dist emits an unhandled 'error' event and
+  // crashes the script instead of reaching the health-poll diagnostic.
+  child.on("error", (error: Error) => {
+    handle.spawnError = error;
+  });
   child.stdout?.on("data", (data: Buffer) => process.stdout.write(`[server] ${data}`));
   child.stderr?.on("data", (data: Buffer) => process.stderr.write(`[server] ${data}`));
-  return child;
+  return handle;
 }
 
-async function waitForServer(child: ChildProcess, timeoutMs: number): Promise<void> {
+async function waitForServer(handle: ServerHandle, timeoutMs: number): Promise<void> {
+  const { child } = handle;
   const started = Date.now();
   let lastError = "no response";
   while (Date.now() - started < timeoutMs) {
+    if (handle.spawnError !== null) {
+      throw new Error(
+        `server failed to start (${errorMessage(handle.spawnError)}); ` +
+          `last /healthz poll: ${lastError}`
+      );
+    }
     if (child.exitCode !== null) {
       throw new Error(`server exited early with code ${child.exitCode}`);
     }
@@ -115,9 +136,33 @@ async function waitForServer(child: ChildProcess, timeoutMs: number): Promise<vo
   throw new Error(`server did not become healthy (${lastError})`);
 }
 
-function stopServer(child: ChildProcess | null): void {
-  if (child === null || child.exitCode !== null) return;
+/** SIGTERM, wait out a short grace period, then SIGKILL; resolves on exit. */
+async function stopServer(handle: ServerHandle | null): Promise<void> {
+  if (handle === null) return;
+  const { child } = handle;
+  if (child.pid === undefined || child.exitCode !== null) return;
+
+  const exited = new Promise<void>((done) => {
+    if (child.exitCode !== null) {
+      done();
+      return;
+    }
+    child.once("exit", () => done());
+  });
   child.kill("SIGTERM");
+  let graceTimer: NodeJS.Timeout | undefined;
+  const timedOut = await Promise.race([
+    exited.then(() => false),
+    new Promise<boolean>((done) => {
+      graceTimer = setTimeout(() => done(true), SERVER_STOP_GRACE_MS);
+      graceTimer.unref();
+    }),
+  ]);
+  if (graceTimer !== undefined) clearTimeout(graceTimer);
+  if (timedOut && child.exitCode === null) {
+    child.kill("SIGKILL");
+    await exited;
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -448,15 +493,26 @@ async function settleScene(page: Page, requireObjectives: boolean): Promise<stri
 /* ------------------------------------------------------------------ */
 
 async function saveShot(page: Page, name: string): Promise<number> {
+  const path = join(SHOTS_DIR, `${name}.jpg`);
+  let lastBytes = 0;
   for (const quality of JPEG_QUALITIES) {
     const buffer = await page.screenshot({ type: "jpeg", quality });
-    if (buffer.byteLength <= MAX_SHOT_BYTES || quality === JPEG_QUALITIES.at(-1)) {
-      const path = join(SHOTS_DIR, `${name}.jpg`);
+    lastBytes = buffer.byteLength;
+    if (buffer.byteLength <= MAX_SHOT_BYTES) {
       writeFileSync(path, buffer);
       return buffer.byteLength;
     }
+    log(
+      `${name}: q${quality} is ${(buffer.byteLength / 1024).toFixed(0)} KB ` +
+        `(> ${(MAX_SHOT_BYTES / 1024).toFixed(0)} KB), stepping down`
+    );
   }
-  throw new Error("unreachable");
+  // Never leave an oversize (or stale) file behind for a failed shot.
+  rmSync(path, { force: true });
+  throw new Error(
+    `shot ${path} exceeds ${MAX_SHOT_BYTES} bytes even at q${JPEG_QUALITIES.at(-1)} ` +
+      `(last attempt ${(lastBytes / 1024).toFixed(0)} KB)`
+  );
 }
 
 async function captureShot(browser: Browser, spec: ShotSpec): Promise<number> {
@@ -552,7 +608,7 @@ async function main(): Promise<void> {
     }
   } finally {
     if (browser !== null) await browser.close();
-    stopServer(server);
+    await stopServer(server);
   }
 }
 

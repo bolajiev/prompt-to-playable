@@ -27,6 +27,26 @@ function submitPreloadedPrompt(): void {
   } else {
     form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
   }
+  clearPromptParam();
+}
+
+/**
+ * Drops `?prompt=` after submitting so a reload or back-navigation cannot
+ * re-fire a live generation from the stale query string.
+ */
+function clearPromptParam(): void {
+  const history = globalThis.history;
+  if (typeof history?.replaceState !== "function") return;
+  const params = new URLSearchParams(globalThis.location.search);
+  if (!params.has("prompt")) return;
+  params.delete("prompt");
+  const query = params.toString();
+  const suffix = query.length > 0 ? `?${query}` : "";
+  history.replaceState(
+    null,
+    "",
+    `${globalThis.location.pathname}${suffix}${globalThis.location.hash}`
+  );
 }
 
 submitPreloadedPrompt();

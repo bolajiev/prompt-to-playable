@@ -10,6 +10,9 @@
     />
     <script>
       document.documentElement.classList.add("js");
+      window.__revealFailSafe = window.setTimeout(function () {
+        document.documentElement.classList.add("reveal-fallback");
+      }, 2500);
     </script>
   </head>
   <body class="landing">
@@ -51,7 +54,10 @@
             </p>
             <div class="cta-row reveal">
               <a class="btn btn-primary" href="/app.html">Open the studio</a>
-              <a class="btn btn-ghost" href="#how">See how it works</a>
+              <a class="btn btn-ghost" id="demo-open" href="/demo.mp4"
+                >Watch the 66s demo</a
+              >
+              <a class="cta-link" href="#how">See how it works</a>
             </div>
             <p class="hero-note reveal">
               Runs the generation pipeline live. The first scene takes about a
@@ -338,6 +344,38 @@
         </div>
       </div>
     </footer>
+
+    <dialog
+      id="demo-dialog"
+      class="demo-dialog"
+      aria-labelledby="demo-dialog-title"
+    >
+      <div class="demo-dialog-head">
+        <p id="demo-dialog-title" class="demo-dialog-title">
+          Demo &middot; 66 seconds
+        </p>
+        <button
+          type="button"
+          id="demo-close"
+          class="demo-dialog-close"
+          aria-label="Close the demo"
+        >
+          Close
+        </button>
+      </div>
+      <video
+        id="demo-video"
+        class="demo-video"
+        src="/demo.mp4"
+        controls
+        preload="metadata"
+        playsinline
+      ></video>
+      <p class="demo-dialog-note">
+        Recorded from an earlier build of the studio; the kits have changed
+        since.
+      </p>
+    </dialog>
 
     <script type="module" src="/src/landing.ts"></script>
   </body>

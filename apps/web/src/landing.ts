@@ -2,6 +2,18 @@ import "./styles/tokens.css";
 import "./styles/landing.css";
 import { studioHref } from "./studio-link.js";
 
+/**
+ * The head script arms a timeout that force-reveals `.reveal` elements if this
+ * module never finishes loading. Loading successfully cancels it, so the
+ * scroll animation only depends on the timer whenever it is genuinely needed.
+ */
+function cancelRevealFailSafe(): void {
+  const scope = globalThis as { __revealFailSafe?: number };
+  if (scope.__revealFailSafe === undefined) return;
+  clearTimeout(scope.__revealFailSafe);
+  delete scope.__revealFailSafe;
+}
+
 /** Points every `[data-prompt]` chip at the studio with the prompt prefilled. */
 function applyPromptLinks(): void {
   for (const chip of document.querySelectorAll<HTMLAnchorElement>(
@@ -56,5 +68,36 @@ function setupReveal(): void {
   for (const element of elements) observer.observe(element);
 }
 
+/**
+ * The secondary hero CTA is a plain link to `/demo.mp4` (works with JS off);
+ * with JS it opens the bundled 66-second demo in a native <dialog> player.
+ */
+function setupDemoModal(): void {
+  const trigger = document.querySelector<HTMLAnchorElement>("#demo-open");
+  const dialog = document.querySelector<HTMLDialogElement>("#demo-dialog");
+  if (trigger === null || dialog === null) return;
+  if (typeof dialog.showModal !== "function") return;
+
+  const video = dialog.querySelector<HTMLVideoElement>("#demo-video");
+  trigger.addEventListener("click", (event) => {
+    event.preventDefault();
+    if (!dialog.open) dialog.showModal();
+  });
+  dialog.querySelector("#demo-close")?.addEventListener("click", () => {
+    dialog.close();
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  dialog.addEventListener("close", () => {
+    if (video !== null) {
+      video.pause();
+      video.currentTime = 0;
+    }
+  });
+}
+
 applyPromptLinks();
 setupReveal();
+setupDemoModal();
+cancelRevealFailSafe();
