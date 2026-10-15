@@ -4,9 +4,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { inflateSync } from "node:zlib";
 import { chromium, type Browser, type Page } from "playwright";
 import { resolveChromiumExecutable } from "./playwright-env.js";
+import { landingUrl, normalizeStudioUrl } from "./studio-url.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_OUT_DIR = join(ROOT, "artifacts", "qa");
+
+/** Hero heading the landing smoke beat asserts on. */
+export const LANDING_HERO_TEXT = "Describe it. Play it. Reshape it.";
 
 export const QA_PROMPT =
   "a small room where I collect 3 glowing crystals while avoiding one guard";
@@ -56,9 +60,16 @@ const YAW_ZERO_FORWARD: readonly [number, number] = [
 const AXIS_KEY_THRESHOLD = 0.383;
 
 export interface QaOptions {
+  /**
+   * Host root (`http://host:port`) or a full studio page URL; a root/empty
+   * path is normalized to `/app.html` before any beat runs.
+   */
   url: string;
   outDir?: string;
-  /** Stop after the landing beat (browser/element smoke check, no live calls). */
+  /**
+   * Stop after the landing smoke + studio load beats (browser/element smoke
+   * checks, no live calls).
+   */
   landingOnly?: boolean;
   /**
    * Extra fifth beat: reload, generate an explore scene from QA_EXPLORE_PROMPT,
@@ -72,6 +83,12 @@ export interface QaOptions {
    * one live generation call.
    */
   kits?: boolean;
+  /**
+   * Skip the base generation/play/edit beats and run only the kit beats
+   * (implies `kits`). Used to re-check one kit without paying for the base
+   * generation and edit calls.
+   */
+  kitsOnly?: boolean;
 }
 
 export interface QaBeat {
@@ -657,6 +674,9 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   const outDir = options.outDir ?? DEFAULT_OUT_DIR;
   mkdirSync(outDir, { recursive: true });
 
+  const studioUrl = normalizeStudioUrl(options.url);
+  const landingPageUrl = landingUrl(studioUrl);
+
   const beats: QaBeat[] = [];
   const consoleMessages: ConsoleRecord[] = [];
   const consoleErrors: string[] = [];
@@ -736,9 +756,37 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   await page.setViewportSize(VIEWPORT);
   await page.setDefaultTimeout(NAVIGATION_TIMEOUT_MS);
 
-  log(`navigating to ${options.url}`);
+  // Landing smoke beat: the marketing page at `/` must serve 200, carry the
+  // hero heading and link into the studio. Runs for every mode (it makes no
+  // live generation call, so `--landing-only` semantics are unaffected).
+  const landingSmokeOk = await runBeat(
+    "landing-smoke",
+    join(outDir, "00-landing.png"),
+    async () => {
+      const response = await page.goto(landingPageUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: NAVIGATION_TIMEOUT_MS,
+      });
+      expectCondition(response !== null, `no document response from ${landingPageUrl}`);
+      const status = response.status();
+      expectCondition(status === 200, `${landingPageUrl} returned HTTP ${status}`);
+      const heading = ((await page.locator("h1").first().textContent()) ?? "")
+        .replace(/\s+/g, " ")
+        .trim();
+      expectCondition(
+        heading.includes(LANDING_HERO_TEXT),
+        `hero heading text missing (got "${heading}")`
+      );
+      const studioLinks = await page.locator('a[href*="app.html"]').count();
+      expectCondition(studioLinks > 0, "landing page has no link to app.html");
+      await page.screenshot({ path: join(outDir, "00-landing.png") });
+      return `GET / -> ${status}; hero="${heading}"; link(s) to app.html=${studioLinks}`;
+    }
+  );
+
+  log(`navigating to ${studioUrl}`);
   const landingOk = await runBeat("landing", join(outDir, "01-landing.png"), async () => {
-    await page.goto(options.url, {
+    await page.goto(studioUrl, {
       waitUntil: "domcontentloaded",
       timeout: NAVIGATION_TIMEOUT_MS,
     });
@@ -886,7 +934,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
         const consoleErrorsBefore = consoleErrors.length;
         // Fresh load so the prompt takes the /generate path (a loaded game
         // would route the same text to /edit and stay a goal game).
-        await page.goto(options.url, {
+        await page.goto(studioUrl, {
           waitUntil: "domcontentloaded",
           timeout: NAVIGATION_TIMEOUT_MS,
         });
@@ -946,7 +994,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
       join(outDir, "06-inspect.png"),
       async () => {
         const consoleErrorsBefore = consoleErrors.length;
-        const started = await generateFromFreshLoad(page, options.url, QA_INSPECT_PROMPT);
+        const started = await generateFromFreshLoad(page, studioUrl, QA_INSPECT_PROMPT);
         await page.waitForFunction(
           () =>
             (document.querySelector("#controls")?.textContent ?? "").includes(
@@ -1020,7 +1068,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
         const consoleErrorsBefore = consoleErrors.length;
         const started = await generateFromFreshLoad(
           page,
-          options.url,
+          studioUrl,
           QA_WALKTHROUGH_PROMPT
         );
         await page.waitForFunction(
@@ -1116,7 +1164,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   if (options.kits && !options.landingOnly && landingOk) {
     droveOk = await runBeat("drive", join(outDir, "08-race.png"), async () => {
       const consoleErrorsBefore = consoleErrors.length;
-      const started = await generateFromFreshLoad(page, options.url, QA_RACE_PROMPT);
+      const started = await generateFromFreshLoad(page, studioUrl, QA_RACE_PROMPT);
       await page.waitForFunction(
         () => {
           const hud = document.querySelector<HTMLElement>("#drive-hud");
@@ -1177,6 +1225,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
     options.landingOnly ||
     (inspectedOk && walkedOk && droveOk);
   const ok =
+    landingSmokeOk &&
     landingOk &&
     (options.landingOnly || options.kitsOnly || (generatedOk && movedOk && editedOk)) &&
     exploreOk &&
@@ -1185,7 +1234,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
 
   const result: QaResult = {
     ok,
-    url: options.url,
+    url: studioUrl,
     beats,
     consoleErrors,
     movementMethod,
@@ -1201,7 +1250,7 @@ export async function runQa(page: Page, options: QaOptions): Promise<QaResult> {
   );
   for (const beat of failedBeats) log(`failed beat ${beat.beat}: ${beat.detail}`);
   console.log(
-    `${ok ? "PASS" : "FAIL"} qa-browser ${options.url} beats=${
+    `${ok ? "PASS" : "FAIL"} qa-browser ${studioUrl} beats=${
       beats.filter((beat) => beat.ok).length
     }/${beats.length} consoleErrors=${consoleErrors.length} movement=${movementMethod}`
   );
@@ -1255,7 +1304,8 @@ if (isDirectRun) {
     const options = parseArgs(process.argv.slice(2));
     if (!options.url) {
       console.error(
-        "usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only] [--explore] [--kits] [--kits-only]"
+        "usage: npx tsx scripts/qa-browser.ts <url> [--out <dir>] [--landing-only] [--explore] [--kits] [--kits-only]\n" +
+          "       <url> may be a host root (studio defaults to /app.html) or a full studio page URL"
       );
       process.exitCode = 2;
       return;

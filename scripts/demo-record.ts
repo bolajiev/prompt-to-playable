@@ -6,6 +6,7 @@ import {
   playwrightBrowsersRoot,
   resolveChromiumExecutable,
 } from "./playwright-env.js";
+import { normalizeStudioUrl } from "./studio-url.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_OUT_DIR = join(ROOT, "artifacts", "demo");
@@ -138,6 +139,10 @@ interface SteerOutcome {
 }
 
 export interface DemoOptions {
+  /**
+   * Host root (`http://host:port`) or a full studio page URL; a root/empty
+   * path is normalized to `/app.html` before the recording starts.
+   */
   url: string;
   outDir?: string;
   prompt?: string;
@@ -1023,6 +1028,7 @@ function buildCaptions(beats: Record<string, BeatRecord>): Caption[] {
 export async function runDemo(page: Page, options: DemoOptions): Promise<DemoResult> {
   const outDir = options.outDir ?? DEFAULT_OUT_DIR;
   mkdirSync(outDir, { recursive: true });
+  const studioUrl = normalizeStudioUrl(options.url);
   const prompt = options.prompt ?? DEMO_PROMPT;
   const editPrompt = options.editPrompt ?? DEMO_EDIT_PROMPT;
 
@@ -1084,8 +1090,8 @@ export async function runDemo(page: Page, options: DemoOptions): Promise<DemoRes
     await page.route("**/favicon.ico", (route) => route.fulfill({ status: 204, body: "" }));
 
     recorder.start("landing");
-    log(`navigating to ${options.url}`);
-    await page.goto(options.url, {
+    log(`navigating to ${studioUrl}`);
+    await page.goto(studioUrl, {
       waitUntil: "domcontentloaded",
       timeout: NAVIGATION_TIMEOUT_MS,
     });
@@ -1280,7 +1286,7 @@ export async function runDemo(page: Page, options: DemoOptions): Promise<DemoRes
 
   const result: DemoResult = {
     ok,
-    url: options.url,
+    url: studioUrl,
     outDir,
     beats: recorder.beats,
     captions,
@@ -1295,7 +1301,7 @@ export async function runDemo(page: Page, options: DemoOptions): Promise<DemoRes
     join(outDir, "beats.json"),
     `${JSON.stringify(
       {
-        url: options.url,
+        url: studioUrl,
         recordedAt: new Date().toISOString(),
         video: "demo.webm",
         beats: recorder.beats,
@@ -1313,7 +1319,7 @@ export async function runDemo(page: Page, options: DemoOptions): Promise<DemoRes
     `${JSON.stringify(
       {
         ok,
-        url: options.url,
+        url: studioUrl,
         beats: recorder.beats,
         captions,
         final,
