@@ -9,7 +9,7 @@ import {
 } from "@prompt-to-playable/engine";
 import { buildPartsObject } from "../src/parts.js";
 import { Renderer } from "../src/renderer.js";
-import { TEXTURE_CLONE_KEY, textureForName } from "../src/textures.js";
+import { TEXTURE_CLONE_KEY, CIRCUIT_TILE_WORLD_SIZE, textureForName } from "../src/textures.js";
 import { installFakeDocument, type FakeDom } from "./fake-dom.js";
 
 let fake: FakeDom | null = null;
@@ -220,7 +220,7 @@ describe("buildPartsObject", () => {
     const group = buildPartsObject(
       ent("p", "prop", {
         parts: [
-          part("box", { size: [3, 0.1, 2], material: { texture: "circuit" } }),
+          part("box", { size: [4, 0.1, 2], material: { texture: "circuit" } }),
           part("box", { size: [2, 0.1, 2], material: { texture: "wood" } }),
         ],
       })
@@ -229,8 +229,8 @@ describe("buildPartsObject", () => {
     const [board, plank] = group.children as THREE.Mesh[];
     const boardMap = materialOf(board).map;
     expect(boardMap).toBeInstanceOf(THREE.CanvasTexture);
-    expect(boardMap!.repeat.x).toBe(3);
-    expect(boardMap!.repeat.y).toBe(2);
+    expect(boardMap!.repeat.x).toBe(4 / CIRCUIT_TILE_WORLD_SIZE);
+    expect(boardMap!.repeat.y).toBe(2 / CIRCUIT_TILE_WORLD_SIZE);
     expect(boardMap!.userData[TEXTURE_CLONE_KEY]).toBe(true);
 
     expect(materialOf(plank).map).toBe(textureForName("wood"));

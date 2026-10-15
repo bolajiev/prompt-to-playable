@@ -44,8 +44,15 @@ export const TEXTURE_IMAGE_SIZE = 128;
 /** Square canvas edge of the circuit solder-mask tile: high-res PCB detail. */
 export const CIRCUIT_TILE_SIZE = 1024;
 
-/** World units (entity-local) one circuit tile spans when mapped to a part. */
-export const CIRCUIT_TILE_WORLD_SIZE = 1;
+/**
+ * World units (entity-local) one circuit tile spans when mapped to a part.
+ * Tuned against the authored board scale: the heypcb-grade PCB is ~12 units
+ * long (about 200 mm), so a 2-unit tile lands trace widths near 0.2 mm and pad
+ * diameters near 1.2 mm equivalents (real PCB proportions) while keeping
+ * traces and pads readable from the inspect camera's auto-fit distance
+ * (~15 units) where a 1-unit tile renders pads sub-2px and traces sub-pixel.
+ */
+export const CIRCUIT_TILE_WORLD_SIZE = 2;
 
 /** userData flag on per-part texture clones so renderer disposal can free them. */
 export const TEXTURE_CLONE_KEY = "textureClone";
@@ -181,9 +188,9 @@ const CIRCUIT_DIRECTIONS: ReadonlyArray<readonly [number, number]> = [
 
 /**
  * PCB-grade circuit tile: dark solder mask, subtle mask mottling, 5 routed
- * traces that only turn in 45-degree steps, gold pads with dark drill centers
- * and small vias. Every sequence is driven by a fixed-seed PRNG, so the tile is
- * identical for every run.
+ * traces that mix straight runs with 45-degree turns, gold pads with dark
+ * drill centers and small vias. Every sequence is driven by a fixed-seed PRNG,
+ * so the tile is identical for every run.
  */
 function drawCircuit(ctx: CanvasRenderingContext2D, size: number): void {
   const unit = size / 1024;
@@ -221,8 +228,12 @@ function drawCircuit(ctx: CanvasRenderingContext2D, size: number): void {
     ctx.moveTo(x, y);
     for (let segment = 0; segment < segments; segment += 1) {
       const length = (1 + Math.floor(rand() * 3)) * step;
-      const turn = Math.floor(rand() * 3) - 1;
-      const candidates = turn === 0 ? [1, -1] : [turn, -turn];
+      // Weighted roll: half of the segments run straight, the rest bend 45
+      // degrees left or right (falling back to straight, then the opposite
+      // turn, when a candidate would leave the tile margin).
+      const roll = rand();
+      const turn = roll < 0.5 ? 0 : roll < 0.75 ? -1 : 1;
+      const candidates = turn === 0 ? [0, 1, -1] : [turn, 0, -turn];
       let advanced = false;
       for (const delta of candidates) {
         const nextDirection = (direction + delta + 8) % 8;

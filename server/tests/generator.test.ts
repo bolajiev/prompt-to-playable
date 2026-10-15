@@ -64,21 +64,109 @@ describe("kit few-shot examples", () => {
     }
   });
 
-  test("inspect example is a labeled, clickable PCB assembly", () => {
+  test("inspect example is a heypcb-grade PCB assembly", () => {
     const doc = ARCHETYPE_EXAMPLES.inspect;
     expect(doc.meta.mode).toBe("inspect");
     expect(doc.objectives).toEqual([]);
     expect(requiresWinPath(doc)).toBe(false);
-    const withParts = doc.entities.filter((entity) => (entity.parts?.length ?? 0) > 0);
-    expect(withParts.length).toBeGreaterThanOrEqual(1);
+    expect(doc.entities.length).toBeLessThanOrEqual(14);
+    expect(doc.rules.length).toBeLessThanOrEqual(8);
+
+    const board = doc.entities.find((entity) => entity.id === "board");
+    expect(board, "board").toBeDefined();
+    expect(
+      board?.size,
+      "board plate stays unsized so flat silkscreen labels keep their aspect"
+    ).toBeUndefined();
+    expect(board?.color).toBe("#1b4d2e");
+    const plate = board?.parts?.[0];
+    expect(plate?.material?.texture).toBe("circuit");
+    const plateSize = plate?.size ?? [0, 0, 0];
+    expect(plateSize[0] / plateSize[2]).toBeGreaterThan(1.5);
+    expect(plateSize[0] / plateSize[2]).toBeLessThan(2.5);
+    expect(plateSize[1]).toBeLessThanOrEqual(0.5);
+
     const labels = doc.entities.filter((entity) => entity.label !== undefined);
-    expect(labels.length).toBeGreaterThanOrEqual(2);
+    expect(labels.length).toBeGreaterThanOrEqual(6);
+    for (const entity of labels) {
+      expect(entity.label?.flat, `${entity.id} label is flat silkscreen`).toBe(true);
+    }
+    expect(board?.label?.text.length ?? 0).toBeGreaterThan(0);
+
+    const chips = doc.entities.filter((entity) => entity.props?.shape === "chip");
+    expect(chips.length).toBeGreaterThanOrEqual(3);
+    for (const chip of chips) {
+      expect(chip.size, chip.id).toBeDefined();
+      expect(chip.label?.text, chip.id).toBeDefined();
+    }
+    const designators = chips.map((chip) => chip.label?.text ?? "");
+    expect(new Set(designators).size).toBe(designators.length);
+
+    expect(
+      doc.entities.filter((entity) => entity.props?.shape === "header").length
+    ).toBeGreaterThanOrEqual(1);
+    expect(
+      doc.entities.filter((entity) => entity.props?.shape === "capacitor").length
+    ).toBeGreaterThanOrEqual(2);
+    const leds = doc.entities.filter((entity) => entity.props?.shape === "led");
+    expect(leds.length).toBeGreaterThanOrEqual(3);
+    for (const led of leds) {
+      expect(led.color, led.id).toBeDefined();
+    }
+    const mountRings = doc.entities
+      .flatMap((entity) => entity.parts ?? [])
+      .filter((part) => part.shape === "torus");
+    expect(mountRings.length).toBeGreaterThanOrEqual(4);
+
     const clickRules = doc.rules.filter((rule) => rule.on.event === "click");
-    expect(clickRules.length).toBeGreaterThanOrEqual(1);
-    const actionTypes = clickRules.flatMap((rule) => rule.then.map((action) => action.type));
+    expect(clickRules.length).toBeGreaterThanOrEqual(2);
+    const actionTypes = clickRules.flatMap((rule) =>
+      rule.then.map((action) => action.type)
+    );
     expect(actionTypes).toContain("showPanel");
     expect(actionTypes).toContain("setColor");
     expect(actionTypes).toContain("cameraFocus");
+    expect(actionTypes).toContain("hidePanel");
+
+    const panelRules = clickRules.filter((rule) =>
+      rule.then.some((action) => action.type === "showPanel")
+    );
+    const panelBodies: string[] = [];
+    for (const rule of panelRules) {
+      expect(
+        rule.then.some((action) => action.type === "setColor"),
+        `${rule.id} should emphasize the clicked part`
+      ).toBe(true);
+      for (const action of rule.then) {
+        if (action.type !== "showPanel") continue;
+        panelBodies.push(action.body);
+        expect(action.title.length, `${rule.id} panel title`).toBeGreaterThan(0);
+      }
+    }
+    expect(panelBodies.some((body) => /pin/i.test(body))).toBe(true);
+
+    const focusRule = clickRules.find((rule) => {
+      const condition = rule.if;
+      if (!condition || condition.op !== "==") return false;
+      const left = condition.left;
+      return (
+        typeof left === "object" && left !== null && "var" in left && left.var === "focused"
+      );
+    });
+    expect(focusRule, "first-click camera focus rule").toBeDefined();
+    expect(
+      focusRule?.then.some((action) => action.type === "cameraFocus")
+    ).toBe(true);
+
+    const animated = doc.rules
+      .flatMap((rule) => rule.then)
+      .find((action) => action.type === "animate");
+    expect(animated?.type === "animate" && animated.kind).toBe("pulse");
+
+    const resetRule = clickRules.find((rule) =>
+      rule.then.some((action) => action.type === "hidePanel")
+    );
+    expect(resetRule, "reset pad clears the panels").toBeDefined();
   });
 
   test("walkthrough example has solid wall props, a sliding door and a toggling lamp", () => {
@@ -86,7 +174,7 @@ describe("kit few-shot examples", () => {
     expect(doc.meta.mode).toBe("walkthrough");
     expect(doc.objectives).toEqual([]);
     expect(requiresWinPath(doc)).toBe(false);
-    expect(doc.entities.length).toBeLessThanOrEqual(14);
+    expect(doc.entities.length).toBeLessThanOrEqual(16);
     expect(doc.rules.length).toBeLessThanOrEqual(10);
 
     const walls = doc.entities.filter(
@@ -237,7 +325,20 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain("showPanel");
     expect(text).toContain("setColor");
     expect(text).toContain("cameraFocus");
+    expect(text).toContain("hidePanel");
     expect(text).toContain('"click"');
+    expect(text).toContain('"texture": "circuit"');
+    expect(text).toContain('"chip"');
+    expect(text).toContain('"header"');
+    expect(text).toContain('"capacitor"');
+    expect(text).toContain('"led"');
+    expect(text).toContain('"hole"');
+    expect(text).toContain('"flat": true');
+    expect(text).toContain("silkscreen");
+    expect(text).toContain("rows and columns");
+    expect(text).toContain("camera auto-fits");
+    expect(text).toContain("Seat components on the mask");
+    expect(text).toContain("Budget: at most 14 entities and 8 rules");
     expect(text).not.toContain("The game must be winnable through its rules alone.");
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.inspect, null, 2));
   });
@@ -256,22 +357,22 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain("doorOpen");
     expect(text).toContain("lampOn");
     expect(text).toContain("setVisible");
-    expect(text).toContain("Budget: at most 10 entities and 6 rules");
+    expect(text).toContain("Budget: at most 16 entities and 10 rules");
     expect(text).toContain("do not copy the few-shot document verbatim");
     expect(text).not.toContain("The game must be winnable through its rules alone.");
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.walkthrough, null, 2));
   });
 
-  test("every archetype prompt carries its tightened entity and rule budget", () => {
+  test("every archetype prompt carries its loosened entity and rule budget", () => {
     const budgets: ReadonlyArray<readonly [KitArchetype, string]> = [
-      ["inspect", "Budget: at most 10 entities and 6 rules"],
-      ["walkthrough", "Budget: at most 10 entities and 6 rules"],
-      ["drive", "Budget: at most 10 entities and 7 rules"],
-      ["explore", "Budget: at most 12 entities and 5 rules"],
-      ["collect-a-thon", "Budget: at most 12 entities and 8 rules"],
-      ["puzzle-switch", "Budget: at most 12 entities and 8 rules"],
-      ["platformer-lite", "Budget: at most 12 entities and 8 rules"],
-      ["stealth-chase", "Budget: at most 12 entities and 8 rules"],
+      ["inspect", "Budget: at most 14 entities and 8 rules"],
+      ["walkthrough", "Budget: at most 16 entities and 10 rules"],
+      ["drive", "Budget: at most 14 entities and 10 rules"],
+      ["explore", "Budget: at most 14 entities and 6 rules"],
+      ["collect-a-thon", "Budget: at most 14 entities and 8 rules"],
+      ["puzzle-switch", "Budget: at most 14 entities and 8 rules"],
+      ["platformer-lite", "Budget: at most 14 entities and 8 rules"],
+      ["stealth-chase", "Budget: at most 14 entities and 8 rules"],
     ];
     for (const [archetype, budget] of budgets) {
       expect(buildGenerationPrompt("make something", archetype), archetype).toContain(
@@ -280,14 +381,11 @@ describe("buildGenerationPrompt kit catalogs", () => {
     }
   });
 
-  test("every prompt asks for terse JSON", () => {
+  test("every prompt asks for readable JSON instead of terse output", () => {
     for (const archetype of KIT_ARCHETYPES) {
-      expect(
-        buildGenerationPrompt("make something", archetype),
-        archetype
-      ).toContain(
-        "Prefer terse JSON: minimal labels, no redundant props, no optional fields with default values."
-      );
+      const text = buildGenerationPrompt("make something", archetype);
+      expect(text, archetype).toContain("Prefer readable, well-formed JSON");
+      expect(text, archetype).not.toContain("Prefer terse JSON");
     }
   });
 

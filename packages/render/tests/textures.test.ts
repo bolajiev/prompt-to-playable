@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import * as THREE from "three";
 import {
   CIRCUIT_TILE_SIZE,
+  CIRCUIT_TILE_WORLD_SIZE,
   GLASS_OPACITY,
   GLASS_ROUGHNESS,
   TEXTURE_IMAGE_NAMES,
@@ -182,19 +183,59 @@ describe("textureMapForPart", () => {
     fake = installFakeDocument();
     const module = await import("../src/textures.js");
     const base = module.textureForName("circuit")!;
-    const map = module.textureMapForPart("circuit", [3, 0.12, 2])!;
+    const map = module.textureMapForPart("circuit", [4, 0.12, 2])!;
 
     expect(map).toBeInstanceOf(THREE.CanvasTexture);
     expect(map).not.toBe(base);
     expect(map.image).toBe(base.image);
     expect(map.wrapS).toBe(THREE.RepeatWrapping);
     expect(map.wrapT).toBe(THREE.RepeatWrapping);
-    expect(map.repeat.x).toBe(3);
-    expect(map.repeat.y).toBe(2);
+    expect(map.repeat.x).toBe(4 / CIRCUIT_TILE_WORLD_SIZE);
+    expect(map.repeat.y).toBe(2 / CIRCUIT_TILE_WORLD_SIZE);
     expect(map.userData[TEXTURE_CLONE_KEY]).toBe(true);
 
     const tiny = module.textureMapForPart("circuit", [0.2, 0.1, 0.2])!;
     expect(tiny.repeat.x).toBe(1);
     expect(tiny.repeat.y).toBe(1);
+  });
+
+  test("circuit traces mix straight runs with 45-degree turns", async () => {
+    vi.resetModules();
+    fake = installFakeDocument();
+    const module = await import("../src/textures.js");
+    module.textureForName("circuit");
+
+    const traces: Array<Array<[number, number]>> = [];
+    let current: Array<[number, number]> = [];
+    for (const event of fake.events) {
+      if (event.method === "moveTo") {
+        current = [[event.args[0] as number, event.args[1] as number]];
+      } else if (event.method === "lineTo") {
+        current.push([event.args[0] as number, event.args[1] as number]);
+      } else if (event.method === "stroke") {
+        if (current.length > 1) traces.push(current);
+        current = [];
+      }
+    }
+
+    const direction = (a: [number, number], b: [number, number]): string =>
+      `${Math.sign(b[0] - a[0])},${Math.sign(b[1] - a[1])}`;
+    let straightRuns = 0;
+    let turns = 0;
+    for (const trace of traces) {
+      for (let i = 2; i < trace.length; i += 1) {
+        if (
+          direction(trace[i - 2], trace[i - 1]) ===
+          direction(trace[i - 1], trace[i])
+        ) {
+          straightRuns += 1;
+        } else {
+          turns += 1;
+        }
+      }
+    }
+    expect(traces.length).toBeGreaterThanOrEqual(5);
+    expect(straightRuns).toBeGreaterThan(0);
+    expect(turns).toBeGreaterThan(0);
   });
 });

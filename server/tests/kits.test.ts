@@ -7,19 +7,37 @@ describe("kit few-shots are playable in the engine", () => {
     const engine = createEngine();
     engine.load(ARCHETYPE_EXAMPLES.inspect);
 
-    engine.pushEvent({ type: "click", targetId: "mainboard" });
+    engine.pushEvent({ type: "click", targetId: "u1" });
     let state = engine.step(16.666);
 
-    const panel = state.ui.panels.find((item) => item.entity === "mainboard");
+    const panel = state.ui.panels.find((item) => item.entity === "u1");
     expect(panel).toBeDefined();
-    expect(panel?.title).toContain("mainboard");
-    expect(state.entityRuntime.mainboard?.color).toBe("#35c98f");
-    expect(state.ui.focus).toBe("mainboard");
+    expect(panel?.title).toContain("U1");
+    expect(panel?.body).toContain("GPIO");
+    expect(state.entityRuntime.u1?.color).toBe("#4cc9f0");
+    expect(state.ui.focus).toBe("u1");
 
-    engine.pushEvent({ type: "click", targetId: "mainboard" });
+    engine.pushEvent({ type: "click", targetId: "u1" });
     state = engine.step(16.666);
-    expect(state.ui.focus).toBe("mainboard");
-    expect(state.ui.panels.filter((item) => item.entity === "mainboard").length).toBe(2);
+    expect(state.ui.focus).toBe("u1");
+    expect(state.ui.panels.filter((item) => item.entity === "u1").length).toBe(2);
+
+    engine.pushEvent({ type: "click", targetId: "reset-pad" });
+    state = engine.step(16.666);
+    expect(state.ui.panels).toHaveLength(0);
+    expect(state.ui.focus).toBeUndefined();
+    expect(state.scratch.focused).toBe(0);
+  });
+
+  test("inspect: the heartbeat LED starts pulsing on its own", () => {
+    const engine = createEngine();
+    engine.load(ARCHETYPE_EXAMPLES.inspect);
+
+    const state = engine.step(16.666);
+    expect(state.scratch.heartbeatStarted).toBe(1);
+    expect(state.entityRuntime.d3?.animations.some((a) => a.kind === "pulse")).toBe(
+      true
+    );
   });
 
   test("walkthrough: interacting with the door slides it open", () => {

@@ -1,5 +1,5 @@
 import { resolveMode } from "@prompt-to-playable/engine";
-import type { GameDoc } from "@prompt-to-playable/schema";
+import type { Entity, GameDoc } from "@prompt-to-playable/schema";
 
 /**
  * Third-person orbit camera rig: pure spherical math plus a tiny stateful
@@ -111,9 +111,101 @@ export function dragScaleFor(mode: CameraMode): number {
   return mode === "firstPerson" ? FIRST_PERSON_DRAG_SCALE : 1;
 }
 
-/** Inspect scenes frame their content tighter than the default orbit view. */
+/**
+ * Inspect scenes frame their content top-down: a steep pitch and an orbit
+ * distance auto-fitted to the assembly's bounding box. `INSPECT_DISTANCE` is
+ * the fallback when the document has no parts to measure.
+ */
 export const INSPECT_DISTANCE = 15;
-export const INSPECT_PITCH = 0.62;
+export const INSPECT_PITCH = 1.05;
+/** Multiplier applied to the assembly bbox diagonal to get the orbit distance. */
+export const INSPECT_FIT_SCALE = 1.1;
+/** Auto-fit distance clamps: closer than this overwhelms, farther loses detail. */
+export const INSPECT_FIT_MIN_DISTANCE = 8;
+export const INSPECT_FIT_MAX_DISTANCE = 26;
+
+/** Axis-aligned footprint of one entity that participates in the camera fit. */
+export interface InspectBoundsBox {
+  position: readonly [number, number, number];
+  size: readonly [number, number, number];
+}
+
+/**
+ * Diagonal of the union of the given AABBs, or `undefined` when the list is
+ * empty. Sizes are treated as absolute full extents (the engine convention), so
+ * each box spans `position ± size / 2`.
+ */
+export function inspectAssemblyDiagonal(
+  boxes: readonly InspectBoundsBox[]
+): number | undefined {
+  if (boxes.length === 0) return undefined;
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  for (const box of boxes) {
+    for (let axis = 0; axis < 3; axis += 1) {
+      const half = Math.abs(box.size[axis]) / 2;
+      const center = box.position[axis];
+      min[axis] = Math.min(min[axis], center - half);
+      max[axis] = Math.max(max[axis], center + half);
+    }
+  }
+  return Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+}
+
+/**
+ * Orbit distance that frames an inspect assembly from its boxes: the bbox
+ * diagonal times `INSPECT_FIT_SCALE`, clamped to
+ * `[INSPECT_FIT_MIN_DISTANCE, INSPECT_FIT_MAX_DISTANCE]`.
+ * Falls back to `INSPECT_DISTANCE` when there is nothing to measure.
+ */
+export function inspectCameraDistance(
+  boxes: readonly InspectBoundsBox[]
+): number {
+  const diagonal = inspectAssemblyDiagonal(boxes);
+  if (diagonal === undefined) return INSPECT_DISTANCE;
+  return Math.max(
+    INSPECT_FIT_MIN_DISTANCE,
+    Math.min(INSPECT_FIT_MAX_DISTANCE, diagonal * INSPECT_FIT_SCALE)
+  );
+}
+
+/**
+ * Framing boxes of every entity that carries parts: each part contributes
+ * `position + (offset ± size / 2) * scale` in world space, where the entity
+ * scale is `size ?? scale ?? [1, 1, 1]` (parts on a sized entity are authored
+ * in entity-local fractions). Part rotations are ignored - this is a framing
+ * box, not a collision hull.
+ */
+export function partEntityBoxes(
+  entities: readonly Entity[]
+): InspectBoundsBox[] {
+  const boxes: InspectBoundsBox[] = [];
+  for (const entity of entities) {
+    if (!entity.parts || entity.parts.length === 0) continue;
+    const scale = entity.size ?? entity.scale ?? [1, 1, 1];
+    const min: [number, number, number] = [Infinity, Infinity, Infinity];
+    const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+    for (const part of entity.parts) {
+      const offset = part.offset ?? [0, 0, 0];
+      const size = part.size ?? [1, 1, 1];
+      for (let axis = 0; axis < 3; axis += 1) {
+        const center = entity.position[axis] + offset[axis] * scale[axis];
+        const half = Math.abs(size[axis] * scale[axis]) / 2;
+        min[axis] = Math.min(min[axis], center - half);
+        max[axis] = Math.max(max[axis], center + half);
+      }
+    }
+    boxes.push({
+      position: [
+        (min[0] + max[0]) / 2,
+        (min[1] + max[1]) / 2,
+        (min[2] + max[2]) / 2,
+      ],
+      size: [max[0] - min[0], max[1] - min[1], max[2] - min[2]],
+    });
+  }
+  return boxes;
+}
 
 /** First-person eye height above the player AABB center. */
 export const FIRST_PERSON_EYE_HEIGHT = 1.6;

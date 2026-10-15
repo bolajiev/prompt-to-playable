@@ -21,8 +21,9 @@ import {
   clampPitch,
   firstPersonEye,
   firstPersonLookAt,
-  INSPECT_DISTANCE,
+  inspectCameraDistance,
   INSPECT_PITCH,
+  partEntityBoxes,
   resolveCameraMode,
   usesVehicleInput,
   type CameraMode,
@@ -708,7 +709,11 @@ export class App {
     const player = doc.entities.find((entity) => entity.kind === "player");
     this.cameraMode = resolveCameraMode(doc, player?.props?.vehicle === true);
     if (mode === "inspect") {
-      this.cameraRig.distance = clampDistance(INSPECT_DISTANCE);
+      // Frame the whole assembly: entities with parts define the bounding box
+      // the orbit camera auto-fits (fallback INSPECT_DISTANCE inside).
+      this.cameraRig.distance = clampDistance(
+        inspectCameraDistance(partEntityBoxes(doc.entities))
+      );
       this.cameraRig.pitch = clampPitch(INSPECT_PITCH);
     } else if (this.cameraMode === "firstPerson") {
       // Orbit's default pitch looks down at the player; first person starts

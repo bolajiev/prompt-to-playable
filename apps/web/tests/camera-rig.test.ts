@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { NEUTRAL_INPUT } from "@prompt-to-playable/engine";
-import type { GameDoc } from "@prompt-to-playable/schema";
+import type { Entity, GameDoc } from "@prompt-to-playable/schema";
 import {
   applyCameraFocus,
   cameraOffset,
@@ -24,11 +24,17 @@ import {
   FOCUS_DISTANCE,
   forwardFromYaw,
   INSPECT_DISTANCE,
+  INSPECT_FIT_MAX_DISTANCE,
+  INSPECT_FIT_MIN_DISTANCE,
+  INSPECT_FIT_SCALE,
   INSPECT_PITCH,
+  inspectAssemblyDiagonal,
+  inspectCameraDistance,
   MAX_DISTANCE,
   MAX_PITCH,
   MIN_DISTANCE,
   MIN_PITCH,
+  partEntityBoxes,
   PITCH_SENSITIVITY,
   resolveCameraMode,
   usesVehicleInput,
@@ -327,6 +333,76 @@ describe("resolveCameraMode", () => {
     expect(INSPECT_DISTANCE).toBeLessThanOrEqual(MAX_DISTANCE);
     expect(INSPECT_PITCH).toBeGreaterThanOrEqual(MIN_PITCH);
     expect(INSPECT_PITCH).toBeLessThanOrEqual(MAX_PITCH);
+    expect(INSPECT_PITCH).toBeCloseTo(1.05);
+  });
+
+  test("inspect assembly diagonal spans the union of the part boxes", () => {
+    expect(inspectAssemblyDiagonal([])).toBeUndefined();
+    const diagonal = inspectAssemblyDiagonal([
+      { position: [10, 0, 0], size: [2, 2, 2] },
+      { position: [-4, 1, 3], size: [4, 2, 2] },
+    ]);
+    // Union: x [-6, 11], y [-1, 2], z [-1, 4] -> [17, 3, 5].
+    expect(diagonal).toBeCloseTo(Math.hypot(17, 3, 5), 10);
+  });
+
+  test("inspect camera distance auto-fits the bbox diagonal, clamped 8..26", () => {
+    expect(inspectCameraDistance([])).toBe(INSPECT_DISTANCE);
+
+    const small = inspectCameraDistance([
+      { position: [0, 0, 0], size: [1, 1, 1] },
+    ]);
+    expect(small).toBe(INSPECT_FIT_MIN_DISTANCE);
+
+    const board = inspectCameraDistance([
+      { position: [0, 0.4, 0], size: [12, 0.4, 6] },
+    ]);
+    const diagonal = Math.hypot(12, 0.4, 6);
+    expect(board).toBeCloseTo(
+      Math.max(
+        INSPECT_FIT_MIN_DISTANCE,
+        Math.min(INSPECT_FIT_MAX_DISTANCE, diagonal * INSPECT_FIT_SCALE)
+      ),
+      10
+    );
+    expect(board).toBeGreaterThan(INSPECT_FIT_MIN_DISTANCE);
+    expect(board).toBeLessThan(INSPECT_FIT_MAX_DISTANCE);
+
+    const huge = inspectCameraDistance([
+      { position: [0, 0, 0], size: [100, 10, 100] },
+    ]);
+    expect(huge).toBe(INSPECT_FIT_MAX_DISTANCE);
+  });
+
+  test("part entity boxes convert local parts to world extents", () => {
+    const board = {
+      id: "board",
+      kind: "prop",
+      position: [0, 0.4, 0],
+      parts: [{ shape: "box", offset: [0, 0, 0], size: [12, 0.35, 6] }],
+    } as unknown as Entity;
+    const sized = {
+      id: "machine",
+      kind: "prop",
+      position: [3, 0, 0],
+      size: [2, 4, 2],
+      parts: [{ shape: "box", offset: [0, 0.5, 0], size: [1, 1, 1] }],
+    } as unknown as Entity;
+    const noParts = {
+      id: "rock",
+      kind: "prop",
+      position: [0, 0, 0],
+    } as unknown as Entity;
+
+    const boxes = partEntityBoxes([board, sized, noParts]);
+    expect(boxes).toHaveLength(2);
+    expect(boxes[0]?.size[0]).toBeCloseTo(12, 10);
+    expect(boxes[0]?.size[1]).toBeCloseTo(0.35, 10);
+    expect(boxes[0]?.size[2]).toBeCloseTo(6, 10);
+    expect(boxes[0]?.position[1]).toBeCloseTo(0.4, 10);
+    // offset [0, 0.5, 0] * scale [2, 4, 2] = world [0, 2, 0], size [2, 4, 2].
+    expect(boxes[1]?.position).toEqual([3, 2, 0]);
+    expect(boxes[1]?.size).toEqual([2, 4, 2]);
   });
 });
 
