@@ -544,18 +544,10 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
         ],
       },
       {
-        id: "focus-first-part",
-        on: { event: "click", entity: "u1" },
-        if: { op: "==", left: { var: "focused" }, right: 0 },
-        then: [
-          { type: "cameraFocus", entity: "u1" },
-          { type: "setVar", key: "focused", value: 1 },
-        ],
-      },
-      {
         id: "inspect-u1",
         on: { event: "click", entity: "u1" },
         then: [
+          { type: "cameraFocus", entity: "u1" },
           { type: "setColor", entity: "u1", color: "#4cc9f0" },
           {
             type: "showPanel",
@@ -563,12 +555,14 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
             body: "The board's brain: an ARM-class microcontroller that runs the sampling loop, reads the sensor bus and drives the LED bank. Pins: 32 GPIO, 4 power, 8 ground.",
             entity: "u1",
           },
+          { type: "setVar", key: "focused", value: 1 },
         ],
       },
       {
         id: "inspect-u2",
         on: { event: "click", entity: "u2" },
         then: [
+          { type: "cameraFocus", entity: "u2" },
           { type: "setColor", entity: "u2", color: "#b388ff" },
           {
             type: "showPanel",
@@ -576,12 +570,14 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
             body: "8 MB of SPI NOR flash holding the firmware image and the calibration table. Pins: VCC, GND, CLK, MOSI, MISO, CS, WP, HOLD.",
             entity: "u2",
           },
+          { type: "setVar", key: "focused", value: 1 },
         ],
       },
       {
         id: "inspect-u3",
         on: { event: "click", entity: "u3" },
         then: [
+          { type: "cameraFocus", entity: "u3" },
           { type: "setColor", entity: "u3", color: "#ff9f68" },
           {
             type: "showPanel",
@@ -589,12 +585,14 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
             body: "Low-dropout linear regulator that steps the 5 V rail down to a clean 3.3 V for the logic side. Pins: VIN, VOUT, EN, BYP, GND.",
             entity: "u3",
           },
+          { type: "setVar", key: "focused", value: 1 },
         ],
       },
       {
         id: "inspect-header",
         on: { event: "click", entity: "pi1" },
         then: [
+          { type: "cameraFocus", entity: "pi1" },
           { type: "setColor", entity: "pi1", color: "#ffd166" },
           {
             type: "showPanel",
@@ -602,12 +600,14 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
             body: "10-pin 2.54 mm breakout: 3.3 V, 5 V and ground plus I2C (SDA/SCL) and UART (TX/RX) for probing the board.",
             entity: "pi1",
           },
+          { type: "setVar", key: "focused", value: 1 },
         ],
       },
       {
         id: "inspect-leds",
         on: { event: "click", entity: "d3" },
         then: [
+          { type: "cameraFocus", entity: "d3" },
           { type: "setColor", entity: "d3", color: "#ff6b6b" },
           {
             type: "showPanel",
@@ -615,6 +615,7 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
             body: "Red status LED on the MCU heartbeat line, pulsing while the sensor loop runs. D1 is power (green) and D2 is activity (amber).",
             entity: "d3",
           },
+          { type: "setVar", key: "focused", value: 1 },
         ],
       },
       {
@@ -1228,17 +1229,19 @@ const INSPECT_KIT_BLOCK: readonly string[] = [
   "  to -0.1) so the text lands just above the board surface, and keep the",
   "  offset within the plate so the text never hangs off the board edge.",
   "- Layout discipline: align components in rows and columns; keep gaps of at",
-  "  least half a component width between neighbours; keep every component and",
+  "  least one component size between neighbours; keep every component and",
   "  label inside the board plate; place mounting holes symmetrically near the",
-  "  four corners; spawn the player in front of the board so the camera can",
-  "  frame the whole assembly.",
-  '- Add rule(s) on {"event":"click","entity":"<id>"} for the main components',
-  '  whose actions call {"type":"setColor"} to emphasize the part and',
-  '  {"type":"showPanel"} with realistic info (part name, function, pin list).',
-  "- Guard one rule with a scratch flag such as { \"op\": \"==\", \"left\":",
-  '  { "var": "focused" }, "right": 0 } so {"type":"cameraFocus"} fires the',
-  "  first time a part is clicked, and add a reset pad whose click rule calls",
-  '  {"type":"hidePanel"} to clear the panels.',
+  "  four corners; spawn the player just off the plate (inspect hides the",
+  "  player mesh and the camera frames the assembly, not the player).",
+  '- Give every clickable component its own rule on {"event":"click","entity":',
+  '  "<id>"} and put {"type":"cameraFocus","entity":"<same id>"} first in it,',
+  "  so the first click on ANY part frames that part (do not guard the rule",
+  "  with a scratch flag: a rule-level guard would also swallow the panel on",
+  '  later clicks). Then call {"type":"setColor"} to emphasize the part and',
+  '  {"type":"showPanel"} with realistic info (part name, function, pin list),',
+  '  and finish with {"type":"setVar","key":"focused","value":1}. Add a reset',
+  '  pad whose click rule calls {"type":"hidePanel"}, {"type":"cameraFocus"}',
+  '  and {"type":"setVar","key":"focused","value":0} to clear the view.',
   "- Use one guarded tick rule to start an animate pulse on a status LED so the",
   "  board looks alive without user input.",
   "- Keep the scene static and inspectable: no vehicle props, no objectives.",

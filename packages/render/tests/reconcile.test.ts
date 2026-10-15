@@ -215,6 +215,67 @@ describe("Renderer", () => {
     expect(scene.children.length).toBe(0);
   });
 
+  test("setEntityHidden hides a view visually and survives view rebuilds", async () => {
+    const THREE = await import("three");
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+    const renderer = new Renderer(scene, camera);
+
+    // Unknown ids are remembered and apply when the entity appears.
+    renderer.setEntityHidden("player", true);
+    renderer.reconcile(createState(validDoc([player(), ent("gem")]), 1));
+    const playerView = scene.getObjectByName("player")!;
+    expect(playerView.visible).toBe(false);
+    expect(scene.getObjectByName("gem")!.visible).toBe(true);
+
+    // Repeated reconciles (same doc and a rebuilt doc) keep it hidden.
+    renderer.reconcile(createState(validDoc([player(), ent("gem")]), 1));
+    expect(scene.getObjectByName("player")!.visible).toBe(false);
+
+    const rebuiltScene = scene.getObjectByName("player")!;
+    renderer.reconcile(createState(validDoc([player(), ent("gem")]), 2));
+    const rebuilt = scene.getObjectByName("player")!;
+    expect(rebuilt).not.toBe(rebuiltScene);
+    expect(rebuilt.visible).toBe(false);
+
+    // Unhiding one id restores the authored visibility.
+    renderer.setEntityHidden("player", false);
+    expect(rebuilt.visible).toBe(true);
+
+    // Null clears every hidden override.
+    renderer.setEntityHidden("player", true);
+    renderer.setEntityHidden("gem", true);
+    expect(rebuilt.visible).toBe(false);
+    expect(scene.getObjectByName("gem")!.visible).toBe(false);
+    renderer.setEntityHidden(null, false);
+    expect(rebuilt.visible).toBe(true);
+    expect(scene.getObjectByName("gem")!.visible).toBe(true);
+
+    renderer.dispose();
+  });
+
+  test("setEntityHidden never mutates engine state", async () => {
+    const THREE = await import("three");
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100);
+    const renderer = new Renderer(scene, camera);
+    const state = createState(validDoc([player(), ent("gem")]), 1);
+    const snapshot = JSON.stringify(state, (key, value) =>
+      key === "rng" ? undefined : value
+    );
+
+    renderer.reconcile(state);
+    renderer.setEntityHidden("player", true);
+    renderer.reconcile(state);
+    renderer.setEntityHidden(null, false);
+    renderer.reconcile(state);
+
+    expect(
+      JSON.stringify(state, (key, value) => (key === "rng" ? undefined : value))
+    ).toBe(snapshot);
+    renderer.dispose();
+  });
+
   test("rebuilds a view when a new document reuses an id with a new shape", async () => {
     const THREE = await import("three");
     const scene = new THREE.Scene();

@@ -112,14 +112,28 @@ export function dragScaleFor(mode: CameraMode): number {
 }
 
 /**
- * Inspect scenes frame their content top-down: a steep pitch and an orbit
- * distance auto-fitted to the assembly's bounding box. `INSPECT_DISTANCE` is
- * the fallback when the document has no parts to measure.
+ * Inspect scenes frame their content top-down: a steep pitch, a yaw that looks
+ * straight down the board's z axis and an orbit distance auto-fitted to the
+ * assembly's bounding box. `INSPECT_DISTANCE` is the fallback when the
+ * document has no parts to measure.
  */
 export const INSPECT_DISTANCE = 15;
 export const INSPECT_PITCH = 1.05;
-/** Multiplier applied to the assembly bbox diagonal to get the orbit distance. */
-export const INSPECT_FIT_SCALE = 1.1;
+/**
+ * Rig yaw that cancels the default offset's `(6, 8, 12)` horizontal slant, so
+ * the camera sits on the +Z axis and looks straight along the board's z axis
+ * (the default offset's azimuth is `atan2(6, 12)` around +Z, so the straight
+ * view is its negation). Derived from `DEFAULT_CAMERA_OFFSET`, never
+ * hardcoded.
+ */
+export const INSPECT_YAW = -DEFAULT_AZIMUTH;
+/**
+ * Multiplier applied to the assembly bbox diagonal to get the orbit distance.
+ * At `INSPECT_PITCH` and a 16:9 frame, `0.6` puts a 12-unit-wide board across
+ * roughly three quarters of the viewport (the previous `1.1` left it at about
+ * 40%, with the assembly adrift in the middle of the scene).
+ */
+export const INSPECT_FIT_SCALE = 0.6;
 /** Auto-fit distance clamps: closer than this overwhelms, farther loses detail. */
 export const INSPECT_FIT_MIN_DISTANCE = 8;
 export const INSPECT_FIT_MAX_DISTANCE = 26;
@@ -130,17 +144,13 @@ export interface InspectBoundsBox {
   size: readonly [number, number, number];
 }
 
-/**
- * Diagonal of the union of the given AABBs, or `undefined` when the list is
- * empty. Sizes are treated as absolute full extents (the engine convention), so
- * each box spans `position ± size / 2`.
- */
-export function inspectAssemblyDiagonal(
+/** Union AABB of a list of framing boxes, or `undefined` when it is empty. */
+function inspectAssemblyBounds(
   boxes: readonly InspectBoundsBox[]
-): number | undefined {
+): { min: [number, number, number]; max: [number, number, number] } | undefined {
   if (boxes.length === 0) return undefined;
-  const min = [Infinity, Infinity, Infinity];
-  const max = [-Infinity, -Infinity, -Infinity];
+  const min: [number, number, number] = [Infinity, Infinity, Infinity];
+  const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
   for (const box of boxes) {
     for (let axis = 0; axis < 3; axis += 1) {
       const half = Math.abs(box.size[axis]) / 2;
@@ -149,7 +159,42 @@ export function inspectAssemblyDiagonal(
       max[axis] = Math.max(max[axis], center + half);
     }
   }
-  return Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
+  return { min, max };
+}
+
+/**
+ * Diagonal of the union of the given AABBs, or `undefined` when the list is
+ * empty. Sizes are treated as absolute full extents (the engine convention), so
+ * each box spans `position ± size / 2`.
+ */
+export function inspectAssemblyDiagonal(
+  boxes: readonly InspectBoundsBox[]
+): number | undefined {
+  const bounds = inspectAssemblyBounds(boxes);
+  if (!bounds) return undefined;
+  return Math.hypot(
+    bounds.max[0] - bounds.min[0],
+    bounds.max[1] - bounds.min[1],
+    bounds.max[2] - bounds.min[2]
+  );
+}
+
+/**
+ * Center of the union of the given AABBs, or `undefined` when the list is
+ * empty. The inspect orbit target: framing the parts assembly (not an authored
+ * player spawn that can sit far off the board) keeps the model centered in the
+ * frame under drag and zoom.
+ */
+export function inspectAssemblyCenter(
+  boxes: readonly InspectBoundsBox[]
+): [number, number, number] | undefined {
+  const bounds = inspectAssemblyBounds(boxes);
+  if (!bounds) return undefined;
+  return [
+    (bounds.min[0] + bounds.max[0]) / 2,
+    (bounds.min[1] + bounds.max[1]) / 2,
+    (bounds.min[2] + bounds.max[2]) / 2,
+  ];
 }
 
 /**
@@ -361,13 +406,21 @@ export interface CameraRigOptions {
 /**
  * Stateful orbit rig. Pointer and wheel events are injected via `drag`/`zoom`
  * (the app owns the DOM listeners). While a drag is active the yaw stays put;
- * once the drag ends it eases exponentially back to the default behind-player
- * orientation (`YAW_RETURN_SECONDS` to ~1%). `update(dt)` takes seconds.
+ * once the drag ends it eases exponentially back to the rig's home orientation
+ * (`YAW_RETURN_SECONDS` to ~1%), which defaults to the behind-player view but
+ * can be set to `INSPECT_YAW` for the straight-on inspect framing.
+ * `update(dt)` takes seconds.
  */
 export class CameraRig {
   yaw: number;
   pitch: number;
   distance: number;
+  /**
+   * Yaw the ease-back returns to. `0` is the historical behind-player view;
+   * inspect mode sets `INSPECT_YAW` so a drag relaxes back to the straight
+   * board framing instead of the default diagonal.
+   */
+  homeYaw = 0;
   private dragging = false;
 
   constructor(options: CameraRigOptions = {}) {
@@ -411,16 +464,20 @@ export class CameraRig {
     this.distance = clampDistance(this.distance + delta * ZOOM_SENSITIVITY);
   }
 
-  /** Advances the yaw ease-back. No-op while dragging or for non-positive dt. */
+  /**
+   * Advances the yaw ease-back toward `homeYaw`. No-op while dragging or for
+   * non-positive dt.
+   */
   update(dt: number): void {
     if (this.dragging || !(dt > 0) || !Number.isFinite(dt)) return;
-    this.yaw *= Math.exp(-YAW_RETURN_RATE * dt);
-    if (Math.abs(this.yaw) < YAW_RETURN_EPSILON) this.yaw = 0;
+    const delta = (this.yaw - this.homeYaw) * Math.exp(-YAW_RETURN_RATE * dt);
+    this.yaw =
+      Math.abs(delta) < YAW_RETURN_EPSILON ? this.homeYaw : this.homeYaw + delta;
   }
 
-  /** Restores the default behind-player view. */
+  /** Restores the home view (behind-player unless `homeYaw` says otherwise). */
   reset(): void {
-    this.yaw = 0;
+    this.yaw = this.homeYaw;
     this.pitch = DEFAULT_PITCH;
     this.distance = DEFAULT_DISTANCE;
     this.dragging = false;

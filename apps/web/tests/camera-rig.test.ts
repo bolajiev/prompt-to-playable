@@ -28,6 +28,8 @@ import {
   INSPECT_FIT_MIN_DISTANCE,
   INSPECT_FIT_SCALE,
   INSPECT_PITCH,
+  INSPECT_YAW,
+  inspectAssemblyCenter,
   inspectAssemblyDiagonal,
   inspectCameraDistance,
   MAX_DISTANCE,
@@ -193,6 +195,29 @@ describe("CameraRig orbit control", () => {
     expect(r.yaw).toBe(0);
   });
 
+  test("the yaw ease returns to homeYaw, not blindly to zero", () => {
+    const r = rig({ yaw: INSPECT_YAW });
+    r.homeYaw = INSPECT_YAW;
+    r.beginDrag();
+    r.drag(200, 0);
+    r.endDrag();
+    const initial = r.yaw - INSPECT_YAW;
+    expect(Math.abs(initial)).toBeGreaterThan(0.5);
+
+    r.update(YAW_RETURN_SECONDS);
+    expect(Math.abs(r.yaw - INSPECT_YAW)).toBeLessThanOrEqual(
+      Math.abs(initial) * 0.011
+    );
+    r.update(YAW_RETURN_SECONDS);
+    expect(r.yaw).toBe(INSPECT_YAW);
+
+    // reset() restores the home view, not the historical zero yaw.
+    r.beginDrag();
+    r.drag(-300, 0);
+    r.reset();
+    expect(r.yaw).toBe(INSPECT_YAW);
+  });
+
   test("negative and zero dt leave yaw untouched", () => {
     const r = rig();
     r.beginDrag();
@@ -344,6 +369,44 @@ describe("resolveCameraMode", () => {
     ]);
     // Union: x [-6, 11], y [-1, 2], z [-1, 4] -> [17, 3, 5].
     expect(diagonal).toBeCloseTo(Math.hypot(17, 3, 5), 10);
+  });
+
+  test("inspect yaw cancels the default offset slant and looks down +z", () => {
+    // Derived from the default offset, not an independent magic angle.
+    expect(INSPECT_YAW).toBeCloseTo(
+      -Math.atan2(DEFAULT_CAMERA_OFFSET[0], DEFAULT_CAMERA_OFFSET[2]),
+      10
+    );
+    const offset = cameraOffset(INSPECT_YAW, INSPECT_PITCH, 10);
+    expect(offset[0]).toBeCloseTo(0, 10);
+    expect(offset[2]).toBeGreaterThan(0);
+    // Sanity: the default rig yaw really is diagonal (non-zero x).
+    expect(cameraOffset(0, INSPECT_PITCH, 10)[0]).toBeGreaterThan(1);
+  });
+
+  test("inspect assembly center is the union bbox center", () => {
+    expect(inspectAssemblyCenter([])).toBeUndefined();
+    const center = inspectAssemblyCenter([
+      { position: [10, 0, 0], size: [2, 2, 2] },
+      { position: [-4, 1, 3], size: [4, 2, 2] },
+    ]);
+    // Union: x [-6, 11], y [-1, 2], z [-1, 4] -> center (2.5, 0.5, 1.5).
+    expect(center).toEqual([2.5, 0.5, 1.5]);
+  });
+
+  test("inspect fit fills ~three quarters of a 16:9 frame with the board", () => {
+    const board = [{ position: [0, 0.4, 0], size: [12, 0.35, 6] }];
+    const distance = inspectCameraDistance(board);
+    expect(INSPECT_FIT_SCALE).toBeCloseTo(0.6, 10);
+    expect(distance).toBeGreaterThan(INSPECT_FIT_MIN_DISTANCE);
+    expect(distance).toBeLessThan(9);
+
+    // Perspective camera in app.ts: 60 deg vertical FOV, 16:9 viewport.
+    const halfHeight = Math.tan((60 * Math.PI) / 360);
+    const halfWidth = halfHeight * (16 / 9);
+    const fill = 12 / 2 / (distance * halfWidth);
+    expect(fill).toBeGreaterThan(0.65);
+    expect(fill).toBeLessThan(0.85);
   });
 
   test("inspect camera distance auto-fits the bbox diagonal, clamped 8..26", () => {

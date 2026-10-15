@@ -230,6 +230,71 @@ describe("labels in the renderer", () => {
     renderer.dispose();
   });
 
+  test("compensates a flat label for the entity scale so text keeps its aspect", () => {
+    const { scene, renderer } = newRenderer();
+    const header = ent("pi1", "prop", {
+      position: [0, 0.8, 0],
+      size: [4.2, 0.5, 0.7],
+      props: { shape: "header" },
+      label: { text: "PI1", flat: true, size: 0.4 },
+    });
+    renderer.reconcile(
+      createState(validDoc([ent("player", "player"), header]), 1)
+    );
+
+    const view = scene.getObjectByName("pi1")!;
+    const label = view.getObjectByName(LABEL_FLAT_NAME) as THREE.Mesh<
+      THREE.PlaneGeometry,
+      THREE.MeshBasicMaterial
+    >;
+    const parameters = label.geometry.parameters;
+    view.updateWorldMatrix(true, true);
+    const worldScale = new THREE.Vector3();
+    label.getWorldScale(worldScale);
+
+    // Matrix basis: column 0 is the plane's width axis (world x), column 1 is
+    // the plane's height axis (world z after rotateX(-90)).
+    const worldWidth = worldScale.x * parameters.width;
+    const worldHeight = worldScale.y * parameters.height;
+    const intended = parameters.width / parameters.height;
+    expect(worldWidth / worldHeight).toBeGreaterThanOrEqual(intended * 0.9);
+    expect(worldWidth / worldHeight).toBeLessThanOrEqual(intended * 1.1);
+    // Where one axis is squashed 6x (4.2 vs 0.7), the label must not inherit
+    // the squash: world glyph size is the authored label size.
+    expect(worldWidth).toBeCloseTo(0.4 * intended, 6);
+    expect(worldHeight).toBeCloseTo(0.4, 6);
+
+    renderer.dispose();
+  });
+
+  test("leaves sprites and unscaled flat labels untouched", () => {
+    const { scene, renderer } = newRenderer();
+    const gem = ent("gem", "collectible", {
+      size: [3, 3, 3],
+      label: { text: "Gem", size: 1.5 },
+    });
+    const board = ent("board", "prop", {
+      label: { text: "BOARD", flat: true, size: 0.5 },
+    });
+    renderer.reconcile(
+      createState(validDoc([ent("player", "player"), gem, board]), 1)
+    );
+
+    const sprite = scene
+      .getObjectByName("gem")!
+      .getObjectByName(LABEL_SPRITE_NAME) as THREE.Sprite;
+    const { width, height } = labelCanvasSize("Gem");
+    expect(sprite.scale.x).toBeCloseTo(1.5 * (width / height), 6);
+    expect(sprite.scale.y).toBeCloseTo(1.5, 6);
+
+    const flat = scene
+      .getObjectByName("board")!
+      .getObjectByName(LABEL_FLAT_NAME) as THREE.Mesh;
+    expect(flat.scale.toArray()).toEqual([1, 1, 1]);
+
+    renderer.dispose();
+  });
+
   test("removing an entity disposes the flat label geometry, material and map", () => {
     fake = installFakeDocument();
     const { scene, renderer } = newRenderer();

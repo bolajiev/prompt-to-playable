@@ -29,6 +29,27 @@ describe("kit few-shots are playable in the engine", () => {
     expect(state.scratch.focused).toBe(0);
   });
 
+  test("inspect: the first click on any labeled part focuses that part", () => {
+    for (const id of ["u1", "u2", "u3", "pi1", "d3"]) {
+      const engine = createEngine();
+      engine.load(ARCHETYPE_EXAMPLES.inspect);
+
+      engine.pushEvent({ type: "click", targetId: id });
+      const state = engine.step(16.666);
+      expect(state.ui.focus, id).toBe(id);
+      expect(state.scratch.focused, id).toBe(1);
+      expect(
+        state.ui.panels.some((panel) => panel.entity === id),
+        `${id} panel`
+      ).toBe(true);
+
+      engine.pushEvent({ type: "click", targetId: "reset-pad" });
+      const reset = engine.step(16.666);
+      expect(reset.ui.focus, id).toBeUndefined();
+      expect(reset.scratch.focused, id).toBe(0);
+    }
+  });
+
   test("inspect: the heartbeat LED starts pulsing on its own", () => {
     const engine = createEngine();
     engine.load(ARCHETYPE_EXAMPLES.inspect);

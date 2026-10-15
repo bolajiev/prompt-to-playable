@@ -21,8 +21,10 @@ import {
   clampPitch,
   firstPersonEye,
   firstPersonLookAt,
+  inspectAssemblyCenter,
   inspectCameraDistance,
   INSPECT_PITCH,
+  INSPECT_YAW,
   partEntityBoxes,
   resolveCameraMode,
   usesVehicleInput,
@@ -221,6 +223,12 @@ export class App {
   private modeLines: string | null = null;
   private interactLine: string | null = null;
   private focusState: FocusCameraState = { active: false, savedDistance: null };
+  /**
+   * Orbit target for inspect mode: the parts-assembly bbox center, computed
+   * on load. Null in every other mode (and when the document has no parts),
+   * where the camera follows the player.
+   */
+  private inspectTarget: [number, number, number] | null = null;
 
   constructor(elements: AppElements, options: AppOptions = {}) {
     this.dom = elements;
@@ -639,7 +647,10 @@ export class App {
     );
     this.focusState = focus.state;
     this.cameraRig.distance = focus.distance;
-    const targetPosition: [number, number, number] = focus.target ?? [px, py, pz];
+    // Inspect orbits the parts assembly itself (player spawns can sit far off
+    // the board); every other orbit mode keeps following the player.
+    const targetPosition: [number, number, number] =
+      focus.target ?? this.inspectTarget ?? [px, py, pz];
     const target = new THREE.Vector3(
       targetPosition[0],
       targetPosition[1],
@@ -703,18 +714,26 @@ export class App {
     this.lastValidatedDoc = doc;
     this.engine.load(doc);
     applyWorldEnvironment(this.scene, doc.world);
+    this.cameraRig.homeYaw = 0;
     this.cameraRig.reset();
     this.focusState = { active: false, savedDistance: null };
+    this.inspectTarget = null;
+    this.renderer.setEntityHidden(null, false);
     const mode = resolveMode(doc);
     const player = doc.entities.find((entity) => entity.kind === "player");
     this.cameraMode = resolveCameraMode(doc, player?.props?.vehicle === true);
     if (mode === "inspect") {
       // Frame the whole assembly: entities with parts define the bounding box
-      // the orbit camera auto-fits (fallback INSPECT_DISTANCE inside).
-      this.cameraRig.distance = clampDistance(
-        inspectCameraDistance(partEntityBoxes(doc.entities))
-      );
+      // the orbit camera auto-fits (fallback INSPECT_DISTANCE inside) and
+      // orbits around, looking straight down the board's z axis. The player
+      // mesh is hidden visually - engine state keeps it for collisions.
+      const boxes = partEntityBoxes(doc.entities);
+      this.inspectTarget = inspectAssemblyCenter(boxes) ?? null;
+      this.cameraRig.distance = clampDistance(inspectCameraDistance(boxes));
       this.cameraRig.pitch = clampPitch(INSPECT_PITCH);
+      this.cameraRig.homeYaw = INSPECT_YAW;
+      this.cameraRig.yaw = INSPECT_YAW;
+      if (player) this.renderer.setEntityHidden(player.id, true);
     } else if (this.cameraMode === "firstPerson") {
       // Orbit's default pitch looks down at the player; first person starts
       // level and lets the drag adjust from there.

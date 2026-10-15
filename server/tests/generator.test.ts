@@ -145,18 +145,25 @@ describe("kit few-shot examples", () => {
     }
     expect(panelBodies.some((body) => /pin/i.test(body))).toBe(true);
 
-    const focusRule = clickRules.find((rule) => {
-      const condition = rule.if;
-      if (!condition || condition.op !== "==") return false;
-      const left = condition.left;
-      return (
-        typeof left === "object" && left !== null && "var" in left && left.var === "focused"
+    // Every clickable part frames itself, so the first click on ANY component
+    // (u1..u3, the header, the LED) moves the camera to that part. A
+    // rule-level `focused` guard would swallow the panel on later clicks.
+    expect(panelRules.length).toBeGreaterThanOrEqual(5);
+    for (const rule of panelRules) {
+      expect(rule.if, `${rule.id} must not gate its panel behind a guard`).toBeUndefined();
+      const focus = rule.then.find((action) => action.type === "cameraFocus");
+      expect(focus, `${rule.id} frames the clicked part`).toBeDefined();
+      if (focus?.type === "cameraFocus") {
+        expect(focus.entity, `${rule.id} focus target`).toBe(rule.on.entity);
+      }
+      const flagged = rule.then.find(
+        (action) =>
+          action.type === "setVar" &&
+          action.key === "focused" &&
+          action.value === 1
       );
-    });
-    expect(focusRule, "first-click camera focus rule").toBeDefined();
-    expect(
-      focusRule?.then.some((action) => action.type === "cameraFocus")
-    ).toBe(true);
+      expect(flagged, `${rule.id} records the focused scratch flag`).toBeDefined();
+    }
 
     const animated = doc.rules
       .flatMap((rule) => rule.then)
@@ -167,6 +174,13 @@ describe("kit few-shot examples", () => {
       rule.then.some((action) => action.type === "hidePanel")
     );
     expect(resetRule, "reset pad clears the panels").toBeDefined();
+    expect(
+      resetRule?.then.some(
+        (action) =>
+          action.type === "setVar" && action.key === "focused" && action.value === 0
+      ),
+      "reset pad clears the focused scratch flag"
+    ).toBe(true);
   });
 
   test("walkthrough example has solid wall props, a sliding door and a toggling lamp", () => {
@@ -336,6 +350,10 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain('"flat": true');
     expect(text).toContain("silkscreen");
     expect(text).toContain("rows and columns");
+    expect(text.replace(/\s+/g, " ")).toContain(
+      "gaps of at least one component size"
+    );
+    expect(text).toContain("first click on ANY part");
     expect(text).toContain("camera auto-fits");
     expect(text).toContain("Seat components on the mask");
     expect(text).toContain("Budget: at most 14 entities and 8 rules");

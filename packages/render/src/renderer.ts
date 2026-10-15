@@ -242,6 +242,12 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
   context: AnimationContext = { time: 0, dt: 0, playerPosition: null };
   /** Entity id currently boosted by the hover/focus highlight, if any. */
   highlightId: string | null = null;
+  /**
+   * Entity ids overridden to invisible on top of their authored/runtime
+   * visibility. Owned by the renderer (`setEntityHidden`); re-applied on every
+   * `apply` so rebuilt views stay hidden.
+   */
+  hiddenIds: ReadonlySet<string> = new Set<string>();
 
   constructor(private readonly target: THREE.Object3D) {}
 
@@ -272,6 +278,10 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
       const label = buildLabelObject(entity.label);
       label.userData.entityId = entity.id;
       view.add(label);
+      // Cache flat silkscreen labels for the per-frame scale compensation.
+      if (entity.label.flat === true) {
+        view.userData[LABEL_FLAT_NAME] = label;
+      }
     }
     return view;
   }
@@ -359,7 +369,8 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
     view.userData.pulseScale =
       1 + PULSE_SCALE_AMPLITUDE * clampPulse(transform.pulse);
     this.applyViewScale(view);
-    view.visible = transform.visible;
+    view.userData.baseVisible = transform.visible;
+    view.visible = transform.visible && !this.hiddenIds.has(entity.id);
     view.userData.kind = entity.kind;
 
     if (view.userData.partsObject === true) {
@@ -426,7 +437,23 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
     this.applyViewScale(view);
   }
 
-  /** Root scale = base extents x pulse factor x highlight factor. */
+  /**
+   * Re-apply the hidden override to one existing view without waiting for the
+   * next reconcile. Visibility is recomputed from the stored authored value,
+   * so repeated calls are idempotent.
+   */
+  refreshHidden(view: THREE.Object3D): void {
+    const base = view.userData.baseVisible as boolean | undefined;
+    const id = view.userData.entityId;
+    view.visible =
+      base !== false &&
+      !(typeof id === "string" && this.hiddenIds.has(id));
+  }
+
+  /**
+   * Root scale = base extents x pulse factor x highlight factor, with flat
+   * silkscreen labels counter-scaled so their world-space text never distorts.
+   */
   private applyViewScale(view: THREE.Object3D): void {
     const base = view.userData.baseScale as Vec3 | undefined;
     if (!base) return;
@@ -435,6 +462,25 @@ export class ThreeViewAdapter implements ViewAdapter<THREE.Object3D> {
       view.userData.entityId === this.highlightId ? HIGHLIGHT_SCALE : 1;
     const factor = pulseScale * highlightScale;
     view.scale.set(base[0] * factor, base[1] * factor, base[2] * factor);
+    this.compensateFlatLabel(view);
+  }
+
+  /**
+   * Flat silkscreen labels lie in the entity's XZ plane (the plane's local x
+   * maps to world x, its local y to world z after rotateX(-90)). A non-uniform
+   * entity scale would stretch the glyphs with it - a header sized
+   * 4.2 x 0.5 x 0.7 stretches the text 6x - so counter the root scale on the
+   * label's in-plane axes. The label then renders at its authored world-space
+   * `size` with the canvas aspect intact, on any entity scale. Camera-facing
+   * sprites and non-label children are never touched.
+   */
+  private compensateFlatLabel(view: THREE.Object3D): void {
+    const label = view.userData[LABEL_FLAT_NAME] as THREE.Object3D | undefined;
+    if (!label) return;
+    const sx = view.scale.x;
+    const sz = view.scale.z;
+    if (!(Math.abs(sx) > 1e-6) || !(Math.abs(sz) > 1e-6)) return;
+    label.scale.set(1 / sx, 1 / sz, 1);
   }
 
   /** Frame-rate independent yaw easing factor from the current delta. */
@@ -533,11 +579,14 @@ export class Renderer {
   private loseShakeAge: number | null = null;
   private appliedShake: Vec3 | null = null;
   private highlightId: string | null = null;
+  /** Entity ids visually hidden via `setEntityHidden` (engine state intact). */
+  private readonly hiddenIds = new Set<string>();
 
   constructor(scene: THREE.Scene, camera: THREE.Camera) {
     this.camera = camera;
     this.scene = scene;
     this.adapter = new ThreeViewAdapter(scene);
+    this.adapter.hiddenIds = this.hiddenIds;
     this.reconciler = new EntityReconciler(this.adapter);
   }
 
@@ -575,6 +624,30 @@ export class Renderer {
       const view = this.reconciler.get(next);
       if (view) this.adapter.refreshHighlight(view);
     }
+  }
+
+  /**
+   * Visually hide one entity - or every hidden entity when `id` is null -
+   * without touching engine state; the entity keeps colliding, stepping and
+   * answering validation. The override is applied immediately and remembered
+   * for every future reconcile/apply, so a hidden player stays hidden when its
+   * view is rebuilt after an edit. `hidden: false` removes the override for
+   * `id`.
+   */
+  setEntityHidden(id: string | null, hidden: boolean): void {
+    if (id === null) {
+      const previouslyHidden = [...this.hiddenIds];
+      this.hiddenIds.clear();
+      for (const hiddenId of previouslyHidden) {
+        const view = this.reconciler.get(hiddenId);
+        if (view) this.adapter.refreshHidden(view);
+      }
+      return;
+    }
+    if (hidden) this.hiddenIds.add(id);
+    else this.hiddenIds.delete(id);
+    const view = this.reconciler.get(id);
+    if (view) this.adapter.refreshHidden(view);
   }
 
   reconcile(state: GameState): void {

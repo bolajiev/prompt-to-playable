@@ -1,18 +1,18 @@
 {
   "version": "1.0.0",
   "meta": {
-    "title": "Circuit Board Inspector",
+    "title": "Motor Driver Board Inspector",
     "archetype": "explore",
     "genre": "showcase",
     "difficulty": 0,
-    "seed": 7311,
+    "seed": 4211,
     "mode": "inspect"
   },
   "world": {
     "bounds": [
-      18,
-      12,
-      18
+      16,
+      10,
+      16
     ],
     "lighting": "indoor",
     "skybox": "lab",
@@ -30,7 +30,7 @@
       "position": [
         0,
         0.9,
-        8
+        7
       ],
       "tags": [],
       "active": true
@@ -38,7 +38,7 @@
     {
       "id": "board",
       "kind": "prop",
-      "name": "Sensor node PCB",
+      "name": "Motor driver PCB",
       "position": [
         0,
         0.4,
@@ -46,7 +46,7 @@
       ],
       "color": "#1b4d2e",
       "tags": [
-        "pcb"
+        "board"
       ],
       "active": true,
       "parts": [
@@ -58,9 +58,9 @@
             0
           ],
           "size": [
-            12,
+            10,
             0.35,
-            6
+            5
           ],
           "color": "#1b4d2e",
           "material": {
@@ -71,11 +71,11 @@
         }
       ],
       "label": {
-        "text": "SENSOR NODE v1.0",
+        "text": "MOTOR DRIVER v2.1",
         "offset": [
-          0,
-          0.19,
-          -2.6
+          0.4,
+          0.2,
+          1.75
         ],
         "size": 0.5,
         "flat": true
@@ -84,20 +84,21 @@
     {
       "id": "u1",
       "kind": "prop",
-      "name": "U1 sensor MCU",
+      "name": "U1 motor control MCU",
       "position": [
-        -2.5,
+        -3.2,
         0.61,
-        0.5
+        -0.2
       ],
       "size": [
-        2,
+        2.2,
         0.5,
-        1.6
+        1.8
       ],
       "color": "#2b2d42",
       "tags": [
-        "chip"
+        "component",
+        "ic"
       ],
       "active": true,
       "props": {
@@ -107,30 +108,31 @@
         "text": "U1",
         "offset": [
           0,
-          -0.05,
-          0.69
+          -0.06,
+          0.62
         ],
-        "size": 0.4,
+        "size": 0.35,
         "flat": true
       }
     },
     {
       "id": "u2",
       "kind": "prop",
-      "name": "U2 flash memory",
+      "name": "U2 gate driver",
       "position": [
-        0.3,
+        -0.6,
         0.61,
-        0.5
+        -0.2
       ],
       "size": [
         1.6,
         0.5,
-        1.4
+        1.3
       ],
       "color": "#2b2d42",
       "tags": [
-        "chip"
+        "component",
+        "ic"
       ],
       "active": true,
       "props": {
@@ -140,30 +142,31 @@
         "text": "U2",
         "offset": [
           0,
-          -0.05,
-          0.79
+          -0.06,
+          0.72
         ],
-        "size": 0.4,
+        "size": 0.35,
         "flat": true
       }
     },
     {
       "id": "u3",
       "kind": "prop",
-      "name": "U3 3.3V regulator",
+      "name": "U3 5V regulator",
       "position": [
-        2.8,
-        0.61,
-        0.5
+        1.9,
+        0.6,
+        -0.2
       ],
       "size": [
-        1.4,
+        1.3,
         0.45,
-        1.2
+        1.1
       ],
       "color": "#2b2d42",
       "tags": [
-        "chip"
+        "component",
+        "ic"
       ],
       "active": true,
       "props": {
@@ -173,30 +176,31 @@
         "text": "U3",
         "offset": [
           0,
-          -0.056,
-          0.92
+          -0.05,
+          0.75
         ],
-        "size": 0.4,
+        "size": 0.35,
         "flat": true
       }
     },
     {
       "id": "pi1",
       "kind": "prop",
-      "name": "PI1 expansion header",
+      "name": "PI1 debug header",
       "position": [
-        -2.6,
-        0.8,
+        -1.6,
+        0.68,
         -1.9
       ],
       "size": [
-        4.2,
+        4,
         0.5,
-        0.7
+        0.6
       ],
       "color": "#22252b",
       "tags": [
-        "header"
+        "component",
+        "connector"
       ],
       "active": true,
       "props": {
@@ -206,8 +210,8 @@
         "text": "PI1",
         "offset": [
           0,
-          -0.43,
-          0.79
+          -0.09,
+          0.8
         ],
         "size": 0.4,
         "flat": true
@@ -218,9 +222,9 @@
       "kind": "prop",
       "name": "C1 bulk capacitor",
       "position": [
-        1,
-        0.92,
-        -1.9
+        4.2,
+        0.8,
+        -1.1
       ],
       "size": [
         0.8,
@@ -229,7 +233,8 @@
       ],
       "color": "#3a3a3a",
       "tags": [
-        "capacitor"
+        "component",
+        "passive"
       ],
       "active": true,
       "props": {
@@ -238,42 +243,9 @@
       "label": {
         "text": "C1",
         "offset": [
-          -0.9,
-          -0.372,
-          0
-        ],
-        "size": 0.4,
-        "flat": true
-      }
-    },
-    {
-      "id": "c2",
-      "kind": "prop",
-      "name": "C2 decoupling capacitor",
-      "position": [
-        2.4,
-        0.92,
-        -1.9
-      ],
-      "size": [
-        0.8,
-        0.9,
-        0.8
-      ],
-      "color": "#3a3a3a",
-      "tags": [
-        "capacitor"
-      ],
-      "active": true,
-      "props": {
-        "shape": "capacitor"
-      },
-      "label": {
-        "text": "C2",
-        "offset": [
-          0.9,
-          -0.372,
-          0
+          0,
+          -0.06,
+          0.85
         ],
         "size": 0.4,
         "flat": true
@@ -282,11 +254,11 @@
     {
       "id": "d1",
       "kind": "prop",
-      "name": "D1 power LED",
+      "name": "D1 status LED",
       "position": [
-        5,
+        4.2,
         0.64,
-        -1.4
+        0.4
       ],
       "size": [
         0.7,
@@ -295,7 +267,8 @@
       ],
       "color": "#35c98f",
       "tags": [
-        "led"
+        "component",
+        "indicator"
       ],
       "active": true,
       "props": {
@@ -304,77 +277,11 @@
       "label": {
         "text": "D1",
         "offset": [
-          -0.9,
-          -0.092,
+          -1.05,
+          -0.08,
           0
         ],
-        "size": 0.35,
-        "flat": true
-      }
-    },
-    {
-      "id": "d2",
-      "kind": "prop",
-      "name": "D2 activity LED",
-      "position": [
-        5,
-        0.64,
-        0
-      ],
-      "size": [
-        0.7,
-        0.6,
-        0.7
-      ],
-      "color": "#f4a261",
-      "tags": [
-        "led"
-      ],
-      "active": true,
-      "props": {
-        "shape": "led"
-      },
-      "label": {
-        "text": "D2",
-        "offset": [
-          -0.9,
-          -0.092,
-          0
-        ],
-        "size": 0.35,
-        "flat": true
-      }
-    },
-    {
-      "id": "d3",
-      "kind": "prop",
-      "name": "D3 heartbeat LED",
-      "position": [
-        5,
-        0.64,
-        1.4
-      ],
-      "size": [
-        0.7,
-        0.6,
-        0.7
-      ],
-      "color": "#ff4d4d",
-      "tags": [
-        "led"
-      ],
-      "active": true,
-      "props": {
-        "shape": "led"
-      },
-      "label": {
-        "text": "D3",
-        "offset": [
-          -0.9,
-          -0.092,
-          0
-        ],
-        "size": 0.35,
+        "size": 0.4,
         "flat": true
       }
     },
@@ -384,20 +291,20 @@
       "name": "Mounting holes",
       "position": [
         0,
-        0.62,
+        0.6,
         0
       ],
       "tags": [
-        "hardware"
+        "mechanical"
       ],
       "active": true,
       "parts": [
         {
           "shape": "torus",
           "offset": [
-            -5.3,
+            -4.3,
             0,
-            -2.4
+            -2
           ],
           "size": [
             0.5,
@@ -418,9 +325,9 @@
         {
           "shape": "torus",
           "offset": [
-            5.3,
+            4.3,
             0,
-            -2.4
+            -2
           ],
           "size": [
             0.5,
@@ -441,9 +348,9 @@
         {
           "shape": "torus",
           "offset": [
-            -5.3,
+            -4.3,
             0,
-            2.4
+            2
           ],
           "size": [
             0.5,
@@ -464,9 +371,9 @@
         {
           "shape": "torus",
           "offset": [
-            5.3,
+            4.3,
             0,
-            2.4
+            2
           ],
           "size": [
             0.5,
@@ -491,9 +398,9 @@
       "kind": "prop",
       "name": "Reset pad",
       "position": [
-        -4.4,
+        -3.2,
         0.62,
-        2
+        1.5
       ],
       "tags": [
         "control"
@@ -539,8 +446,8 @@
         "text": "RESET",
         "offset": [
           0,
-          -0.03,
-          -0.85
+          -0.04,
+          0.8
         ],
         "size": 0.3,
         "flat": true
@@ -550,52 +457,27 @@
   "objectives": [],
   "rules": [
     {
-      "id": "start-heartbeat",
+      "id": "start-blink",
       "on": {
         "event": "tick"
       },
       "if": {
         "op": "==",
         "left": {
-          "var": "heartbeatStarted"
+          "var": "blinkStarted"
         },
         "right": 0
       },
       "then": [
         {
           "type": "animate",
-          "entity": "d3",
+          "entity": "d1",
           "kind": "pulse",
-          "speed": 0.8
+          "speed": 0.9
         },
         {
           "type": "setVar",
-          "key": "heartbeatStarted",
-          "value": 1
-        }
-      ]
-    },
-    {
-      "id": "focus-first-part",
-      "on": {
-        "event": "click",
-        "entity": "u1"
-      },
-      "if": {
-        "op": "==",
-        "left": {
-          "var": "focused"
-        },
-        "right": 0
-      },
-      "then": [
-        {
-          "type": "cameraFocus",
-          "entity": "u1"
-        },
-        {
-          "type": "setVar",
-          "key": "focused",
+          "key": "blinkStarted",
           "value": 1
         }
       ]
@@ -608,15 +490,24 @@
       },
       "then": [
         {
+          "type": "cameraFocus",
+          "entity": "u1"
+        },
+        {
           "type": "setColor",
           "entity": "u1",
           "color": "#4cc9f0"
         },
         {
           "type": "showPanel",
-          "title": "U1 - Sensor MCU",
-          "body": "32-bit ARM Cortex-M4 microcontroller, the board's brain. It runs the sampling loop, clocks the SPI bus and drives the status LEDs from the 3.3 V rail. Pins: VDD, VSS, NRST, SWDIO, SWCLK, BOOT0, PA0-PA15 (sensor bus), PB0-PB15 (GPIO).",
+          "title": "U1 - Motor control MCU",
+          "body": "The board's brain: a 32-bit motor-control microcontroller running the commutation loop at 20 kHz. It reads the hall sensors, the current shunt and the on-die temperature diode, then drives the three PWM gate outputs. Pins: 48 total - 12 PWM, 8 ADC, 6 hall inputs, 4 power, 6 ground, 12 spare GPIO.",
           "entity": "u1"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
         }
       ]
     },
@@ -628,15 +519,24 @@
       },
       "then": [
         {
+          "type": "cameraFocus",
+          "entity": "u2"
+        },
+        {
           "type": "setColor",
           "entity": "u2",
           "color": "#b388ff"
         },
         {
           "type": "showPanel",
-          "title": "U2 - Flash memory",
-          "body": "8 MB SPI NOR flash holding the firmware image, the bootloader and the sensor calibration table. Pins: VCC, GND, CLK, MOSI, MISO, CS, WP, HOLD. It is reflashed over the PI1 header.",
+          "title": "U2 - Half-bridge gate driver",
+          "body": "Level-shifts the MCU's 3.3 V PWM up to the 12 V power rail and adds dead-time so the high and low MOSFETs can never conduct at the same time. Pins: VCC, VDD, GND, HIN, LIN, HOUT, LOUT, VB, VS.",
           "entity": "u2"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
         }
       ]
     },
@@ -648,25 +548,38 @@
       },
       "then": [
         {
+          "type": "cameraFocus",
+          "entity": "u3"
+        },
+        {
           "type": "setColor",
           "entity": "u3",
           "color": "#ff9f68"
         },
         {
           "type": "showPanel",
-          "title": "U3 - 3.3 V LDO regulator",
-          "body": "Low-dropout linear regulator that steps the 5 V input down to a clean 3.3 V for the logic side. Its input and output are smoothed by the nearby capacitors C1 (bulk) and C2 (decoupling). Pins: VIN, VOUT, EN, BYP, GND.",
+          "title": "U3 - 5 V low-dropout regulator",
+          "body": "Steps the 12 V input down to a clean 5 V rail for the hall sensors and the CAN transceiver, with a 300 mV dropout so it keeps regulating during motor brown-outs. Pins: VIN, VOUT, EN, BYP, GND.",
           "entity": "u3"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
         }
       ]
     },
     {
-      "id": "inspect-header",
+      "id": "inspect-pi1",
       "on": {
         "event": "click",
         "entity": "pi1"
       },
       "then": [
+        {
+          "type": "cameraFocus",
+          "entity": "pi1"
+        },
         {
           "type": "setColor",
           "entity": "pi1",
@@ -674,29 +587,72 @@
         },
         {
           "type": "showPanel",
-          "title": "PI1 - 10-pin expansion header",
-          "body": "2.54 mm breakout for probing and programming the node. Pin order: 3V3, GND, SDA, SCL, TX, RX, MISO, MOSI, CS, 5V. I2C and UART are live whenever the firmware is running.",
+          "title": "PI1 - Programming / debug header",
+          "body": "8-pin 2.54 mm header used to flash firmware and probe the running board: SWDIO, SWCLK, 3.3 V, 5 V, GND, RESET, plus UART TX and RX broken out for a logic analyser.",
           "entity": "pi1"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
         }
       ]
     },
     {
-      "id": "inspect-leds",
+      "id": "inspect-c1",
       "on": {
         "event": "click",
-        "entity": "d3"
+        "entity": "c1"
       },
       "then": [
         {
+          "type": "cameraFocus",
+          "entity": "c1"
+        },
+        {
           "type": "setColor",
-          "entity": "d3",
-          "color": "#ff8fa3"
+          "entity": "c1",
+          "color": "#8ecae6"
         },
         {
           "type": "showPanel",
-          "title": "D1 / D2 / D3 - Status LEDs",
-          "body": "Three emissive indicators on the front of the board: D1 (green) shows power good, D2 (amber) blinks on sensor activity, and D3 (red) pulses as the firmware heartbeat - one pulse per sampling cycle.",
-          "entity": "d3"
+          "title": "C1 - Bulk input capacitor",
+          "body": "470 uF low-ESR electrolytic can holding the 12 V rail steady while the motor windings switch at 20 kHz. Rated 25 V and 105 C, it supplies the current spikes the supply leads cannot.",
+          "entity": "c1"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "inspect-d1",
+      "on": {
+        "event": "click",
+        "entity": "d1"
+      },
+      "then": [
+        {
+          "type": "cameraFocus",
+          "entity": "d1"
+        },
+        {
+          "type": "setColor",
+          "entity": "d1",
+          "color": "#7bffb2"
+        },
+        {
+          "type": "showPanel",
+          "title": "D1 - Heartbeat status LED",
+          "body": "Green status LED wired to the MCU heartbeat line through a 330 ohm resistor: it pulses while the commutation loop runs and holds solid when the driver latches a fault. Anode to PA5, cathode to GND.",
+          "entity": "d1"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
         }
       ]
     },
@@ -723,6 +679,6 @@
   ],
   "scratch": {
     "focused": 0,
-    "heartbeatStarted": 0
+    "blinkStarted": 0
   }
 }
