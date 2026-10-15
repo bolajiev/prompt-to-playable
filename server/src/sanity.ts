@@ -21,7 +21,9 @@ export type SanityCode =
   | "missing-checkpoints"
   | "invalid-checkpoint-index"
   | "not-a-vehicle"
-  | "missing-win-path";
+  | "missing-win-path"
+  | "missing-machine-control"
+  | "invalid-control-bind";
 
 export type Kit = GameMode;
 
@@ -507,11 +509,82 @@ function driveIssues(doc: GameDoc): SanityIssue[] {
   return issues;
 }
 
+/**
+ * Controls must resolve for every kit: a `bind.entity` or an entity/objective
+ * referenced by `bind.onPress` that does not exist can never do anything, so
+ * the binding is a data bug wherever it appears.
+ */
+function controlBindIssues(doc: GameDoc): SanityIssue[] {
+  const issues: SanityIssue[] = [];
+  const controls = doc.controls ?? [];
+  for (const control of controls) {
+    const boundEntity = control.bind?.entity;
+    if (
+      boundEntity !== undefined &&
+      entityById(doc.entities, boundEntity) === undefined
+    ) {
+      issues.push({
+        code: "invalid-control-bind",
+        path: `controls[${control.id}].bind.entity`,
+        message: `Control '${control.id}' binds unknown entity '${boundEntity}'`,
+      });
+    }
+    (control.bind?.onPress ?? []).forEach((action, i) => {
+      const refs = actionRefs(
+        action,
+        `controls[${control.id}].bind.onPress[${i}]`
+      );
+      for (const ref of refs.entity) {
+        if (entityById(doc.entities, ref.id) === undefined) {
+          issues.push({
+            code: "invalid-control-bind",
+            path: ref.path,
+            message: `Control '${control.id}' onPress references unknown entity '${ref.id}'`,
+          });
+        }
+      }
+      for (const ref of refs.objective) {
+        if (!doc.objectives.some((objective) => objective.id === ref.id)) {
+          issues.push({
+            code: "invalid-control-bind",
+            path: ref.path,
+            message: `Control '${control.id}' onPress references unknown objective '${ref.id}'`,
+          });
+        }
+      }
+    });
+  }
+  return issues;
+}
+
+/**
+ * machine: the scene is driven from the sidebar, so at least one slider must
+ * drive a real entity property; reference checks above guard the rest.
+ */
+function machineIssues(doc: GameDoc): SanityIssue[] {
+  const sliders = (doc.controls ?? []).filter(
+    (control) =>
+      control.type === "slider" &&
+      control.bind?.entity !== undefined &&
+      control.bind.property !== undefined
+  );
+  if (sliders.length > 0) return [];
+  return [
+    {
+      code: "missing-machine-control",
+      path: "controls",
+      message:
+        "Machine scene needs at least one slider bound to an entity property (rotation/position/visible/color/emissive)",
+    },
+  ];
+}
+
 function kitIssues(doc: GameDoc): SanityIssue[] {
   const kit = resolveKit(doc);
   if (kit === "inspect") return inspectIssues(doc);
   if (kit === "walkthrough") return walkthroughIssues(doc);
   if (kit === "drive") return driveIssues(doc);
+  if (kit === "machine") return machineIssues(doc);
   return [];
 }
 
@@ -560,6 +633,7 @@ export function sanityCheck(doc: GameDoc): SanityResult {
     }
   }
 
+  errors.push(...controlBindIssues(doc));
   errors.push(...boundsIssues(doc));
   errors.push(...reachabilityIssues(doc));
   errors.push(...kitIssues(doc));
@@ -598,4 +672,6 @@ export const SANITY_CODES = [
   "invalid-checkpoint-index",
   "not-a-vehicle",
   "missing-win-path",
+  "missing-machine-control",
+  "invalid-control-bind",
 ] as const;

@@ -126,6 +126,12 @@
       "prompt": "evade the wandering sentry and reach the escape zone",
       "archetype": "stealth-chase",
       "title": "Sentry Evade"
+    },
+    {
+      "id": "robotic-arm-sliders",
+      "prompt": "a robotic arm with joint sliders I can control and clickable parts",
+      "archetype": "machine",
+      "title": "Desk Arm Six"
     }
   ]
 }

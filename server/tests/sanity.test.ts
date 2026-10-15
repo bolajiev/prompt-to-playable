@@ -509,6 +509,138 @@ describe("sanityCheck — drive kit", () => {
   });
 });
 
+function machineFixture(): GameDoc {
+  return kitFixture({
+    version: "1.0.0",
+    meta: { title: "Desk Arm", archetype: "explore", mode: "machine" },
+    world: { bounds: [16, 10, 16], lighting: "indoor" },
+    entities: [
+      { id: "player", kind: "player", position: [-12, 1, 0] },
+      {
+        id: "arm-link",
+        kind: "prop",
+        position: [0, 1.2, 0],
+        size: [1.7, 1.1, 1.7],
+        parts: [
+          {
+            shape: "capsule",
+            offset: [1, 0, 0],
+            size: [0.3, 2, 0.3],
+            rotation: [0, 0, 1.5708],
+          },
+        ],
+        label: { text: "SHOULDER", flat: true, offset: [1, 0.6, 0], size: 0.45 },
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "inspect-link",
+        on: { event: "click", entity: "arm-link" },
+        then: [
+          { type: "cameraFocus", entity: "arm-link" },
+          {
+            type: "showPanel",
+            title: "SHOULDER",
+            body: "Lift servo.",
+            entity: "arm-link",
+          },
+        ],
+      },
+    ],
+    controls: [
+      {
+        id: "shoulder",
+        type: "slider",
+        label: "Shoulder lift",
+        min: -1,
+        max: 1,
+        value: 0,
+        bind: { entity: "arm-link", property: "rotation.z", scale: 1.2 },
+      },
+      {
+        id: "grip",
+        type: "toggle",
+        label: "Grip open",
+        value: 0,
+        bind: { entity: "arm-link", property: "rotation.z", scale: 0.5, var: "grip" },
+      },
+      {
+        id: "home",
+        type: "button",
+        label: "HOME",
+        bind: {
+          onPress: [
+            { type: "animate", entity: "arm-link", kind: "slide", to: [0, 1.2, 0] },
+            { type: "setVar", key: "homed", value: 1 },
+          ],
+        },
+      },
+    ],
+    scratch: { homed: 0 },
+  });
+}
+
+describe("sanityCheck — machine kit", () => {
+  test("accepts a bound slider driven arm and needs no win path", () => {
+    const doc = machineFixture();
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(requiresWinPath(doc)).toBe(false);
+    expect(hasWinPath(doc)).toBe(false);
+  });
+
+  test("rejects a machine without any slider bound to an entity property", () => {
+    const doc = machineFixture();
+    for (const control of doc.controls ?? []) {
+      if (control.type === "slider") control.bind = { var: "shoulder" };
+    }
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-machine-control");
+  });
+
+  test("rejects a control bound to an unknown entity", () => {
+    const doc = machineFixture();
+    if (doc.controls?.[0]) doc.controls[0].bind = { entity: "ghost", property: "rotation.z" };
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("invalid-control-bind");
+    expect(
+      result.errors.some(
+        (issue) =>
+          issue.path === "controls[shoulder].bind.entity" &&
+          issue.message.includes("ghost")
+      )
+    ).toBe(true);
+  });
+
+  test("rejects a button whose onPress references an unknown entity", () => {
+    const doc = machineFixture();
+    if (doc.controls?.[2]) {
+      doc.controls[2].bind = {
+        onPress: [{ type: "animate", entity: "ghost-jaw", kind: "bob" }],
+      };
+    }
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("invalid-control-bind");
+    expect(result.errors.some((issue) => issue.message.includes("ghost-jaw"))).toBe(
+      true
+    );
+  });
+
+  test("still reports a missing player and out-of-bounds joints", () => {
+    const doc = machineFixture();
+    doc.entities = doc.entities.filter((entity) => entity.kind !== "player");
+    expect(codes(sanityCheck(doc))).toContain("no-player");
+
+    const bounded = machineFixture();
+    const link = bounded.entities.find((entity) => entity.id === "arm-link");
+    if (link) link.position = [40, 1.2, 0];
+    expect(codes(sanityCheck(bounded))).toContain("out-of-bounds");
+  });
+});
+
 describe("sanityCheck — new interaction action refs", () => {
   test("reports unknown entities for setVisible, setColor, animate and panels", () => {
     const doc = docWith({});

@@ -75,6 +75,66 @@ describe("kit few-shots are playable in the engine", () => {
     expect(door?.position[0]).toBeGreaterThan(before[0] + 1);
   });
 
+  test("machine: sliders drive joints, the grip toggle flips and WAVE animates", () => {
+    const engine = createEngine();
+    engine.load(ARCHETYPE_EXAMPLES.machine);
+
+    const slider = ARCHETYPE_EXAMPLES.machine.controls?.find(
+      (control) => control.id === "shoulder"
+    );
+    expect(slider?.bind?.entity).toBe("arm-shoulder");
+    const min = slider?.min ?? -1;
+    const max = slider?.max ?? 1;
+    const scale = slider?.bind?.scale ?? 1;
+
+    let previous = Number.NaN;
+    for (const value of [min, min + (max - min) / 2, max]) {
+      engine.setControl("shoulder", value);
+      const state = engine.step(16.666);
+      const rotation = state.entityRuntime["arm-shoulder"]?.rotation?.[2];
+      expect(Number.isFinite(rotation)).toBe(true);
+      expect(rotation).toBeCloseTo(value * scale, 6);
+      if (Number.isFinite(previous)) {
+        expect((rotation as number) - previous).toBeGreaterThan(0);
+      }
+      previous = rotation as number;
+    }
+
+    const closed = engine.getState().entityRuntime["arm-grip"]?.rotation?.[2] ?? 0;
+    engine.setControl("grip", 1);
+    const opened = engine.step(16.666).entityRuntime["arm-grip"]?.rotation?.[2] ?? 0;
+    expect(Math.abs(opened - closed)).toBeGreaterThan(0.1);
+    engine.setControl("grip", 0);
+    const reclosed =
+      engine.step(16.666).entityRuntime["arm-grip"]?.rotation?.[2] ?? 0;
+    expect(reclosed).toBeCloseTo(closed, 6);
+
+    engine.pressControl("wave");
+    const waved = engine.step(16.666);
+    expect(
+      waved.entityRuntime["arm-grip"]?.animations.some(
+        (animation) => animation.kind === "bob"
+      )
+    ).toBe(true);
+    expect(waved.scratch.waved).toBe(1);
+
+    engine.pressControl("home");
+    const homed = engine.step(16.666);
+    expect(homed.scratch.homed).toBe(1);
+  });
+
+  test("machine: clicking a labeled part frames it and opens its panel", () => {
+    const engine = createEngine();
+    engine.load(ARCHETYPE_EXAMPLES.machine);
+
+    engine.pushEvent({ type: "click", targetId: "arm-grip" });
+    const state = engine.step(16.666);
+    expect(state.ui.focus).toBe("arm-grip");
+    const panel = state.ui.panels.find((item) => item.entity === "arm-grip");
+    expect(panel?.title.length).toBeGreaterThan(0);
+    expect(panel?.body.length).toBeGreaterThan(0);
+  });
+
   test("drive: throttle straight down the road wins the race", () => {
     const engine = createEngine();
     engine.load(ARCHETYPE_EXAMPLES.drive);

@@ -195,7 +195,9 @@ function kitFail(kit: GameMode, failure: string): KitCheck {
  * sanity kit gates and add the soft explore no-zones rule:
  * inspect: >=1 entity with parts or a label + >=1 click rule;
  * walkthrough: player + >=1 interactable; drive: vehicle + >=3 checkpoint
- * zones + a win path; game: a win path; explore: no zones.
+ * zones + a win path; machine: a bound slider, resolvable binds, a toggle, an
+ * animate button and clickable labeled panels; game: a win path; explore: no
+ * zones.
  */
 function kitCheck(doc: GameDoc): KitCheck {
   const kit = resolveKit(doc);
@@ -232,6 +234,51 @@ function kitCheck(doc: GameDoc): KitCheck {
       );
       if (checkpoints.length < 3) return kitFail(kit, "DRIVE_CHECKPOINTS_LT3");
       if (!hasWinPath(doc)) return kitFail(kit, "DRIVE_NO_WIN");
+      return kitOk(kit);
+    }
+    case "machine": {
+      const controls = doc.controls ?? [];
+      const ids = new Set(doc.entities.map((entity) => entity.id));
+      if (
+        !controls.some(
+          (control) =>
+            control.type === "slider" &&
+            control.bind?.entity !== undefined &&
+            control.bind.property !== undefined
+        )
+      ) {
+        return kitFail(kit, "MACHINE_NO_SLIDER_BIND");
+      }
+      if (
+        controls.some(
+          (control) =>
+            control.bind?.entity !== undefined && !ids.has(control.bind.entity)
+        )
+      ) {
+        return kitFail(kit, "MACHINE_UNKNOWN_BIND");
+      }
+      if (!controls.some((control) => control.type === "toggle")) {
+        return kitFail(kit, "MACHINE_NO_TOGGLE");
+      }
+      if (
+        !controls.some(
+          (control) =>
+            control.type === "button" &&
+            (control.bind?.onPress ?? []).some((action) => action.type === "animate")
+        )
+      ) {
+        return kitFail(kit, "MACHINE_NO_ANIMATE_BUTTON");
+      }
+      const labeledClick = doc.rules.some(
+        (rule) =>
+          rule.on.event === "click" &&
+          rule.then.some((action) => action.type === "showPanel") &&
+          doc.entities.some(
+            (entity) =>
+              entity.id === rule.on.entity && entity.label !== undefined
+          )
+      );
+      if (!labeledClick) return kitFail(kit, "MACHINE_NO_LABELED_PANEL");
       return kitOk(kit);
     }
     case "explore": {
@@ -698,7 +745,14 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
     (outcome) => outcome.doc?.meta.archetype === "explore"
   );
   const explorable = explored.filter((outcome) => outcome.check?.explorable).length;
-  const kitOrder: readonly GameMode[] = ["inspect", "walkthrough", "drive", "game", "explore"];
+  const kitOrder: readonly GameMode[] = [
+    "inspect",
+    "walkthrough",
+    "drive",
+    "machine",
+    "game",
+    "explore",
+  ];
   const kitCounts = new Map<GameMode, { ok: number; total: number }>();
   for (const outcome of outcomes) {
     const label = outcome.check?.kit.label;

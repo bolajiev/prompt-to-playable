@@ -15,7 +15,12 @@ import type { CorpusEntry } from "../../scripts/eval-corpus.js";
 
 type LlmCall = (prompt: string) => Promise<string>;
 
-const KIT_LABELS: readonly KitArchetype[] = ["inspect", "walkthrough", "drive"];
+const KIT_LABELS: readonly KitArchetype[] = [
+  "inspect",
+  "walkthrough",
+  "drive",
+  "machine",
+];
 
 function integerCheckpoints(doc: GameDoc): number[] {
   return doc.entities
@@ -297,6 +302,116 @@ describe("kit few-shot examples", () => {
     expect(glow?.parts?.length).toBeGreaterThanOrEqual(1);
   });
 
+  test("machine example is an interactive five-axis arm driven by controls", () => {
+    const doc = ARCHETYPE_EXAMPLES.machine;
+    expect(doc.meta.mode).toBe("machine");
+    expect(doc.meta.archetype).toBe("explore");
+    expect(doc.objectives).toEqual([]);
+    expect(requiresWinPath(doc)).toBe(false);
+    expect(doc.entities.length).toBeLessThanOrEqual(14);
+    expect(doc.rules.length).toBeLessThanOrEqual(8);
+    expect(doc.controls?.length ?? 0).toBeLessThanOrEqual(8);
+
+    // Five labeled segments, every one a real part assembly with a flat label.
+    const labels = new Map(
+      doc.entities
+        .filter((entity) => entity.label !== undefined)
+        .map((entity) => [entity.label?.text, entity])
+    );
+    for (const name of ["BASE", "SHOULDER", "ELBOW", "WRIST", "GRIP"]) {
+      const entity = labels.get(name);
+      expect(entity, `${name} segment`).toBeDefined();
+      expect(entity?.label?.flat, `${name} label is flat silkscreen`).toBe(true);
+      expect(entity?.parts?.length, `${name} parts`).toBeGreaterThanOrEqual(1);
+    }
+
+    // Four joint sliders, each driving the rotation of an existing segment.
+    const sliderBinds = (doc.controls ?? [])
+      .filter((control) => control.type === "slider")
+      .map((control) => ({ control, entity: control.bind?.entity, property: control.bind?.property }));
+    expect(sliderBinds).toHaveLength(4);
+    const entityIds = new Set(doc.entities.map((entity) => entity.id));
+    for (const { control, entity, property } of sliderBinds) {
+      expect(entity, `${control.id} binds an entity`).toBeDefined();
+      expect(entityIds.has(String(entity)), `${control.id} target exists`).toBe(true);
+      expect(property, `${control.id} drives a rotation`).toMatch(/^rotation\.[xyz]$/);
+      const scale = Math.abs(control.bind?.scale ?? 1);
+      expect(scale, `${control.id} scale ~1.2`).toBeGreaterThanOrEqual(0.8);
+      expect(scale, `${control.id} scale ~1.2`).toBeLessThanOrEqual(1.7);
+      expect(control.min, `${control.id} min`).toBeDefined();
+      expect(control.max, `${control.id} max`).toBeDefined();
+      expect(control.min as number).toBeLessThan(control.max as number);
+    }
+    const sliderTargets = new Set(sliderBinds.map((entry) => entry.entity));
+    for (const joint of ["arm-base", "arm-shoulder", "arm-elbow", "arm-wrist"]) {
+      expect(sliderTargets.has(joint), `${joint} has a joint slider`).toBe(true);
+    }
+
+    // The grip toggle opens the moving jaw and mirrors its value into scratch.
+    const grip = doc.controls?.find((control) => control.type === "toggle");
+    expect(grip, "grip toggle").toBeDefined();
+    expect(grip?.bind?.entity).toBe("arm-grip");
+    expect(grip?.bind?.property).toBe("rotation.z");
+    expect(grip?.bind?.var).toBe("grip");
+    expect(Math.abs(grip?.bind?.scale ?? 0)).toBeGreaterThan(0);
+
+    // HOME and WAVE run onPress actions: a grip animation and scratch flags.
+    const buttons = (doc.controls ?? []).filter(
+      (control) => control.type === "button"
+    );
+    expect(buttons.length).toBeGreaterThanOrEqual(2);
+    const buttonActions = buttons.flatMap(
+      (control) => control.bind?.onPress ?? []
+    );
+    expect(
+      buttonActions.some(
+        (action) => action.type === "animate" && action.entity === "arm-grip"
+      ),
+      "a button animates the gripper"
+    ).toBe(true);
+    expect(
+      buttonActions.some(
+        (action) => action.type === "setVar" && action.key === "homed"
+      ),
+      "HOME records the homed flag"
+    ).toBe(true);
+    expect(
+      buttonActions.some(
+        (action) => action.type === "setVar" && action.key === "waved"
+      ),
+      "WAVE records the waved flag"
+    ).toBe(true);
+
+    // Three labeled parts open "what it does" panels and frame themselves.
+    const panelRules = doc.rules.filter((rule) =>
+      rule.then.some((action) => action.type === "showPanel")
+    );
+    expect(panelRules).toHaveLength(3);
+    for (const rule of panelRules) {
+      expect(rule.on.event).toBe("click");
+      const target = doc.entities.find((entity) => entity.id === rule.on.entity);
+      expect(target?.label, `${rule.id} clicks a labeled part`).toBeDefined();
+      const first = rule.then[0];
+      expect(first?.type, `${rule.id} frames the part first`).toBe("cameraFocus");
+      const panel = rule.then.find((action) => action.type === "showPanel");
+      expect(panel?.type === "showPanel" && panel.title.length).toBeTruthy();
+      expect(panel?.type === "showPanel" && panel.body.length).toBeTruthy();
+    }
+
+    // Joint pivots sit above the ground and segments extend away from them.
+    for (const id of ["arm-base", "arm-shoulder", "arm-elbow", "arm-wrist"]) {
+      const entity = doc.entities.find((item) => item.id === id);
+      expect(entity, id).toBeDefined();
+      if (!entity) continue;
+      expect(entity.position[1], `${id} pivot height`).toBeGreaterThanOrEqual(0);
+      const reach = (entity.parts ?? []).reduce(
+        (max, part) => Math.max(max, Math.hypot(...(part.offset ?? [0, 0, 0]))),
+        0
+      );
+      expect(reach, `${id} geometry extends from its pivot`).toBeGreaterThan(0.3);
+    }
+  });
+
   test("drive example is a winnable, ordered checkpoint race", () => {
     const doc = ARCHETYPE_EXAMPLES.drive;
     expect(doc.meta.mode).toBe("drive");
@@ -386,6 +501,7 @@ describe("buildGenerationPrompt kit catalogs", () => {
       ["inspect", "Budget: at most 14 entities and 8 rules"],
       ["walkthrough", "Budget: at most 16 entities and 10 rules"],
       ["drive", "Budget: at most 14 entities and 10 rules"],
+      ["machine", "Budget: at most 14 entities, 8 rules and 8 controls"],
       ["explore", "Budget: at most 14 entities and 6 rules"],
       ["collect-a-thon", "Budget: at most 14 entities and 8 rules"],
       ["puzzle-switch", "Budget: at most 14 entities and 8 rules"],
@@ -416,6 +532,31 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain("The race must be winnable through its rules.");
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.drive, null, 2));
     expect(text).not.toContain("MUST be an empty array: []");
+  });
+
+  test("machine prompt teaches joint pivots, binds, labels and panels", () => {
+    const text = buildGenerationPrompt(
+      "a robotic arm with joint sliders I can control",
+      "machine"
+    );
+    expect(text).toContain('"mode": "machine"');
+    expect(text).toContain('"controls"');
+    expect(text).toContain("rotation.z");
+    expect(text).toContain('"scale"');
+    expect(text).toContain("onPress");
+    expect(text).toContain('"toggle"');
+    expect(text).toContain('"button"');
+    expect(text).toContain("showPanel");
+    expect(text).toContain("cameraFocus");
+    expect(text).toContain('"flat": true');
+    expect(text).toContain("controlPressed");
+    expect(text).toContain("rotates about its entity origin");
+    expect(text).toContain("AT its pivot");
+    expect(text).toContain("Budget: at most 14 entities, 8 rules and 8 controls");
+    expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.machine, null, 2));
+    expect(text).toContain("MUST be an empty array: []");
+    expect(text).not.toContain("The game must be winnable through its rules alone.");
+    expect(text).not.toContain("The race must be winnable through its rules.");
   });
 
   test("game and explore prompts keep their existing requirements", () => {
@@ -464,6 +605,12 @@ describe("eval-corpus mock kit coverage", () => {
       archetype: "drive",
       title: "Mock Race",
     },
+    {
+      id: "mock-machine",
+      prompt: "a robotic arm with joint sliders I can control",
+      archetype: "machine",
+      title: "Mock Arm",
+    },
   ];
 
   test("builds kit documents that pass the full evaluation harness", async () => {
@@ -472,6 +619,7 @@ describe("eval-corpus mock kit coverage", () => {
       "inspect",
       "walkthrough",
       "drive",
+      "machine",
     ]);
     for (const outcome of outcomes) {
       expect(outcome.valid, outcome.id).toBe(true);

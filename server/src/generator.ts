@@ -9,9 +9,9 @@ export { KIT_ARCHETYPES };
 
 /**
  * Schema archetype stored in `meta.archetype` for each classification label.
- * The three kits are not schema archetypes: they are carried in `meta.mode`,
- * with inspect/walkthrough shaped as free-roam "explore" scenes and drive as a
- * goal-shaped "collect-a-thon".
+ * The kits are not schema archetypes: they are carried in `meta.mode`, with
+ * inspect/walkthrough/machine shaped as free-roam "explore" scenes and drive
+ * as a goal-shaped "collect-a-thon".
  */
 export const KIT_SCHEMA_ARCHETYPE: Record<KitArchetype, Archetype> = {
   "collect-a-thon": "collect-a-thon",
@@ -22,6 +22,7 @@ export const KIT_SCHEMA_ARCHETYPE: Record<KitArchetype, Archetype> = {
   inspect: "explore",
   walkthrough: "explore",
   drive: "collect-a-thon",
+  machine: "explore",
 };
 
 function example(raw: Record<string, unknown>): GameDoc {
@@ -1156,6 +1157,287 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
     ],
     scratch: { cp: 0, lap: 0 },
   }),
+  machine: example({
+    version: "1.0.0",
+    meta: {
+      title: "Desk Arm Six",
+      archetype: "explore",
+      mode: "machine",
+      genre: "simulation",
+      difficulty: 0,
+    },
+    world: {
+      bounds: [16, 10, 16],
+      lighting: "indoor",
+      skybox: "lab",
+      terrain: { type: "flat", obstacles: [] },
+    },
+    entities: [
+      { id: "player", kind: "player", name: "Operator", position: [-12, 1, 0] },
+      {
+        id: "arm-base",
+        kind: "prop",
+        name: "Base turret",
+        position: [0, 0.45, 0],
+        size: [3, 0.9, 3],
+        color: "#3a4048",
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [1, 1, 1],
+            color: "#3a4048",
+            material: { metalness: 0.75, roughness: 0.35 },
+          },
+          {
+            shape: "cylinder",
+            offset: [0, 0.6, 0],
+            size: [0.46, 0.5, 0.46],
+            color: "#4cc9f0",
+            material: { metalness: 0.55, roughness: 0.3 },
+          },
+          {
+            shape: "box",
+            offset: [0.3, 0.72, 0],
+            size: [0.4, 0.42, 0.4],
+            color: "#2b2d42",
+            material: { metalness: 0.6, roughness: 0.4 },
+          },
+        ],
+        label: { text: "BASE", flat: true, offset: [0.45, 0.56, 0.55], size: 0.42 },
+      },
+      {
+        id: "arm-shoulder",
+        kind: "prop",
+        name: "Shoulder joint",
+        position: [0, 1.25, 0],
+        size: [1.7, 1.1, 1.7],
+        color: "#4cc9f0",
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [0.8, 0.95, 0.8],
+            color: "#2b8a9e",
+            material: { metalness: 0.6, roughness: 0.4 },
+          },
+          {
+            shape: "capsule",
+            offset: [1, 0.05, 0],
+            size: [0.32, 2.35, 0.32],
+            rotation: [0, 0, 1.5708],
+            color: "#4cc9f0",
+            material: { metalness: 0.7, roughness: 0.3 },
+          },
+        ],
+        label: { text: "SHOULDER", flat: true, offset: [1, 0.6, 0], size: 0.5 },
+      },
+      {
+        id: "arm-elbow",
+        kind: "prop",
+        name: "Elbow joint",
+        position: [3.05, 1.25, 0],
+        size: [1.3, 0.9, 1.3],
+        color: "#f4a261",
+        parts: [
+          {
+            shape: "sphere",
+            offset: [-0.3, 0, 0],
+            size: [0.55, 0.75, 0.55],
+            color: "#ffb703",
+            material: { metalness: 0.5, roughness: 0.4 },
+          },
+          {
+            shape: "capsule",
+            offset: [0.5, 0, 0],
+            size: [0.3, 1.75, 0.3],
+            rotation: [0, 0, 1.5708],
+            color: "#f4a261",
+            material: { metalness: 0.65, roughness: 0.35 },
+          },
+        ],
+        label: { text: "ELBOW", flat: true, offset: [0.5, 0.62, 0], size: 0.45 },
+      },
+      {
+        id: "arm-wrist",
+        kind: "prop",
+        name: "Wrist joint",
+        position: [4.6, 1.25, 0],
+        size: [0.85, 0.85, 0.85],
+        color: "#8ecae6",
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [0.72, 0.8, 0.72],
+            rotation: [0, 0, 1.5708],
+            color: "#8ecae6",
+            material: { metalness: 0.6, roughness: 0.35 },
+          },
+          {
+            shape: "box",
+            offset: [0.75, -0.3, 0],
+            size: [1.1, 0.22, 0.6],
+            color: "#adb5bd",
+            material: { metalness: 0.7, roughness: 0.3 },
+          },
+        ],
+        label: { text: "WRIST", flat: true, offset: [-0.2, 0.6, 0], size: 0.42 },
+      },
+      {
+        id: "arm-grip",
+        kind: "prop",
+        name: "Gripper jaw",
+        position: [4.6, 1.25, 0],
+        size: [0.85, 0.85, 0.85],
+        color: "#e63946",
+        parts: [
+          {
+            shape: "box",
+            offset: [0.75, 0.3, 0],
+            size: [1.1, 0.22, 0.6],
+            color: "#e63946",
+            material: { metalness: 0.65, roughness: 0.35 },
+          },
+        ],
+        label: { text: "GRIP", flat: true, offset: [1.3, 0.6, 0], size: 0.4 },
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "inspect-shoulder",
+        on: { event: "click", entity: "arm-shoulder" },
+        then: [
+          { type: "cameraFocus", entity: "arm-shoulder" },
+          {
+            type: "showPanel",
+            title: "SHOULDER - lift servo",
+            body: "SG90-class metal-gear servo with about 90 degrees of lift either way. It carries the whole upper link, so it is the strongest joint on the rig. Drag the Shoulder slider and watch the link sweep.",
+            entity: "arm-shoulder",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+      {
+        id: "inspect-elbow",
+        on: { event: "click", entity: "arm-elbow" },
+        then: [
+          { type: "cameraFocus", entity: "arm-elbow" },
+          {
+            type: "showPanel",
+            title: "ELBOW - fold servo",
+            body: "Second servo joint, about 69 degrees of bend. It folds the forearm in and out; pair it with the shoulder slider to reach across the work mat.",
+            entity: "arm-elbow",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+      {
+        id: "inspect-grip",
+        on: { event: "click", entity: "arm-grip" },
+        then: [
+          { type: "cameraFocus", entity: "arm-grip" },
+          {
+            type: "showPanel",
+            title: "GRIP - parallel gripper",
+            body: "Two 70 mm jaws on the wrist. The Grip toggle opens and closes the upper jaw to grab small parts; press WAVE to make the gripper bob hello.",
+            entity: "arm-grip",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+    ],
+    controls: [
+      {
+        id: "base-yaw",
+        type: "slider",
+        label: "Base yaw",
+        min: -1,
+        max: 1,
+        step: 0.05,
+        value: 0,
+        bind: { entity: "arm-base", property: "rotation.y", scale: 1.6 },
+      },
+      {
+        id: "shoulder",
+        type: "slider",
+        label: "Shoulder lift",
+        min: -0.7,
+        max: 1.1,
+        step: 0.02,
+        value: 0,
+        bind: { entity: "arm-shoulder", property: "rotation.z", scale: 1.2 },
+      },
+      {
+        id: "elbow",
+        type: "slider",
+        label: "Elbow bend",
+        min: -1,
+        max: 1,
+        step: 0.02,
+        value: 0,
+        bind: { entity: "arm-elbow", property: "rotation.z", scale: 1.2 },
+      },
+      {
+        id: "wrist",
+        type: "slider",
+        label: "Wrist pitch",
+        min: -0.8,
+        max: 0.8,
+        step: 0.02,
+        value: 0,
+        bind: { entity: "arm-wrist", property: "rotation.z", scale: 1.1 },
+      },
+      {
+        id: "grip",
+        type: "toggle",
+        label: "Grip open",
+        value: 0,
+        bind: {
+          entity: "arm-grip",
+          property: "rotation.z",
+          scale: 0.55,
+          var: "grip",
+        },
+      },
+      {
+        id: "home",
+        type: "button",
+        label: "HOME",
+        bind: {
+          onPress: [
+            {
+              type: "animate",
+              entity: "arm-grip",
+              kind: "slide",
+              to: [4.6, 1.25, 0],
+              duration: 600,
+            },
+            { type: "setVar", key: "homed", value: 1 },
+          ],
+        },
+      },
+      {
+        id: "wave",
+        type: "button",
+        label: "WAVE",
+        bind: {
+          onPress: [
+            {
+              type: "animate",
+              entity: "arm-grip",
+              kind: "bob",
+              amplitude: 0.28,
+              speed: 1.4,
+            },
+            { type: "setVar", key: "waved", value: 1 },
+          ],
+        },
+      },
+    ],
+    scratch: { focused: 0, grip: 0, homed: 0, waved: 0 },
+  }),
 };
 
 const GAME_WINNABILITY_BLOCK: readonly string[] = [
@@ -1314,11 +1596,62 @@ const DRIVE_KIT_BLOCK: readonly string[] = [
   "  the route stays clear.",
 ];
 
+const MACHINE_KIT_BLOCK: readonly string[] = [
+  "Machine requirements (machine kit):",
+  '- "meta" MUST carry "mode": "machine" with schema archetype "explore";',
+  '  "objectives" MUST be an empty array: []. No win/lose actions and no trigger',
+  "  zones - the machine is driven live from the on-screen controls.",
+  "- Build a jointed five-axis desktop arm as SEPARATE prop entities, one per",
+  "  moving segment: a cylinder base turret, a shoulder/upper-link prop, a",
+  "  forearm/elbow prop, a wrist prop and a gripper prop. Give every segment",
+  "  composite parts (cylinder/capsule/box/sphere) so it reads as real hardware.",
+  "- Joint rotation: a prop rotates about its entity origin, so put EVERY joint",
+  "  entity position AT its pivot and offset the segment geometry away from the",
+  "  pivot with part offsets (e.g. the shoulder pivot sits at the top of the base",
+  "  and its capsule link extends sideways from offset [1, 0.05, 0]). Chain the",
+  "  pivots so the rest pose is a plausible arm: base at the ground, shoulder on",
+  "  the turret, elbow at the upper link's tip, wrist and gripper at the forearm",
+  "  tip. Never center a rotating segment on itself.",
+  '- Flat silkscreen labels: each of the five segments carries "label": {',
+  '  "text": "BASE"|"SHOULDER"|"ELBOW"|"WRIST"|"GRIP", "flat": true,',
+  '  "offset": [x,y,z], "size": n } so the parts are named like a real rig.',
+  "- Controls: emit an interactive control per joint in the exact shape:",
+  '  { "id": "...", "type": "slider"|"toggle"|"button", "label": "...",',
+  '    "min": n, "max": n, "step": n, "value": n,',
+  '    "bind": { "entity": "<id>", "property": "rotation.x|rotation.y|',
+  '    "rotation.z|position.x|position.y|position.z|visible|color|emissive",',
+  '    "scale": n, "offset": n, "var": "<scratch-key>", "onPress": [ actions ] } }.',
+  "  A slider/toggle binding drives the entity property every tick as",
+  "  property = authored pose + value * scale + offset, so bind the four joint",
+  "  sliders DIRECTLY to the joint entities' rotation.z (or rotation.y for the",
+  '  base yaw) with a scale around +/-1.2 and sensible min/max. Bind the grip',
+  '  toggle to the gripper jaw\'s rotation.z with a modest scale (about 0.5), and',
+  "  mirror it into a scratch var with bind.var so rules could read it.",
+  '- Buttons carry "bind": { "onPress": [ ...actions... ] } using ONLY the',
+  "  actions above. There is no action that writes a slider value back, so HOME",
+  "  and WAVE restore or accent the REST POSE with animate actions instead: WAVE",
+  "  adds { \"type\": \"animate\", \"kind\": \"bob\", ... } on the gripper and HOME adds",
+  "  a slide back to the gripper's rest [x,y,z] position - plus setVar flags",
+  '  ("homed"/"waved") so the press is observable. Document nothing else.',
+  "- Click rules: at least three labeled segments get a rule on",
+  '  {"event":"click","entity":"<id>"} that puts {"type":"cameraFocus"} first,',
+  "  then showPanel with what the part does in plain words (servo size, range,",
+  "  role in the arm), then sets a scratch flag such as \"focused\".",
+  "- Every control and rule id they reference MUST exist; a bind.entity that is",
+  "  not an entity id fails validation, so double-check every id.",
+  "- Budget: at most 14 entities, 8 rules and 8 controls. Keep the arm centered",
+  "  near the origin and spawn the player off to the side (inspect-style), so",
+  "  the orbit camera frames the machine and not the player.",
+  "- Vary the title, colors, materials and label copy instead of copying the",
+  "  example verbatim - keep the exact structural vocabulary.",
+];
+
 function kitRequirementsBlock(archetype: KitArchetype): readonly string[] {
   if (archetype === "explore") return EXPLORE_KIT_BLOCK;
   if (archetype === "inspect") return INSPECT_KIT_BLOCK;
   if (archetype === "walkthrough") return WALKTHROUGH_KIT_BLOCK;
   if (archetype === "drive") return DRIVE_KIT_BLOCK;
+  if (archetype === "machine") return MACHINE_KIT_BLOCK;
   return GAME_WINNABILITY_BLOCK;
 }
 
@@ -1327,7 +1660,8 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
   const isInspect = archetype === "inspect";
   const isWalkthrough = archetype === "walkthrough";
   const isDrive = archetype === "drive";
-  const isFreeRoamKit = isExplore || isInspect || isWalkthrough;
+  const isMachine = archetype === "machine";
+  const isFreeRoamKit = isExplore || isInspect || isWalkthrough || isMachine;
   const schemaArchetype = KIT_SCHEMA_ARCHETYPE[archetype];
 
   return [
@@ -1337,9 +1671,11 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
         ? `Design a complete, walkable 3D interior that fits the "${archetype}" kit.`
         : isDrive
           ? `Design a complete, drivable racing game that fits the "${archetype}" kit.`
-          : isExplore
-            ? `Design a complete, explorable 3D scene that fits the "${archetype}" archetype.`
-            : `Design a complete, playable game that fits the "${archetype}" archetype.`,
+          : isMachine
+            ? `Design a complete, interactive 3D machine that fits the "${archetype}" kit.`
+            : isExplore
+              ? `Design a complete, explorable 3D scene that fits the "${archetype}" archetype.`
+              : `Design a complete, playable game that fits the "${archetype}" archetype.`,
     isFreeRoamKit
       ? "It uses the same JSON document shape but has NO objectives, NO trigger zones"
       : "",
@@ -1348,7 +1684,9 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
         ? "and no win or lose condition: the player clicks and studies the parts."
         : isWalkthrough
           ? "and no win or lose condition: the player walks the interior in first person."
-          : "and no win or lose condition: the player simply roams a small, atmospheric place."
+          : isMachine
+            ? "and no win or lose condition: the player drives the machine with the on-screen controls."
+            : "and no win or lose condition: the player simply roams a small, atmospheric place."
       : "",
     ...(isInspect
       ? [
@@ -1360,12 +1698,18 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
             "It is a first-person interior walk: a room of separate solid wall",
             "props with a door and a lamp the player can open and toggle.",
           ]
-        : []),
+        : isMachine
+          ? [
+              "It is an interactive machine: a jointed five-axis arm built from labeled",
+              "part assemblies, with click rules that explain each part and on-screen",
+              "sliders, a toggle and buttons that drive the joints live.",
+            ]
+          : []),
     "",
     "Respond with ONLY one JSON object - no markdown fences, no commentary -",
     "with exactly this shape:",
     `- "version": "${SCHEMA_VERSION}" (exact string)`,
-    ...(isInspect || isWalkthrough || isDrive
+    ...(isInspect || isWalkthrough || isDrive || isMachine
       ? [
           `- "meta": { "title": non-empty string, "archetype": "${schemaArchetype}"`,
           `  (exact string), "mode": "${archetype}" (exact string), optional`,
@@ -1411,6 +1755,13 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
       ? `  For the "${archetype}" kit this array MUST be an empty array: []`
       : "",
     '- "rules": array of { "id", "on": { "event": ... }, optional "if", "then": [...] }',
+    ...(isMachine
+      ? [
+          '- "controls": array of interactive controls (see the machine requirements',
+          '  above for the exact shape: id/type/label/min/max/step/value/bind with',
+          '  optional entity, property, scale, offset, var and onPress)',
+        ]
+      : []),
     '- "scratch": object of string|number|boolean values (may be empty)',
     "",
     "Prefer readable, well-formed JSON: keep names, labels and props meaningful.",
@@ -1419,6 +1770,12 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
     '  {"event":"playerEnter","zone":"<zone-id>"}   fired when the player enters a zone',
     '  {"event":"interact","entity":"<id>"}         fired when the player presses interact near the entity',
     '  {"event":"click","entity":"<id>"}            fired when the player clicks the entity',
+    ...(isMachine
+      ? [
+          '  {"event":"controlPressed","entity":"<control-id>"}  fired when a control',
+          "  button is pressed (controls also run their own bind.onPress actions)",
+        ]
+      : []),
     '  {"event":"hoverEnter","entity":"<id>"} / {"event":"hoverLeave","entity":"<id>"}',
     '  {"event":"enemyContact","entity":"<enemy-id>"}',
     '  {"event":"objectiveProgress"|"objectiveComplete"|"objectiveFailed","objective":"<objective-id>"}',
@@ -1471,7 +1828,9 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
         ? "Layout - interior:"
         : isDrive
           ? "Layout - track:"
-          : "Layout - open ground:",
+          : isMachine
+            ? "Layout - workbench:"
+            : "Layout - open ground:",
     "- Every position and patrol point must lie inside world.bounds.",
     '- Unless the user explicitly asks for obstacles or cover, use "terrain": { "type": "flat", "obstacles": [] }.',
     ...(isExplore
@@ -1498,10 +1857,18 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
                 "- Keep the road and every checkpoint clear of obstacles so the whole",
                 "  circuit is drivable; the player spawn belongs before the first gate.",
               ]
-            : [
-                "- If obstacles are requested, keep them well clear of the straight line between",
-                "  the player spawn and every objective target; targets must be reachable on foot.",
-              ]),
+            : isMachine
+              ? [
+                  "- Center the arm near the origin on the flat ground; keep the five",
+                  "  joint pivots on one tidy line so the rest pose reads as a real arm.",
+                  "- Spawn the player off to the side (for example x = -12) instead of in",
+                  "  front of the arm, and keep every entity and joint pivot well inside",
+                  "  the world bounds even at the sliders' extremes.",
+                ]
+              : [
+                  "- If obstacles are requested, keep them well clear of the straight line between",
+                  "  the player spawn and every objective target; targets must be reachable on foot.",
+                ]),
     "",
     `Few-shot example for the "${archetype}" archetype`,
     "(structure and quality target - do not copy verbatim):",

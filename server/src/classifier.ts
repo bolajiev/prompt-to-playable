@@ -8,15 +8,16 @@ export const EXPLORE_ARCHETYPE: Archetype = "explore";
 
 /**
  * Every label the classifier may return: the five schema archetypes plus the
- * three interactive kits. Kit labels are not schema archetypes - generated
- * documents carry them in `meta.mode` while `meta.archetype` stays a schema
- * value (inspect/walkthrough -> "explore", drive -> "collect-a-thon").
+ * interactive kits. Kit labels are not schema archetypes - generated documents
+ * carry them in `meta.mode` while `meta.archetype` stays a schema value
+ * (inspect/walkthrough/machine -> "explore", drive -> "collect-a-thon").
  */
 export const KIT_ARCHETYPES = [
   ...ARCHETYPES,
   "inspect",
   "walkthrough",
   "drive",
+  "machine",
 ] as const;
 export type KitArchetype = (typeof KIT_ARCHETYPES)[number];
 
@@ -64,6 +65,22 @@ const INSPECT_PATTERN =
 const DRIVE_PATTERN = /\b(race|racing|track|car|kart|lap|rally|driving)\b/;
 
 /**
+ * Machine cues: a jointed mechanism the player drives with sliders, toggles
+ * and buttons. "machine" is the generic cue; "engine", "gadget", "blueprint"
+ * and the like stay with the inspect kit (see INSPECT_OBJECT_PATTERN).
+ */
+const MACHINE_PATTERN =
+  /\b(robot|robotic|robotics|arm|machine|crane|conveyor|turret|joint|servo|manipulator|gantry)\b/;
+
+/**
+ * Technical-object cues that keep a prompt in the inspect kit even when it
+ * names a machine. "a machine engine blueprint the user can study" is a
+ * clickable study object, not a drivable machine.
+ */
+const INSPECT_OBJECT_PATTERN =
+  /\b(pcb|circuit|board|blueprint|engine|gadget|device|product|viewer)\b/;
+
+/**
  * Explicit walkthrough cues: movement language that only makes sense when the
  * user wants to walk around inside the place.
  */
@@ -96,6 +113,26 @@ export function isInspectPrompt(prompt: string): boolean {
 /** Deterministic drive detector for the classifier fallback path. */
 export function isDrivePrompt(prompt: string): boolean {
   return DRIVE_PATTERN.test((prompt ?? "").toLowerCase());
+}
+
+/**
+ * Deterministic machine detector for the classifier fallback path. Machine
+ * prompts describe an interactive, free-roam mechanism (robot arm, crane,
+ * turret rig) rather than a goal game: prompts that state a goal, name a
+ * technical study object (PCB, engine, blueprint) or ask to walk through a
+ * place stay with their own kits.
+ *
+ * Machine is evaluated before inspect so "an interactive machine with servo
+ * joints" reaches the machine kit despite the generic word "machine"; the
+ * inspect-object gate keeps "a machine engine blueprint" an inspect showcase.
+ */
+export function isMachinePrompt(prompt: string): boolean {
+  const text = (prompt ?? "").toLowerCase();
+  if (GOAL_PATTERN.test(text)) return false;
+  if (INSPECT_OBJECT_PATTERN.test(text)) return false;
+  if (DRIVE_PATTERN.test(text)) return false;
+  if (WALKTHROUGH_VERB_PATTERN.test(text)) return false;
+  return MACHINE_PATTERN.test(text);
 }
 
 /**
@@ -136,6 +173,9 @@ export function buildClassifierPrompt(prompt: string): string {
     "  house, apartment, building or museum tour, room walk or walk-through.",
     '- "drive": a driving or racing experience - race, racing, rally, car, kart,',
     "  laps or a track.",
+    '- "machine": an interactive machine the player drives with on-screen controls -',
+    "  a robot or robotic arm, crane, conveyor, turret, servo or jointed rig with",
+    "  joint sliders, a grip toggle and clickable labeled parts.",
     "",
     "Rules:",
     "- Respond with ONLY the archetype string.",
@@ -144,6 +184,8 @@ export function buildClassifierPrompt(prompt: string): string {
     '- If the prompt describes a clickable object to study, choose "inspect".',
     '- If the prompt describes a place to walk through, choose "walkthrough".',
     '- If the prompt involves driving, racing, laps or a track, choose "drive".',
+    '- If the prompt describes an interactive machine with sliders, toggles or',
+    '  buttons that move its joints, choose "machine".',
     `- If the prompt is unclear, choose "${DEFAULT_ARCHETYPE}".`,
     "",
     "Few-shot examples:",
@@ -155,6 +197,7 @@ export function buildClassifierPrompt(prompt: string): string {
     '- "a 3D PCB I can click and inspect" -> inspect',
     '- "a house I can walk through" -> walkthrough',
     '- "a car racing game with 3 laps" -> drive',
+    '- "a robotic arm with joint sliders I can control" -> machine',
     "",
     "Game design prompt:",
     prompt,
@@ -172,6 +215,7 @@ export function parseArchetype(raw: string, prompt?: string): KitArchetype {
     }
   }
   if (prompt !== undefined) {
+    if (isMachinePrompt(prompt)) return "machine";
     if (isInspectPrompt(prompt)) return "inspect";
     if (isDrivePrompt(prompt)) return "drive";
     if (isWalkthroughPrompt(prompt)) return "walkthrough";

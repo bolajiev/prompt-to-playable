@@ -2,12 +2,13 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { validateGame } from "@prompt-to-playable/schema";
-import type { Archetype, Vec3 } from "@prompt-to-playable/schema";
+import type { Archetype, GameMode, Vec3 } from "@prompt-to-playable/schema";
 import type { LlmCall } from "../server/src/llm.js";
 import {
   isDrivePrompt,
   isExplorePrompt,
   isInspectPrompt,
+  isMachinePrompt,
   isWalkthroughPrompt,
 } from "../server/src/classifier.js";
 import type { KitArchetype } from "../server/src/classifier.js";
@@ -85,6 +86,7 @@ const ARCHETYPE_SET = new Set<KitArchetype>([
   "inspect",
   "walkthrough",
   "drive",
+  "machine",
 ]);
 
 function asArchetype(value: unknown, context: string): KitArchetype {
@@ -183,6 +185,7 @@ const DIFFICULTY: Record<KitArchetype, number> = {
   inspect: 0,
   walkthrough: 0,
   drive: 0.6,
+  machine: 0,
 };
 
 /** Schema archetype stored in meta.archetype for every classification label. */
@@ -195,12 +198,14 @@ const SCHEMA_ARCHETYPE: Record<KitArchetype, Archetype> = {
   inspect: "explore",
   walkthrough: "explore",
   drive: "collect-a-thon",
+  machine: "explore",
 };
 
-const KIT_MODE: Partial<Record<KitArchetype, "inspect" | "walkthrough" | "drive">> = {
+const KIT_MODE: Partial<Record<KitArchetype, GameMode>> = {
   inspect: "inspect",
   walkthrough: "walkthrough",
   drive: "drive",
+  machine: "machine",
 };
 
 function metaOf(entry: CorpusEntry): Record<string, unknown> {
@@ -1014,6 +1019,102 @@ function driveDoc(entry: CorpusEntry): Record<string, unknown> {
   };
 }
 
+function machineDoc(entry: CorpusEntry): Record<string, unknown> {
+  return {
+    version: "1.0.0",
+    meta: metaOf(entry),
+    world: { bounds: [16, 10, 16], lighting: "indoor", skybox: "lab" },
+    entities: [
+      { id: "player", kind: "player", name: "Operator", position: [-12, 1, 0] },
+      {
+        id: "arm-base",
+        kind: "prop",
+        name: "Base turret",
+        position: [0, 0.4, 0],
+        size: [2.6, 0.8, 2.6],
+        color: "#3a4048",
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [1, 1, 1],
+            color: "#3a4048",
+            material: { metalness: 0.7, roughness: 0.4 },
+          },
+        ],
+        label: { text: "BASE", flat: true, offset: [0, 0.58, 0.5], size: 0.4 },
+      },
+      {
+        id: "arm-link",
+        kind: "prop",
+        name: "Upper link",
+        position: [0, 1.2, 0],
+        size: [1.7, 1.1, 1.7],
+        color: "#4cc9f0",
+        parts: [
+          {
+            shape: "capsule",
+            offset: [1, 0.05, 0],
+            size: [0.3, 2.2, 0.3],
+            rotation: [0, 0, 1.5708],
+            color: "#4cc9f0",
+            material: { metalness: 0.7, roughness: 0.3 },
+          },
+        ],
+        label: { text: "SHOULDER", flat: true, offset: [1, 0.6, 0], size: 0.45 },
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "inspect-link",
+        on: { event: "click", entity: "arm-link" },
+        then: [
+          { type: "cameraFocus", entity: "arm-link" },
+          {
+            type: "showPanel",
+            title: "SHOULDER",
+            body: "Lift servo that swings the whole upper link.",
+            entity: "arm-link",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+    ],
+    controls: [
+      {
+        id: "shoulder",
+        type: "slider",
+        label: "Shoulder lift",
+        min: -1,
+        max: 1,
+        step: 0.05,
+        value: 0,
+        bind: { entity: "arm-link", property: "rotation.z", scale: 1.2 },
+      },
+      {
+        id: "grip",
+        type: "toggle",
+        label: "Grip open",
+        value: 0,
+        bind: { entity: "arm-link", property: "visible", var: "grip" },
+      },
+      {
+        id: "wave",
+        type: "button",
+        label: "WAVE",
+        bind: {
+          onPress: [
+            { type: "animate", entity: "arm-link", kind: "bob", amplitude: 0.2, speed: 1.5 },
+            { type: "setVar", key: "waved", value: 1 },
+          ],
+        },
+      },
+    ],
+    scratch: { promptId: entry.id, grip: 0 },
+  };
+}
+
 export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
   switch (entry.archetype) {
     case "collect-a-thon":
@@ -1032,6 +1133,8 @@ export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
       return walkthroughDoc(entry);
     case "drive":
       return driveDoc(entry);
+    case "machine":
+      return machineDoc(entry);
   }
 }
 
@@ -1042,6 +1145,9 @@ const GENERATE_PROMPT_START = "Player prompt:";
 const GENERATE_PROMPT_END = "\n\nReturn JSON:";
 
 export function classifyByKeywords(prompt: string): KitArchetype {
+  if (isMachinePrompt(prompt)) {
+    return "machine";
+  }
   if (isInspectPrompt(prompt)) {
     return "inspect";
   }

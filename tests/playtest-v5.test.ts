@@ -4,7 +4,15 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { FIXED_DT_MS, createEngine } from "@prompt-to-playable/engine";
 import type { Engine } from "@prompt-to-playable/engine";
-import type { Action, Entity, GameDoc, Vec3 } from "@prompt-to-playable/schema";
+import type {
+  Action,
+  Control,
+  Entity,
+  GameDoc,
+  Vec3,
+} from "@prompt-to-playable/schema";
+import { validateGame } from "@prompt-to-playable/schema";
+import { sanityCheck } from "../server/src/sanity.js";
 
 const FIXTURE_DIR = join(dirname(fileURLToPath(import.meta.url)), "fixtures");
 
@@ -46,6 +54,37 @@ function clickableLabeledEntities(doc: GameDoc): Entity[] {
         (rule) => rule.on.event === "click" && rule.on.entity === entity.id
       )
   );
+}
+
+type Axis = 0 | 1 | 2;
+
+function rotationAxisOf(property: string): Axis {
+  if (property === "rotation.x") return 0;
+  if (property === "rotation.z") return 2;
+  return 1;
+}
+
+/** Live value of whatever a control drives: scratch var, or entity property. */
+function boundControlValue(
+  state: ReturnType<Engine["getState"]>,
+  control: Control
+): unknown {
+  const bind = control.bind;
+  if (!bind) return undefined;
+  if (bind.var !== undefined) {
+    const value = state.scratch[bind.var];
+    if (value !== undefined) return value;
+  }
+  if (bind.entity === undefined || bind.property === undefined) return undefined;
+  const runtime = state.entityRuntime[bind.entity];
+  if (!runtime) return undefined;
+  if (bind.property === "visible") return runtime.visible;
+  if (bind.property === "color") return runtime.color;
+  if (bind.property === "emissive") return runtime.emissive;
+  const axis = rotationAxisOf(bind.property);
+  return bind.property.startsWith("rotation.")
+    ? runtime.rotation?.[axis]
+    : runtime.position[axis];
 }
 
 function pickDoor(doc: GameDoc): Entity | undefined {
@@ -322,5 +361,130 @@ describe("live kit fixtures are playable offline", () => {
     expect(state.objectives.find((item) => item.id === objective.id)?.status).toBe(
       "done"
     );
+  });
+
+  test("machine: sliders sweep joints, the grip toggle flips, WAVE animates and parts open panels", () => {
+    const doc = loadFixture("kit-machine.json");
+    expect(doc.meta.archetype).toBe("explore");
+    expect(doc.meta.mode).toBe("machine");
+    expect(validateGame(doc).ok).toBe(true);
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(doc.objectives).toEqual([]);
+
+    const controls = doc.controls ?? [];
+    expect(controls.length).toBeGreaterThanOrEqual(4);
+    expect(controls.length).toBeLessThanOrEqual(8);
+
+    const engine = createEngine();
+    engine.load(doc);
+
+    // 1. Sweep a joint slider min -> max: the bound rotation changes
+    // monotonically and stays finite.
+    const sliders = controls.filter(
+      (control) =>
+        control.type === "slider" &&
+        control.bind?.entity !== undefined &&
+        (control.bind.property ?? "").startsWith("rotation.")
+    );
+    expect(sliders.length).toBeGreaterThan(0);
+    const slider =
+      sliders.find(
+        (control) => control.min !== undefined && control.max !== undefined
+      ) ?? sliders[0];
+    const sliderEntity = String(slider.bind?.entity);
+    const axis = rotationAxisOf(String(slider.bind?.property));
+    const scale = slider.bind?.scale ?? 1;
+    const min = slider.min ?? -1;
+    const max = slider.max ?? 1;
+    expect(min).toBeLessThan(max);
+
+    const samples: number[] = [];
+    let previous = Number.NaN;
+    for (let step = 0; step <= 6; step += 1) {
+      const value = min + ((max - min) * step) / 6;
+      engine.setControl(slider.id, value);
+      const state = engine.step(FIXED_DT_MS);
+      const runtime = state.entityRuntime[sliderEntity];
+      expect(runtime, `${slider.id} target ${sliderEntity}`).toBeDefined();
+      const rotation = runtime?.rotation?.[axis];
+      expect(Number.isFinite(rotation)).toBe(true);
+      samples.push(rotation as number);
+      if (Number.isFinite(previous)) {
+        const delta = ((rotation as number) - previous) * Math.sign(scale || 1);
+        expect(
+          delta,
+          `${slider.id} rotation moves monotonically as the slider sweeps`
+        ).toBeGreaterThanOrEqual(-1e-9);
+      }
+      previous = rotation as number;
+    }
+    expect(
+      Math.abs(samples[samples.length - 1] - samples[0]),
+      `${slider.id} sweep changes the joint angle`
+    ).toBeGreaterThan(0.2);
+
+    // 2. Flip the grip toggle: its bound property flips, and flips back.
+    const toggle = controls.find((control) => control.type === "toggle");
+    expect(toggle, "machine needs a grip toggle").toBeDefined();
+    if (toggle) {
+      const closed = boundControlValue(engine.getState(), toggle);
+      engine.setControl(toggle.id, 1);
+      const opened = boundControlValue(engine.step(FIXED_DT_MS), toggle);
+      expect(opened, `${toggle.id} opens something`).not.toEqual(closed);
+      engine.setControl(toggle.id, 0);
+      const reclosed = boundControlValue(engine.step(FIXED_DT_MS), toggle);
+      expect(reclosed).toEqual(closed);
+    }
+
+    // 3. Press WAVE: the button's animate action lands on its target entity.
+    const wave = controls.find(
+      (control) =>
+        control.type === "button" &&
+        (control.bind?.onPress ?? []).some((action) => action.type === "animate")
+    );
+    expect(wave, "machine needs a button that animates").toBeDefined();
+    if (wave) {
+      const animation = (wave.bind?.onPress ?? []).find(
+        (action) => action.type === "animate"
+      );
+      engine.pressControl(wave.id);
+      const state = engine.step(FIXED_DT_MS);
+      expect(
+        state.events.some(
+          (event) => event.type === "controlPressed" && event.controlId === wave.id
+        )
+      ).toBe(true);
+      if (animation?.type === "animate") {
+        expect(
+          state.entityRuntime[animation.entity]?.animations.some(
+            (entry) => entry.kind === animation.kind
+          ),
+          `${wave.id} starts a ${animation.kind} animation on ${animation.entity}`
+        ).toBe(true);
+      }
+    }
+
+    // 4. Click a labeled part with a click rule: a panel appears.
+    const candidates = clickableLabeledEntities(doc);
+    expect(candidates.length).toBeGreaterThan(0);
+    const panelRule = doc.rules.find(
+      (rule) =>
+        rule.on.event === "click" &&
+        rule.then.some((action) => action.type === "showPanel") &&
+        doc.entities.some(
+          (entity) => entity.id === rule.on.entity && entity.label !== undefined
+        )
+    );
+    expect(panelRule, "machine needs a labeled part with a panel rule").toBeDefined();
+    if (panelRule?.on.entity) {
+      engine.pushEvent({ type: "click", targetId: panelRule.on.entity });
+      const state = engine.step(FIXED_DT_MS);
+      const panel = state.ui.panels.find(
+        (item) => item.entity === panelRule.on.entity
+      );
+      expect(panel, `clicking ${panelRule.on.entity} opens its panel`).toBeDefined();
+      expect(panel?.title.length ?? 0).toBeGreaterThan(0);
+      expect(panel?.body.length ?? 0).toBeGreaterThan(0);
+    }
   });
 });

@@ -65,6 +65,14 @@ function kitNote(doc: unknown): string[] {
       "in order, and keep a rule whose actions include a win.",
     ];
   }
+  if (profile.mode === "machine") {
+    return [
+      "Kit note (machine): keep objectives empty, never add zones or win/lose",
+      "actions; keep at least one slider whose bind.entity and bind.property",
+      "name an existing entity, keep every bind.entity real, and keep the",
+      "clickable labeled parts with their showPanel rules.",
+    ];
+  }
   if (profile.archetype === "explore") {
     return [
       "Kit note (explore): keep objectives empty, never add zone entities or",
