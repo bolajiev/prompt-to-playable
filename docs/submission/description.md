@@ -1,6 +1,6 @@
 # Prompt-to-Playable Game
 
-**Live demo:** https://prompt-to-playable-steel.vercel.app
+**Landing page:** https://prompt-to-playable-steel.vercel.app · **Studio:** https://prompt-to-playable-steel.vercel.app/app.html
 **Repo:** https://github.com/bolajiev/prompt-to-playable
 **Demo video (66 s, captioned):** `docs/submission/demo.mp4`
 
@@ -84,7 +84,7 @@ Three of the captured 2026-10-12 documents are auto-won by input-only steering i
 
 ## Links
 
-- **Live demo:** https://prompt-to-playable-steel.vercel.app
+- **Landing page:** https://prompt-to-playable-steel.vercel.app · **Studio:** https://prompt-to-playable-steel.vercel.app/app.html
 - **Repository:** https://github.com/bolajiev/prompt-to-playable
 - **Demo video (66 s, captioned):** `docs/submission/demo.mp4`
 - **Deployment guide:** `docs/deployment.md`

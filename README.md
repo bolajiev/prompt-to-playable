@@ -1,6 +1,10 @@
 # Prompt-to-Playable Game
 
-**Live demo:** https://prompt-to-playable-steel.vercel.app · **Repo:** https://github.com/bolajiev/prompt-to-playable
+**Landing page:** https://prompt-to-playable-steel.vercel.app · **Studio:** https://prompt-to-playable-steel.vercel.app/app.html · **Repo:** https://github.com/bolajiev/prompt-to-playable
+
+<p>
+  <img src="apps/web/public/shots/pcb.jpg" alt="Inspect kit: a generated PCB with silkscreen labels and click-to-learn info panels" width="640" />
+</p>
 
 Turn a plain-language prompt into a playable 3D browser game with **working logic** — then keep shaping it by chatting: *"add a second guard and a timer"*, *"raise the platforms"*, *"make the door open on a pressure plate"*.
 
