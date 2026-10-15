@@ -499,6 +499,31 @@ describe("resolveCameraMode", () => {
     expect(boxes[1]?.position).toEqual([3, 2, 0]);
     expect(boxes[1]?.size).toEqual([2, 4, 2]);
   });
+
+  test("part entity boxes honor resolved world positions for parented joints", () => {
+    const shoulder = {
+      id: "arm-shoulder",
+      kind: "prop",
+      parent: "arm-base",
+      attach: [0, 1.2, 0],
+      position: [0, 0, 0],
+      parts: [{ shape: "capsule", offset: [0, 1.3, 0], size: [0.4, 2.6, 0.4] }],
+    } as unknown as Entity;
+
+    const authored = partEntityBoxes([shoulder]);
+    expect(authored[0]?.position).toEqual([0, 1.3, 0]);
+
+    const resolved = partEntityBoxes(
+      [shoulder],
+      new Map([["arm-shoulder", [0, 1.8, 0] as const]])
+    );
+    expect(resolved[0]?.position[0]).toBeCloseTo(0, 10);
+    expect(resolved[0]?.position[1]).toBeCloseTo(3.1, 10);
+    expect(resolved[0]?.position[2]).toBeCloseTo(0, 10);
+    expect(resolved[0]?.size[0]).toBeCloseTo(0.4, 10);
+    expect(resolved[0]?.size[1]).toBeCloseTo(2.6, 10);
+    expect(resolved[0]?.size[2]).toBeCloseTo(0.4, 10);
+  });
 });
 
 describe("vehicle chase predicate", () => {

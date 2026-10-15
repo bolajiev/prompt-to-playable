@@ -303,3 +303,52 @@ describe("GameSchema label.flat", () => {
     expect(isGame(doc)).toBe(false);
   });
 });
+
+describe("GameSchema entity parenting", () => {
+  test("parent and attach parse on an entity and stay optional", () => {
+    const doc = minimalDoc();
+    doc.entities.push({
+      id: "arm-base",
+      kind: "prop",
+      position: [0, 1, 0],
+    } as (typeof doc.entities)[number]);
+    doc.entities.push({
+      id: "arm-link",
+      kind: "prop",
+      parent: "arm-base",
+      attach: [0, 1.5, 0],
+      position: [0, 0, 0],
+    } as (typeof doc.entities)[number]);
+
+    const res = validateGame(doc);
+    expect(res.ok).toBe(true);
+    const link = res.data?.entities.find((entity) => entity.id === "arm-link");
+    expect(link?.parent).toBe("arm-base");
+    expect(link?.attach).toEqual([0, 1.5, 0]);
+  });
+
+  test("omitting parent/attach keeps unchanged documents valid", () => {
+    const res = validateGame(minimalDoc());
+    expect(res.ok).toBe(true);
+    expect(res.data?.entities[0]?.parent).toBeUndefined();
+    expect(res.data?.entities[0]?.attach).toBeUndefined();
+  });
+
+  test("non-string parent fails", () => {
+    const doc = minimalDoc();
+    (doc.entities[0] as Record<string, unknown>).parent = 42;
+    expect(isGame(doc)).toBe(false);
+  });
+
+  test("malformed attach fails", () => {
+    const doc = minimalDoc();
+    (doc.entities[0] as Record<string, unknown>).attach = [0, 1];
+    expect(isGame(doc)).toBe(false);
+  });
+
+  test("zod does not resolve parent references (sanity does)", () => {
+    const doc = minimalDoc();
+    (doc.entities[0] as Record<string, unknown>).parent = "does-not-exist";
+    expect(isGame(doc)).toBe(true);
+  });
+});

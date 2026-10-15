@@ -1,4 +1,5 @@
 export * from "./state.js";
+export * from "./parenting.js";
 export * from "./input.js";
 export * from "./events.js";
 export * from "./controls.js";

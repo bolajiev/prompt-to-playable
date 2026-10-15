@@ -77,6 +77,16 @@ export const EntitySchema = z.object({
   id: EntityIdSchema,
   kind: EntityKindSchema,
   name: z.string().optional(),
+  /**
+   * Id of another entity this one is attached to. Parented entities are
+   * resolved into world space by the engine: their authored `position` /
+   * `rotation` are local to the parent, and `attach` offsets the mount point
+   * in the parent's local space. Reference existence and cycles are checked at
+   * the sanity level, not in zod.
+   */
+  parent: z.string().min(1).optional(),
+  /** Mount offset in the parent's local space (default [0, 0, 0]). */
+  attach: Vec3Schema.optional(),
   position: Vec3Schema,
   rotation: Vec3Schema.optional(),
   scale: Vec3Schema.optional(),

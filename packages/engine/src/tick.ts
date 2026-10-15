@@ -17,6 +17,7 @@ import {
 } from "./controls.js";
 import { NEUTRAL_INPUT, sanitizeInput, type InputState } from "./input.js";
 import { updateObjectives } from "./objectives.js";
+import { resolveWorldTransforms } from "./parenting.js";
 import { evaluateRules } from "./rules.js";
 import type { AnimationRuntime, EntityRuntime, GameState } from "./state.js";
 import { stepVehicle } from "./vehicle.js";
@@ -292,6 +293,10 @@ function integrateEnemy(
  * gravity entirely (their position is authored by the animation), so sliding
  * doors never fall. Kinds apply in entry order; a later entry wins the axes
  * it writes.
+ *
+ * A parented entity animates in its LOCAL space (`localPosition` /
+ * `localRotation`); the subsequent world resolution folds the result into the
+ * parent's frame, so a gripper bob follows the arm pose.
  */
 function advanceAnimations(
   runtime: EntityRuntime,
@@ -301,8 +306,15 @@ function advanceAnimations(
   const animations = runtime.animations;
   if (animations.length === 0) return runtime;
 
-  const position: Vec3 = [...runtime.position];
-  const rotation: Vec3 = runtime.rotation ? [...runtime.rotation] : [0, 0, 0];
+  const parented = runtime.localPosition !== undefined;
+  const position: Vec3 = [
+    ...((parented ? runtime.localPosition : runtime.position) as Vec3),
+  ];
+  const rotation: Vec3 = parented
+    ? ([...(runtime.localRotation ?? [0, 0, 0])] as Vec3)
+    : runtime.rotation
+      ? ([...runtime.rotation] as Vec3)
+      : [0, 0, 0];
   const remaining: AnimationRuntime[] = [];
   let rotationTouched = false;
 
@@ -359,6 +371,15 @@ function advanceAnimations(
         break;
       }
     }
+  }
+
+  if (parented) {
+    return {
+      ...runtime,
+      animations: remaining,
+      localRotation: rotationTouched ? rotation : runtime.localRotation,
+      localPosition: movePosition ? position : runtime.localPosition,
+    };
   }
 
   return {
@@ -682,6 +703,10 @@ export function tick(
   // visible / color / emissive) from the live `ui.controls` values, so
   // broadphase, interactions and rules all see the driven pose.
   next = applyControlBindings(next);
+  // Parenting (forward kinematics): fold every parented entity's local pose
+  // into world space so children follow a driven joint. Runs after bindings,
+  // before broadphase, so collision, picking and rules see world poses.
+  next = resolveWorldTransforms(next);
 
   const broad = broadphase(next);
   next = broad.state;

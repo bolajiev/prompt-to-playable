@@ -232,21 +232,28 @@ export function inspectCameraDistance(
  * scale is `size ?? scale ?? [1, 1, 1]` (parts on a sized entity are authored
  * in entity-local fractions). Part rotations are ignored - this is a framing
  * box, not a collision hull.
+ *
+ * `worldPositions` optionally overrides each entity's origin with an engine
+ * runtime position: parented entities author their local pose, so their
+ * resolved world pose (from the loaded engine state) is what actually frames
+ * the visible assembly.
  */
 export function partEntityBoxes(
-  entities: readonly Entity[]
+  entities: readonly Entity[],
+  worldPositions?: ReadonlyMap<string, readonly [number, number, number]>
 ): InspectBoundsBox[] {
   const boxes: InspectBoundsBox[] = [];
   for (const entity of entities) {
     if (!entity.parts || entity.parts.length === 0) continue;
     const scale = entity.size ?? entity.scale ?? [1, 1, 1];
+    const origin = worldPositions?.get(entity.id) ?? entity.position;
     const min: [number, number, number] = [Infinity, Infinity, Infinity];
     const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
     for (const part of entity.parts) {
       const offset = part.offset ?? [0, 0, 0];
       const size = part.size ?? [1, 1, 1];
       for (let axis = 0; axis < 3; axis += 1) {
-        const center = entity.position[axis] + offset[axis] * scale[axis];
+        const center = origin[axis] + offset[axis] * scale[axis];
         const half = Math.abs(size[axis] * scale[axis]) / 2;
         min[axis] = Math.min(min[axis], center - half);
         max[axis] = Math.max(max[axis], center + half);

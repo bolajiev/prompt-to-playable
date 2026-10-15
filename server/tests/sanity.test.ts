@@ -698,3 +698,73 @@ describe("sanityCheck — new interaction action refs", () => {
     expect(sanityCheck(doc).ok).toBe(true);
   });
 });
+describe("entity parenting sanity", () => {
+  test("rejects an entity whose parent does not exist", () => {
+    const doc = docWith({});
+    doc.entities.push({
+      id: "grip",
+      kind: "prop",
+      parent: "ghost-arm",
+      position: [0, 0, 0],
+    } as (typeof doc.entities)[number]);
+
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-parent");
+    expect(
+      result.errors.some(
+        (issue) =>
+          issue.path === "entities[grip].parent" &&
+          issue.message.includes("ghost-arm")
+      )
+    ).toBe(true);
+  });
+
+  test("rejects a self-parented entity as a cycle", () => {
+    const doc = docWith({});
+    doc.entities.push({
+      id: "loop",
+      kind: "prop",
+      parent: "loop",
+      position: [0, 0, 0],
+    } as (typeof doc.entities)[number]);
+
+    const result = sanityCheck(doc);
+    expect(codes(result)).toContain("parent-cycle");
+  });
+
+  test("rejects a multi-entity parent cycle", () => {
+    const doc = docWith({});
+    doc.entities.push(
+      { id: "a", kind: "prop", parent: "b", position: [0, 0, 0] } as (typeof doc.entities)[number],
+      { id: "b", kind: "prop", parent: "a", position: [0, 0, 0] } as (typeof doc.entities)[number]
+    );
+
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("parent-cycle");
+  });
+
+  test("accepts a clean parent chain", () => {
+    const doc = docWith({});
+    doc.entities.push(
+      { id: "base", kind: "prop", position: [0, 0, 0] } as (typeof doc.entities)[number],
+      {
+        id: "link",
+        kind: "prop",
+        parent: "base",
+        attach: [0, 1, 0],
+        position: [0, 0, 0],
+      } as (typeof doc.entities)[number],
+      {
+        id: "grip",
+        kind: "prop",
+        parent: "link",
+        attach: [1, 0, 0],
+        position: [0, 0, 0],
+      } as (typeof doc.entities)[number]
+    );
+
+    expect(sanityCheck(doc).ok).toBe(true);
+  });
+});

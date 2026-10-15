@@ -195,9 +195,9 @@ function kitFail(kit: GameMode, failure: string): KitCheck {
  * sanity kit gates and add the soft explore no-zones rule:
  * inspect: >=1 entity with parts or a label + >=1 click rule;
  * walkthrough: player + >=1 interactable; drive: vehicle + >=3 checkpoint
- * zones + a win path; machine: a bound slider, resolvable binds, a toggle, an
- * animate button and clickable labeled panels; game: a win path; explore: no
- * zones.
+ * zones + a win path; machine: a bound slider, resolvable binds, a parent
+ * chain with a rotation slider on a parented joint, a toggle, an animate
+ * button and clickable labeled panels; game: a win path; explore: no zones.
  */
 function kitCheck(doc: GameDoc): KitCheck {
   const kit = resolveKit(doc);
@@ -256,6 +256,39 @@ function kitCheck(doc: GameDoc): KitCheck {
         )
       ) {
         return kitFail(kit, "MACHINE_UNKNOWN_BIND");
+      }
+      // Forward kinematics: the arm must be a parent chain (base -> joints ->
+      // gripper) so a joint slider swings everything downstream of it.
+      const parented = doc.entities.filter(
+        (entity) => entity.parent !== undefined
+      );
+      if (parented.length < 3) return kitFail(kit, "MACHINE_NO_PARENT_CHAIN");
+      if (parented.some((entity) => !ids.has(String(entity.parent)))) {
+        return kitFail(kit, "MACHINE_UNKNOWN_PARENT");
+      }
+      if (
+        !controls.some(
+          (control) =>
+            control.type === "slider" &&
+            (control.bind?.property ?? "").startsWith("rotation.") &&
+            parented.some((entity) => entity.id === control.bind?.entity)
+        )
+      ) {
+        return kitFail(kit, "MACHINE_NO_JOINT_SLIDER");
+      }
+      // A yaw slider on the root turret so the whole chain can swing.
+      if (
+        !controls.some(
+          (control) =>
+            control.type === "slider" &&
+            control.bind?.property === "rotation.y" &&
+            doc.entities.some(
+              (entity) =>
+                entity.id === control.bind?.entity && entity.parent === undefined
+            )
+        )
+      ) {
+        return kitFail(kit, "MACHINE_NO_BASE_YAW");
       }
       if (!controls.some((control) => control.type === "toggle")) {
         return kitFail(kit, "MACHINE_NO_TOGGLE");

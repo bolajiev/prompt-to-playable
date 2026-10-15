@@ -760,8 +760,22 @@ export class App {
       // INSPECT_DISTANCE inside) and orbits around. Inspect looks straight
       // down the board's z axis; machine uses the three-quarter
       // MACHINE_PITCH/MACHINE_YAW view. The player mesh is hidden visually -
-      // engine state keeps it for collisions.
-      const boxes = partEntityBoxes(doc.entities);
+      // engine state keeps it for collisions. Runtime positions override the
+      // authored ones so parented joints (authored at local origins) frame at
+      // their resolved world pose.
+      const loaded = this.engine.getState();
+      const worldPositions = new Map<string, [number, number, number]>();
+      for (const entity of doc.entities) {
+        const runtimePosition = loaded.entityRuntime[entity.id]?.position;
+        if (runtimePosition) {
+          worldPositions.set(entity.id, [
+            runtimePosition[0],
+            runtimePosition[1],
+            runtimePosition[2],
+          ]);
+        }
+      }
+      const boxes = partEntityBoxes(doc.entities, worldPositions);
       this.assemblyTarget = inspectAssemblyCenter(boxes) ?? null;
       this.cameraRig.distance = clampDistance(inspectCameraDistance(boxes));
       const pitch = mode === "inspect" ? INSPECT_PITCH : MACHINE_PITCH;

@@ -100,6 +100,27 @@ describe("kit few-shots are playable in the engine", () => {
       previous = rotation as number;
     }
 
+    // Forward kinematics: sweeping the shoulder from rest carries the whole
+    // downstream chain, so the gripper's world position travels along the arc.
+    engine.setControl("shoulder", 0);
+    const restGrip = [
+      ...(engine.step(16.666).entityRuntime["arm-grip"]?.position ?? [0, 0, 0]),
+    ];
+    engine.setControl("shoulder", max);
+    const sweptGrip = [
+      ...(engine.step(16.666).entityRuntime["arm-grip"]?.position ?? [0, 0, 0]),
+    ];
+
+    const travel = Math.hypot(
+      sweptGrip[0] - restGrip[0],
+      sweptGrip[1] - restGrip[1],
+      sweptGrip[2] - restGrip[2]
+    );
+    expect(
+      travel,
+      "sweeping the shoulder swings the gripper with it (forward kinematics)"
+    ).toBeGreaterThan(0.5);
+
     const closed = engine.getState().entityRuntime["arm-grip"]?.rotation?.[2] ?? 0;
     engine.setControl("grip", 1);
     const opened = engine.step(16.666).entityRuntime["arm-grip"]?.rotation?.[2] ?? 0;

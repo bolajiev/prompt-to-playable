@@ -23,6 +23,8 @@ export type SanityCode =
   | "not-a-vehicle"
   | "missing-win-path"
   | "missing-machine-control"
+  | "missing-parent"
+  | "parent-cycle"
   | "invalid-control-bind";
 
 export type Kit = GameMode;
@@ -173,6 +175,51 @@ function checkPosition(pos: Vec3, path: string, bounds: Vec3, issues: SanityIssu
       return;
     }
   }
+}
+
+/**
+ * Entity parenting references: `parent` must name an existing entity (zod
+ * cannot check cross-references) and the parent links must be acyclic so the
+ * engine's forward-kinematics pass always terminates.
+ */
+function parentIssues(doc: GameDoc): SanityIssue[] {
+  const issues: SanityIssue[] = [];
+  const byId = new Map<string, Entity>(
+    doc.entities.map((entity) => [entity.id, entity])
+  );
+
+  for (const entity of doc.entities) {
+    const parentId = entity.parent;
+    if (parentId === undefined) continue;
+
+    if (!byId.has(parentId)) {
+      issues.push({
+        code: "missing-parent",
+        path: `entities[${entity.id}].parent`,
+        message: `Entity '${entity.id}' has unknown parent '${parentId}'`,
+      });
+      continue;
+    }
+
+    const seen = new Set<string>([entity.id]);
+    let current: string | undefined = parentId;
+    while (current !== undefined) {
+      if (seen.has(current)) {
+        const chain = [...seen].join(" -> ");
+        issues.push({
+          code: "parent-cycle",
+          path: `entities[${entity.id}].parent`,
+          message: `Entity '${entity.id}' is part of a parent cycle (${chain})`,
+        });
+        break;
+      }
+      seen.add(current);
+      current = byId.get(current)?.parent;
+      if (current !== undefined && !byId.has(current)) break;
+    }
+  }
+
+  return issues;
 }
 
 function boundsIssues(doc: GameDoc): SanityIssue[] {
@@ -633,6 +680,7 @@ export function sanityCheck(doc: GameDoc): SanityResult {
     }
   }
 
+  errors.push(...parentIssues(doc));
   errors.push(...controlBindIssues(doc));
   errors.push(...boundsIssues(doc));
   errors.push(...reachabilityIssues(doc));
@@ -673,5 +721,7 @@ export const SANITY_CODES = [
   "not-a-vehicle",
   "missing-win-path",
   "missing-machine-control",
+  "missing-parent",
+  "parent-cycle",
   "invalid-control-bind",
 ] as const;

@@ -1,18 +1,18 @@
 {
   "version": "1.0.0",
   "meta": {
-    "title": "Workcell Arm Five",
+    "title": "Copperline Five-Axis Arm",
     "archetype": "explore",
     "genre": "simulation",
     "difficulty": 0,
-    "seed": 4127,
+    "seed": 4471,
     "mode": "machine"
   },
   "world": {
     "bounds": [
-      24,
-      14,
-      24
+      18,
+      12,
+      18
     ],
     "lighting": "indoor",
     "skybox": "lab",
@@ -28,103 +28,31 @@
       "kind": "player",
       "name": "Operator",
       "position": [
-        -10,
+        -12,
         1,
-        0
+        -3
       ],
       "tags": [],
       "active": true
-    },
-    {
-      "id": "work-mat",
-      "kind": "prop",
-      "name": "Assembly mat",
-      "position": [
-        -1.5,
-        0.03,
-        0.35
-      ],
-      "color": "#1b1f2a",
-      "tags": [
-        "fixture"
-      ],
-      "active": true,
-      "parts": [
-        {
-          "shape": "box",
-          "offset": [
-            0,
-            0,
-            0
-          ],
-          "size": [
-            6.4,
-            0.06,
-            4.4
-          ],
-          "color": "#1b1f2a",
-          "material": {
-            "metalness": 0.15,
-            "roughness": 0.85,
-            "texture": "grid"
-          }
-        },
-        {
-          "shape": "box",
-          "offset": [
-            0,
-            0.05,
-            -2.05
-          ],
-          "size": [
-            6.4,
-            0.1,
-            0.16
-          ],
-          "color": "#38bdf8",
-          "material": {
-            "metalness": 0.3,
-            "roughness": 0.6
-          }
-        }
-      ]
-    },
-    {
-      "id": "demo-chip",
-      "kind": "prop",
-      "name": "Demo chip",
-      "position": [
-        1.9,
-        0.14,
-        1.35
-      ],
-      "scale": [
-        1,
-        1,
-        1
-      ],
-      "color": "#facc15",
-      "tags": [
-        "pickable"
-      ],
-      "active": true,
-      "props": {
-        "shape": "chip"
-      }
     },
     {
       "id": "arm-base",
       "kind": "prop",
       "name": "Base turret",
       "position": [
-        -1.5,
+        0,
         0.6,
         0
       ],
-      "color": "#333a45",
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": "#2f3b45",
       "tags": [
         "joint",
-        "axis-1"
+        "axis-yaw"
       ],
       "active": true,
       "parts": [
@@ -140,72 +68,72 @@
             1.2,
             2.4
           ],
-          "color": "#333a45",
+          "color": "#2f3b45",
           "material": {
-            "metalness": 0.75,
-            "roughness": 0.35
+            "metalness": 0.78,
+            "roughness": 0.34
           }
         },
         {
           "shape": "cylinder",
           "offset": [
             0,
-            0.62,
+            0.66,
             0
           ],
           "size": [
-            1.24,
+            1.2,
             0.36,
-            1.24
+            1.2
           ],
-          "color": "#38bdf8",
+          "color": "#f0a44b",
           "material": {
             "metalness": 0.5,
             "roughness": 0.3,
-            "emissive": "#0b3a52"
+            "emissive": "#4a2c07"
           }
         },
         {
           "shape": "cylinder",
           "offset": [
             0,
-            0.95,
+            1,
             0
           ],
           "size": [
-            0.78,
-            0.46,
-            0.78
+            0.8,
+            0.4,
+            0.8
           ],
-          "color": "#22272f",
+          "color": "#1e262e",
           "material": {
-            "metalness": 0.6,
-            "roughness": 0.4
+            "metalness": 0.62,
+            "roughness": 0.42
           }
         },
         {
           "shape": "box",
           "offset": [
-            0.78,
+            0.88,
             -0.28,
-            0.52
+            0.62
           ],
           "size": [
             0.52,
-            0.52,
+            0.46,
             0.52
           ],
-          "color": "#1f242c",
+          "color": "#161c22",
           "material": {
             "metalness": 0.55,
-            "roughness": 0.45
+            "roughness": 0.5
           }
         },
         {
           "shape": "sphere",
           "offset": [
-            -0.72,
-            0.3,
+            -0.78,
+            0.24,
             0.82
           ],
           "size": [
@@ -213,20 +141,20 @@
             0.18,
             0.18
           ],
-          "color": "#22d3ee",
+          "color": "#ffd166",
           "material": {
             "metalness": 0.2,
             "roughness": 0.3,
-            "emissive": "#22d3ee"
+            "emissive": "#ffd166"
           }
         }
       ],
       "label": {
         "text": "BASE",
         "offset": [
-          0,
-          0.28,
-          1.24
+          0.72,
+          0.46,
+          0.88
         ],
         "size": 0.4,
         "flat": true
@@ -235,16 +163,27 @@
     {
       "id": "arm-shoulder",
       "kind": "prop",
-      "name": "Shoulder lift",
-      "position": [
-        -1.5,
-        1.7,
+      "name": "Shoulder lift joint",
+      "parent": "arm-base",
+      "attach": [
+        0,
+        1.24,
         0
       ],
-      "color": "#2b323d",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": "#2f7f8f",
       "tags": [
         "joint",
-        "axis-2"
+        "axis-pitch"
       ],
       "active": true,
       "parts": [
@@ -256,39 +195,39 @@
             0
           ],
           "size": [
-            1.15,
-            1,
-            1.15
+            0.96,
+            0.8,
+            0.96
           ],
-          "color": "#2b323d",
+          "color": "#2f7f8f",
           "material": {
-            "metalness": 0.6,
-            "roughness": 0.4
+            "metalness": 0.62,
+            "roughness": 0.38
           }
         },
         {
           "shape": "capsule",
           "offset": [
             0,
-            1.5,
+            1.3,
             0
           ],
           "size": [
-            0.44,
+            0.46,
             2.6,
-            0.44
+            0.46
           ],
-          "color": "#cbd5e1",
+          "color": "#b8c4d0",
           "material": {
             "metalness": 0.72,
-            "roughness": 0.28
+            "roughness": 0.26
           }
         },
         {
           "shape": "box",
           "offset": [
-            0.7,
-            0.05,
+            0.62,
+            0.12,
             0
           ],
           "size": [
@@ -296,56 +235,67 @@
             0.62,
             0.8
           ],
-          "color": "#1f2937",
+          "color": "#1b2530",
           "material": {
             "metalness": 0.5,
-            "roughness": 0.5
+            "roughness": 0.55
           }
         },
         {
           "shape": "sphere",
           "offset": [
-            0.9,
-            0.05,
+            0.84,
+            0.12,
             0
           ],
           "size": [
-            0.18,
-            0.18,
-            0.18
+            0.16,
+            0.16,
+            0.16
           ],
-          "color": "#22d3ee",
+          "color": "#f0a44b",
           "material": {
             "metalness": 0.2,
             "roughness": 0.3,
-            "emissive": "#22d3ee"
+            "emissive": "#f0a44b"
           }
         }
       ],
       "label": {
         "text": "SHOULDER",
         "offset": [
-          0,
-          0,
-          0.62
+          0.62,
+          0.34,
+          0.68
         ],
-        "size": 0.4,
+        "size": 0.34,
         "flat": true
       }
     },
     {
       "id": "arm-elbow",
       "kind": "prop",
-      "name": "Elbow joint",
-      "position": [
-        -1.5,
-        4.5,
+      "name": "Elbow fold joint",
+      "parent": "arm-shoulder",
+      "attach": [
+        0,
+        2.6,
         0
       ],
-      "color": "#f59e0b",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": "#d98c3f",
       "tags": [
         "joint",
-        "axis-3"
+        "axis-pitch"
       ],
       "active": true,
       "parts": [
@@ -357,14 +307,14 @@
             0
           ],
           "size": [
-            0.95,
-            0.95,
-            0.95
+            0.9,
+            0.9,
+            0.9
           ],
-          "color": "#f59e0b",
+          "color": "#d98c3f",
           "material": {
-            "metalness": 0.55,
-            "roughness": 0.35
+            "metalness": 0.52,
+            "roughness": 0.38
           }
         },
         {
@@ -375,16 +325,16 @@
             0
           ],
           "size": [
-            0.42,
+            0.44,
             2.7,
-            0.42
+            0.44
           ],
           "rotation": [
             0,
             0,
             1.5708
           ],
-          "color": "#8f9aa8",
+          "color": "#9aa7b4",
           "material": {
             "metalness": 0.7,
             "roughness": 0.3
@@ -395,19 +345,19 @@
           "offset": [
             0,
             0,
-            0.58
+            0.52
           ],
           "size": [
-            0.55,
+            0.5,
             0.3,
-            0.55
+            0.5
           ],
           "rotation": [
             1.5708,
             0,
             0
           ],
-          "color": "#d97706",
+          "color": "#8f5a1e",
           "material": {
             "metalness": 0.6,
             "roughness": 0.4
@@ -417,17 +367,17 @@
           "shape": "box",
           "offset": [
             0.6,
-            0.33,
+            0.4,
             0
           ],
           "size": [
-            0.72,
+            0.7,
             0.22,
-            0.54
+            0.5
           ],
-          "color": "#334155",
+          "color": "#2c3a46",
           "material": {
-            "metalness": 0.4,
+            "metalness": 0.42,
             "roughness": 0.7
           }
         }
@@ -435,27 +385,38 @@
       "label": {
         "text": "ELBOW",
         "offset": [
-          0.45,
-          0.62,
+          0.4,
+          0.66,
           0
         ],
-        "size": 0.4,
+        "size": 0.34,
         "flat": true
       }
     },
     {
       "id": "arm-wrist",
       "kind": "prop",
-      "name": "Wrist roll",
-      "position": [
-        1.2,
-        4.5,
+      "name": "Wrist pitch joint",
+      "parent": "arm-elbow",
+      "attach": [
+        2.7,
+        0,
         0
       ],
-      "color": "#0ea5e9",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": "#7fa7c9",
       "tags": [
         "joint",
-        "axis-4"
+        "axis-pitch"
       ],
       "active": true,
       "parts": [
@@ -467,187 +428,220 @@
             0
           ],
           "size": [
-            0.92,
-            0.8,
-            0.92
+            0.88,
+            0.76,
+            0.88
           ],
           "rotation": [
             0,
             0,
             1.5708
           ],
-          "color": "#0ea5e9",
+          "color": "#7fa7c9",
           "material": {
             "metalness": 0.6,
-            "roughness": 0.32
+            "roughness": 0.34
           }
         },
         {
           "shape": "box",
           "offset": [
-            0.5,
+            0.6,
             0,
             0
           ],
           "size": [
-            0.8,
-            0.58,
-            0.58
+            1.2,
+            0.6,
+            0.22
           ],
-          "color": "#94a3b8",
+          "color": "#9aa6b2",
           "material": {
-            "metalness": 0.7,
-            "roughness": 0.3
-          }
-        },
-        {
-          "shape": "box",
-          "offset": [
-            1.3,
-            -0.24,
-            0
-          ],
-          "size": [
-            0.9,
-            0.22,
-            0.55
-          ],
-          "color": "#ef4444",
-          "material": {
-            "metalness": 0.5,
-            "roughness": 0.45
-          }
-        },
-        {
-          "shape": "box",
-          "offset": [
-            1.68,
-            -0.26,
-            0
-          ],
-          "size": [
-            0.24,
-            0.3,
-            0.5
-          ],
-          "color": "#fdf6e3",
-          "material": {
-            "metalness": 0.1,
-            "roughness": 0.9
+            "metalness": 0.72,
+            "roughness": 0.28
           }
         },
         {
           "shape": "sphere",
           "offset": [
-            0.12,
-            0,
-            0.42
+            0.1,
+            0.44,
+            0
           ],
           "size": [
             0.16,
             0.16,
             0.16
           ],
-          "color": "#22d3ee",
+          "color": "#ffd166",
           "material": {
             "metalness": 0.2,
             "roughness": 0.3,
-            "emissive": "#22d3ee"
+            "emissive": "#ffd166"
           }
         }
       ],
       "label": {
         "text": "WRIST",
         "offset": [
-          0.42,
-          0.56,
+          0.34,
+          0.62,
           0
         ],
-        "size": 0.36,
+        "size": 0.3,
         "flat": true
       }
     },
     {
       "id": "arm-grip",
       "kind": "prop",
-      "name": "Upper gripper jaw",
-      "position": [
-        2.1,
-        4.5,
+      "name": "Parallel gripper",
+      "parent": "arm-wrist",
+      "attach": [
+        1.2,
+        0,
         0
       ],
-      "color": "#ef4444",
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "color": "#e05a4a",
       "tags": [
         "joint",
-        "axis-5"
+        "tool"
       ],
       "active": true,
       "parts": [
         {
           "shape": "box",
           "offset": [
-            0.4,
-            0.24,
+            0.5,
+            0.17,
             0
           ],
           "size": [
-            0.9,
-            0.22,
-            0.55
+            1,
+            0.2,
+            0.58
           ],
-          "color": "#ef4444",
+          "color": "#e05a4a",
           "material": {
-            "metalness": 0.5,
-            "roughness": 0.45
+            "metalness": 0.66,
+            "roughness": 0.34
           }
         },
         {
           "shape": "box",
           "offset": [
-            0.78,
-            0.26,
+            0.48,
+            -0.17,
             0
           ],
           "size": [
-            0.24,
-            0.3,
-            0.5
+            0.92,
+            0.2,
+            0.54
           ],
-          "color": "#fdf6e3",
+          "color": "#f2827a",
           "material": {
-            "metalness": 0.1,
-            "roughness": 0.9
+            "metalness": 0.6,
+            "roughness": 0.4
           }
         },
         {
-          "shape": "sphere",
+          "shape": "box",
           "offset": [
-            0.02,
-            0.36,
+            0.95,
+            0.17,
             0
           ],
           "size": [
-            0.14,
-            0.14,
-            0.14
+            0.22,
+            0.32,
+            0.5
           ],
-          "color": "#22d3ee",
+          "color": "#f5efe0",
           "material": {
-            "metalness": 0.2,
-            "roughness": 0.3,
-            "emissive": "#22d3ee"
+            "metalness": 0.18,
+            "roughness": 0.82
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.93,
+            -0.17,
+            0
+          ],
+          "size": [
+            0.22,
+            0.32,
+            0.5
+          ],
+          "color": "#f5efe0",
+          "material": {
+            "metalness": 0.18,
+            "roughness": 0.82
           }
         }
       ],
       "label": {
         "text": "GRIP",
         "offset": [
-          0.42,
-          0.64,
+          0.5,
+          0.74,
           0
         ],
-        "size": 0.34,
+        "size": 0.3,
         "flat": true
+      }
+    },
+    {
+      "id": "bench",
+      "kind": "prop",
+      "name": "Assembly bench",
+      "position": [
+        3.8,
+        0,
+        3
+      ],
+      "size": [
+        3,
+        0.9,
+        1.6
+      ],
+      "color": "#6b5a45",
+      "tags": [
+        "set-dressing"
+      ],
+      "active": true,
+      "props": {
+        "shape": "table"
+      }
+    },
+    {
+      "id": "task-lamp",
+      "kind": "prop",
+      "name": "Task lamp",
+      "position": [
+        -3,
+        0,
+        2.6
+      ],
+      "color": "#ffd166",
+      "tags": [
+        "set-dressing"
+      ],
+      "active": true,
+      "props": {
+        "shape": "lamp"
       }
     }
   ],
@@ -666,8 +660,8 @@
         },
         {
           "type": "showPanel",
-          "title": "BASE - azimuth turret",
-          "body": "NEMA-17 stepper under a 2.4-unit turntable. It swings the whole arm about the vertical axis, roughly 45 degrees either way on the Base yaw slider. The cyan collar is the rotary bearing race.",
+          "title": "BASE - yaw turret",
+          "body": "Cast plinth 2.4 units across with a planetary drive inside. It carries every joint above it and turns about the vertical axis, roughly 90 degrees each way, so the whole arm sweeps around the bench. Drag Base yaw to spin it.",
           "entity": "arm-base"
         },
         {
@@ -690,8 +684,8 @@
         },
         {
           "type": "showPanel",
-          "title": "SHOULDER - main lift servo",
-          "body": "High-torque metal-gear servo bolted to the turret top. The silver capsule link is 2.6 units long and carries every joint above it, so this is the load-bearing axis. Drive the Shoulder lift slider to sweep the link.",
+          "title": "SHOULDER - lift servo",
+          "body": "Metal-gear servo bolted to the turret top, hub 0.8 units square. Its vertical link is 2.6 units tall and the elbow sits on the link tip, so this joint lifts the entire upper arm: move Shoulder lift and the elbow, wrist and gripper sweep with it.",
           "entity": "arm-shoulder"
         },
         {
@@ -714,8 +708,8 @@
         },
         {
           "type": "showPanel",
-          "title": "ELBOW - forearm fold",
-          "body": "Mid-size servo with an amber hub, about 70 degrees of bend each way. It folds the 2.7-unit forearm sideways from the upper link; combine it with the shoulder to reach across the mat.",
+          "title": "ELBOW - fold servo",
+          "body": "Amber hub servo with about 60 degrees of bend either side. The 2.7-unit forearm runs out along its local x axis and the wrist rides the far tip, so Elbow bend folds the tool in toward the turret or reaches it away.",
           "entity": "arm-elbow"
         },
         {
@@ -738,8 +732,8 @@
         },
         {
           "type": "showPanel",
-          "title": "WRIST - tool pitch",
-          "body": "Micro servo on the forearm tip with a 0.8-unit barrel. It pitches the tool plate up and down so the jaws can approach a part squarely. The lower jaw is fixed to this plate; the upper jaw rides on the next axis.",
+          "title": "WRIST - pitch plate",
+          "body": "Roller-bearing wrist, 0.88 units across, ending in a 1.2-unit tool plate. It sets the angle of the gripper without moving the arm: Wrist pitch sets the jaws up or down. The amber bead is a homing indicator.",
           "entity": "arm-wrist"
         },
         {
@@ -762,8 +756,8 @@
         },
         {
           "type": "showPanel",
-          "title": "GRIP - parallel jaw",
-          "body": "The upper 90 mm jaw swings on a 0.5-radian hinge against the fixed lower jaw. Flip the Grip toggle to open and close it, or hit WAVE and it will bob a greeting at you.",
+          "title": "GRIP - parallel jaws",
+          "body": "Two 90 mm jaws share the tool-plate hinge with soft pads on the tips. The Grip toggle swings them about half a radian to hold small parts; WAVE rocks the gripper hello and HOME slides it back to its rest pose.",
           "entity": "arm-grip"
         },
         {
@@ -790,11 +784,11 @@
       }
     },
     {
-      "id": "shoulder-lift",
+      "id": "shoulder",
       "type": "slider",
       "label": "Shoulder lift",
       "min": -0.7,
-      "max": 1,
+      "max": 1.1,
       "step": 0.02,
       "value": 0,
       "bind": {
@@ -804,7 +798,7 @@
       }
     },
     {
-      "id": "elbow-bend",
+      "id": "elbow",
       "type": "slider",
       "label": "Elbow bend",
       "min": -1,
@@ -818,7 +812,7 @@
       }
     },
     {
-      "id": "wrist-pitch",
+      "id": "wrist",
       "type": "slider",
       "label": "Wrist pitch",
       "min": -0.8,
@@ -832,7 +826,7 @@
       }
     },
     {
-      "id": "grip-open",
+      "id": "grip",
       "type": "toggle",
       "label": "Grip open",
       "value": 0,
@@ -854,8 +848,8 @@
             "entity": "arm-grip",
             "kind": "slide",
             "to": [
-              2.1,
-              4.5,
+              0,
+              0,
               0
             ],
             "duration": 600
@@ -867,7 +861,7 @@
           },
           {
             "type": "showMessage",
-            "text": "Home pose restored - jaws squared to the rest line."
+            "text": "Home pose restored - gripper back on its tool plate."
           }
         ]
       }
@@ -882,13 +876,17 @@
             "type": "animate",
             "entity": "arm-grip",
             "kind": "bob",
-            "amplitude": 0.32,
+            "amplitude": 0.3,
             "speed": 1.4
           },
           {
             "type": "setVar",
             "key": "waved",
             "value": 1
+          },
+          {
+            "type": "showMessage",
+            "text": "Gripper waving - the wrist is doing the work."
           }
         ]
       }

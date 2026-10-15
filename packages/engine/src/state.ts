@@ -11,6 +11,7 @@ import { SeededRng } from "@prompt-to-playable/shared";
 import { defaultControlValues } from "./controls.js";
 import type { GameEvent } from "./events.js";
 import { NEUTRAL_INPUT, type InputState } from "./input.js";
+import { resolveWorldTransforms } from "./parenting.js";
 
 export type GameStatus = "running" | "won" | "lost";
 
@@ -38,6 +39,13 @@ export interface EntityRuntime {
   velocity: Vec3;
   grounded: boolean;
   rotation?: Vec3;
+  /**
+   * Parent-space pose for parented entities only: `position`/`rotation` hold
+   * the resolved world pose, while these hold the authored-plus-driven local
+   * pose. Unparented entities leave both undefined.
+   */
+  localPosition?: Vec3;
+  localRotation?: Vec3;
   active: boolean;
   state?: EnemyState;
   waypointIndex?: number;
@@ -109,7 +117,7 @@ function clone<T>(value: T): T {
  * shape. Always returns fresh arrays.
  */
 export function createEntityRuntime(entity: Entity): EntityRuntime {
-  return {
+  const runtime: EntityRuntime = {
     position: [...entity.position] as Vec3,
     velocity: [0, 0, 0] as Vec3,
     grounded: false,
@@ -122,6 +130,14 @@ export function createEntityRuntime(entity: Entity): EntityRuntime {
     visible: true,
     animations: [],
   };
+  if (entity.parent !== undefined) {
+    // Authored pose of a parented entity is local; world resolution follows.
+    runtime.localPosition = [...entity.position] as Vec3;
+    runtime.localRotation = entity.rotation
+      ? ([...entity.rotation] as Vec3)
+      : ([0, 0, 0] as Vec3);
+  }
+  return runtime;
 }
 
 export function createState(doc: GameDoc, seed?: number): GameState {
@@ -138,7 +154,7 @@ export function createState(doc: GameDoc, seed?: number): GameState {
     };
   }
 
-  return {
+  const state: GameState = {
     doc: gameDoc,
     time: 0,
     ticks: 0,
@@ -160,4 +176,6 @@ export function createState(doc: GameDoc, seed?: number): GameState {
     },
     controlBases,
   };
+  // Resolve once at load so the first rendered frame shows the assembled rig.
+  return resolveWorldTransforms(state);
 }

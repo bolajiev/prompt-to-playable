@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { validateGame } from "@prompt-to-playable/schema";
-import type { GameDoc } from "@prompt-to-playable/schema";
+import type { GameDoc, Vec3 } from "@prompt-to-playable/schema";
 import {
   ARCHETYPE_EXAMPLES,
   KIT_ARCHETYPES,
@@ -398,13 +398,71 @@ describe("kit few-shot examples", () => {
       expect(panel?.type === "showPanel" && panel.body.length).toBeTruthy();
     }
 
-    // Joint pivots sit above the ground and segments extend away from them.
-    for (const id of ["arm-base", "arm-shoulder", "arm-elbow", "arm-wrist"]) {
-      const entity = doc.entities.find((item) => item.id === id);
+    // Forward kinematics: base -> shoulder -> elbow -> wrist -> grip, each
+    // joint parented onto the segment below it and mounted at the link tip.
+    const byId = new Map(doc.entities.map((entity) => [entity.id, entity]));
+    const chain: ReadonlyArray<readonly [string, string, Vec3]> = [
+      ["arm-shoulder", "arm-base", [0, 1.22, 0]],
+      ["arm-elbow", "arm-shoulder", [0, 2.5, 0]],
+      ["arm-wrist", "arm-elbow", [2.6, 0, 0]],
+      ["arm-grip", "arm-wrist", [1.2, -0.12, 0]],
+    ];
+    for (const [id, parent, attach] of chain) {
+      const entity = byId.get(id);
+      expect(entity, `${id} exists`).toBeDefined();
+      expect(entity?.parent, `${id} is parented`).toBe(parent);
+      expect(entity?.attach, `${id} attach`).toEqual(attach);
+      // A parented entity's authored position is its LOCAL pose.
+      expect(entity?.position, `${id} local position`).toEqual([0, 0, 0]);
+    }
+    expect(byId.get("arm-base")?.parent).toBeUndefined();
+
+    // Rest-pose world offsets resolved by walking the chain (no rotations at
+    // rest): shoulder on the turret, elbow at the upper-link tip, wrist at the
+    // forearm tip, gripper at the tool plate.
+    const worldOf = (id: string): Vec3 => {
+      const entity = byId.get(id);
+      expect(entity, `${id} exists`).toBeDefined();
+      const local = entity?.position ?? [0, 0, 0];
+      const attach = entity?.attach ?? [0, 0, 0];
+      if (!entity?.parent) {
+        return [local[0], local[1], local[2]];
+      }
+      const parent = worldOf(entity.parent);
+      return [
+        parent[0] + local[0] + attach[0],
+        parent[1] + local[1] + attach[1],
+        parent[2] + local[2] + attach[2],
+      ];
+    };
+    const shoulderWorld = worldOf("arm-shoulder");
+    const elbowWorld = worldOf("arm-elbow");
+    const wristWorld = worldOf("arm-wrist");
+    const gripWorld = worldOf("arm-grip");
+    expect(shoulderWorld[1]).toBeCloseTo(1.82, 6);
+    expect(elbowWorld[1]).toBeCloseTo(4.32, 6);
+    expect(wristWorld[0]).toBeCloseTo(2.6, 6);
+    expect(wristWorld[1]).toBeCloseTo(4.32, 6);
+    expect(gripWorld[0]).toBeCloseTo(3.8, 6);
+    expect(gripWorld[1]).toBeCloseTo(4.2, 6);
+
+    // Each joint carries the link geometry that reaches the next joint.
+    const shoulderLink = byId.get("arm-shoulder")?.parts?.[1];
+    expect(shoulderLink?.shape).toBe("capsule");
+    expect(
+      (shoulderLink?.offset?.[1] ?? 0) + (shoulderLink?.size?.[1] ?? 0) / 2
+    ).toBeCloseTo(2.5, 1);
+    const forearm = byId.get("arm-elbow")?.parts?.[1];
+    expect(forearm?.shape).toBe("capsule");
+    expect(
+      (forearm?.offset?.[0] ?? 0) + (forearm?.size?.[1] ?? 0) / 2
+    ).toBeCloseTo(2.6, 1);
+
+    // Every segment still extends away from its own origin with real parts.
+    for (const id of ["arm-base", "arm-shoulder", "arm-elbow", "arm-wrist", "arm-grip"]) {
+      const entity = byId.get(id);
       expect(entity, id).toBeDefined();
-      if (!entity) continue;
-      expect(entity.position[1], `${id} pivot height`).toBeGreaterThanOrEqual(0);
-      const reach = (entity.parts ?? []).reduce(
+      const reach = (entity?.parts ?? []).reduce(
         (max, part) => Math.max(max, Math.hypot(...(part.offset ?? [0, 0, 0]))),
         0
       );
@@ -419,21 +477,44 @@ describe("kit few-shot examples", () => {
     );
     expect(segments).toHaveLength(5);
 
-    // Union AABB of every segment part. Segments are unsized, so part offsets
-    // and sizes are world units and the camera's parts-bbox auto-fit matches
-    // the visible rig exactly.
+    const byId = new Map(doc.entities.map((entity) => [entity.id, entity]));
+    const worldOf = (id: string): Vec3 => {
+      const entity = byId.get(id);
+      const local = entity?.position ?? [0, 0, 0];
+      const attach = entity?.attach ?? [0, 0, 0];
+      if (!entity?.parent) return [local[0], local[1], local[2]];
+      const parent = worldOf(entity.parent);
+      return [
+        parent[0] + local[0] + attach[0],
+        parent[1] + local[1] + attach[1],
+        parent[2] + local[2] + attach[2],
+      ];
+    };
+
+    // Union AABB of every segment part in the rest pose. Segments are unsized,
+    // so part offsets and sizes are world units; parts rotated a quarter turn
+    // swap their extents on the rotated axes.
     const min: [number, number, number] = [Infinity, Infinity, Infinity];
     const max: [number, number, number] = [-Infinity, -Infinity, -Infinity];
+    const quarterTurn = (angle: number): boolean =>
+      Math.abs(Math.abs(angle) - Math.PI / 2) < 0.01;
     for (const entity of segments) {
       expect(
         entity.size,
         `${entity.id} parts are authored in world units`
       ).toBeUndefined();
+      const origin = worldOf(entity.id);
       for (const part of entity.parts ?? []) {
         const offset = part.offset ?? [0, 0, 0];
-        const size = part.size ?? [1, 1, 1];
+        const raw = part.size ?? [1, 1, 1];
+        const rotation = part.rotation ?? [0, 0, 0];
+        const size: Vec3 = quarterTurn(rotation[2])
+          ? [raw[1], raw[0], raw[2]]
+          : quarterTurn(rotation[0]) || quarterTurn(rotation[1])
+            ? [raw[2], raw[1], raw[0]]
+            : [raw[0], raw[1], raw[2]];
         for (let axis = 0; axis < 3; axis += 1) {
-          const center = entity.position[axis] + offset[axis];
+          const center = origin[axis] + offset[axis];
           min[axis] = Math.min(min[axis], center - size[axis] / 2);
           max[axis] = Math.max(max[axis], center + size[axis] / 2);
         }
@@ -458,15 +539,15 @@ describe("kit few-shot examples", () => {
     expect((baseCylinder?.size?.[0] ?? 0) / 2).toBeCloseTo(1.2, 1);
 
     // The shoulder pivot is raised and the upper link stands up to the elbow.
-    const shoulder = doc.entities.find((entity) => entity.id === "arm-shoulder");
-    const elbow = doc.entities.find((entity) => entity.id === "arm-elbow");
-    const wrist = doc.entities.find((entity) => entity.id === "arm-wrist");
-    expect(shoulder?.position[1] ?? 0).toBeGreaterThanOrEqual(1.5);
-    expect(elbow?.position[1] ?? 0).toBeGreaterThan(shoulder?.position[1] ?? 0);
-    const upperLink = (elbow?.position[1] ?? 0) - (shoulder?.position[1] ?? 0);
+    const shoulderWorld = worldOf("arm-shoulder");
+    const elbowWorld = worldOf("arm-elbow");
+    const wristWorld = worldOf("arm-wrist");
+    expect(shoulderWorld[1]).toBeGreaterThanOrEqual(1.5);
+    expect(elbowWorld[1]).toBeGreaterThan(shoulderWorld[1]);
+    const upperLink = elbowWorld[1] - shoulderWorld[1];
     expect(upperLink).toBeGreaterThanOrEqual(2.5);
     expect(upperLink).toBeLessThanOrEqual(3);
-    const forearmReach = (wrist?.position[0] ?? 0) - (elbow?.position[0] ?? 0);
+    const forearmReach = wristWorld[0] - elbowWorld[0];
     expect(forearmReach).toBeGreaterThanOrEqual(2.5);
     expect(forearmReach).toBeLessThanOrEqual(3.2);
   });
@@ -610,7 +691,9 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain('"flat": true');
     expect(text).toContain("controlPressed");
     expect(text).toContain("rotates about its entity origin");
-    expect(text).toContain("AT its pivot");
+    expect(text).toContain("FORWARD KINEMATICS");
+    expect(text).toContain('"parent"');
+    expect(text).toContain('"attach"');
     expect(text).toContain("Budget: at most 14 entities, 8 rules and 8 controls");
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.machine, null, 2));
     expect(text).toContain("MUST be an empty array: []");

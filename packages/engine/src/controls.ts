@@ -131,7 +131,10 @@ function axisIndex(property: ControlBindProperty): 0 | 1 | 2 | undefined {
 /**
  * Runtime patch for one bound property. The bound axis is derived from the
  * captured base; every other axis keeps the live runtime value so multiple
- * single-axis controls compose instead of overwriting each other.
+ * single-axis controls compose instead of overwriting each other. On a
+ * parented entity the binding drives the LOCAL pose (`localRotation` /
+ * `localPosition`), which the per-tick world resolution then folds into the
+ * runtime pose, so a joint slider swings the joint's whole subtree.
  */
 function bindingPatch(
   state: GameState,
@@ -146,15 +149,21 @@ function bindingPatch(
     const base = controlBaseFor(state, entityId);
     if (!base) return undefined;
     if (property.startsWith("rotation.")) {
+      const parented = runtime.localRotation !== undefined;
       const rotation: Vec3 = [
-        ...(runtime.rotation ?? base.rotation),
+        ...((parented ? runtime.localRotation : runtime.rotation) ??
+          base.rotation),
       ] as Vec3;
       rotation[axis] = base.rotation[axis] + scaled;
-      return { rotation };
+      return parented ? { rotation, localRotation: rotation } : { rotation };
     }
-    const position: Vec3 = [...runtime.position] as Vec3;
+    const parented = runtime.localPosition !== undefined;
+    const position: Vec3 = [
+      ...((parented ? runtime.localPosition : runtime.position) ??
+        base.position),
+    ] as Vec3;
     position[axis] = base.position[axis] + scaled;
-    return { position };
+    return parented ? { position, localPosition: position } : { position };
   }
 
   switch (property) {

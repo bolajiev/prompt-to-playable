@@ -423,7 +423,120 @@ describe("live kit fixtures are playable offline", () => {
       `${slider.id} sweep changes the joint angle`
     ).toBeGreaterThan(0.2);
 
-    // 2. Flip the grip toggle: its bound property flips, and flips back.
+    // 2. Forward kinematics: the arm is a real parent chain, so sweeping an
+    // upstream joint carries the wrist along an arc, and the base yaw swings
+    // the wrist's azimuth around the turret.
+    const parented = doc.entities.filter(
+      (entity) => entity.parent !== undefined
+    );
+    expect(
+      parented.length,
+      "the machine arm is built from parented joints"
+    ).toBeGreaterThanOrEqual(3);
+    const entityById = new Map(doc.entities.map((entity) => [entity.id, entity]));
+    for (const entity of parented) {
+      expect(
+        entityById.has(String(entity.parent)),
+        `${entity.id} parent exists`
+      ).toBe(true);
+    }
+    const depthOf = (entity: Entity): number => {
+      let depth = 0;
+      let parentId = entity.parent;
+      while (parentId !== undefined) {
+        depth += 1;
+        parentId = entityById.get(parentId)?.parent;
+      }
+      return depth;
+    };
+    const deepest = parented.reduce((a, b) =>
+      depthOf(b) >= depthOf(a) ? b : a
+    );
+    const wrist =
+      parented.find((entity) => /wrist/i.test(entity.id)) ??
+      entityById.get(String(deepest.parent)) ??
+      deepest;
+
+    const ancestors: Entity[] = [];
+    let ancestor = entityById.get(String(wrist.parent));
+    while (ancestor) {
+      ancestors.push(ancestor);
+      ancestor = entityById.get(String(ancestor.parent));
+    }
+
+    const ancestorSliders = sliders.filter((control) =>
+      ancestors.some((entity) => entity.id === control.bind?.entity)
+    );
+    const shoulderSlider =
+      ancestorSliders.find((control) =>
+        /shoulder/i.test(String(control.bind?.entity))
+      ) ??
+      ancestorSliders.find(
+        (control) => control.bind?.property === "rotation.z"
+      ) ??
+      ancestorSliders[0];
+    expect(shoulderSlider, "a slider drives an upstream joint").toBeDefined();
+
+    const wristOf = (): Vec3 => [
+      ...engine.getState().entityRuntime[wrist.id].position,
+    ] as Vec3;
+
+    engine.setControl(shoulderSlider.id, 0);
+    engine.step(FIXED_DT_MS);
+    const wristRest = wristOf();
+    const extreme =
+      (shoulderSlider.max ?? 1) >= -(shoulderSlider.min ?? -1)
+        ? shoulderSlider.max ?? 1
+        : shoulderSlider.min ?? -1;
+    engine.setControl(shoulderSlider.id, extreme);
+    engine.step(FIXED_DT_MS);
+    const wristSwept = wristOf();
+    const travel = Math.hypot(
+      wristSwept[0] - wristRest[0],
+      wristSwept[1] - wristRest[1],
+      wristSwept[2] - wristRest[2]
+    );
+    expect(
+      travel,
+      `sweeping ${shoulderSlider.id} moves the wrist along an arc (moved ${travel.toFixed(2)})`
+    ).toBeGreaterThan(0.5);
+
+    const root =
+      ancestors.length > 0 ? ancestors[ancestors.length - 1] : wrist;
+    const yawSlider =
+      sliders.find(
+        (control) =>
+          control.bind?.entity === root.id &&
+          control.bind?.property === "rotation.y"
+      ) ?? sliders.find((control) => control.bind?.property === "rotation.y");
+    expect(yawSlider, "machine needs a base yaw slider").toBeDefined();
+    if (yawSlider) {
+      const yawTarget =
+        entityById.get(String(yawSlider.bind?.entity)) ?? root;
+      const pivotOf = (): Vec3 => [
+        ...engine.getState().entityRuntime[yawTarget.id].position,
+      ] as Vec3;
+      const azimuthOf = (position: Vec3, pivot: Vec3): number =>
+        Math.atan2(position[0] - pivot[0], position[2] - pivot[2]);
+
+      engine.setControl(yawSlider.id, 0);
+      engine.step(FIXED_DT_MS);
+      const pivotRest = pivotOf();
+      const yawRest = azimuthOf(wristOf(), pivotRest);
+      const yawExtreme =
+        (yawSlider.max ?? 1) >= -(yawSlider.min ?? -1)
+          ? yawSlider.max ?? 1
+          : yawSlider.min ?? -1;
+      engine.setControl(yawSlider.id, yawExtreme);
+      engine.step(FIXED_DT_MS);
+      const yawSwept = azimuthOf(wristOf(), pivotOf());
+      expect(
+        Math.abs(normalizeAngle(yawSwept - yawRest)),
+        `sweeping ${yawSlider.id} swings the wrist azimuth`
+      ).toBeGreaterThan(0.2);
+    }
+
+    // 3. Flip the grip toggle: its bound property flips, and flips back.
     const toggle = controls.find((control) => control.type === "toggle");
     expect(toggle, "machine needs a grip toggle").toBeDefined();
     if (toggle) {

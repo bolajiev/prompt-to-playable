@@ -7,6 +7,7 @@ import type {
   Rule,
   RuleTrigger,
   ValueRef,
+  Vec3,
 } from "@prompt-to-playable/schema";
 import type { GameEvent } from "./events.js";
 import {
@@ -236,11 +237,20 @@ export function evaluateRules(
     const current = entityRuntime[action.entity];
     if (!current) return;
 
+    // Parented entities animate in local space: the world resolution pass
+    // folds the result into the parent's frame on later ticks.
+    const parented = current.localPosition !== undefined;
     const animation: AnimationRuntime = {
       kind: action.kind,
       elapsed: 0,
-      basePos: [...current.position],
-      baseRot: current.rotation ? [...current.rotation] : [0, 0, 0],
+      basePos: [
+        ...((parented ? current.localPosition : current.position) as Vec3),
+      ],
+      baseRot: parented
+        ? ([...(current.localRotation ?? [0, 0, 0])] as Vec3)
+        : current.rotation
+          ? [...current.rotation]
+          : [0, 0, 0],
     };
     if (action.axis) animation.axis = [...action.axis];
     if (action.amplitude !== undefined) animation.amplitude = action.amplitude;
@@ -372,7 +382,15 @@ export function evaluateRules(
       }
       case "teleport": {
         const position = [...action.position] as typeof action.position;
-        updateRuntime(action.entity, { position });
+        // A parented entity's authored position is its local pose, so a
+        // teleport writes the local slot; world resolution follows next tick.
+        const current = entityRuntime[action.entity];
+        updateRuntime(
+          action.entity,
+          current?.localPosition !== undefined
+            ? { position, localPosition: position }
+            : { position }
+        );
         entities = entities.map((e) =>
           e.id === action.entity ? { ...e, position } : e
         );
