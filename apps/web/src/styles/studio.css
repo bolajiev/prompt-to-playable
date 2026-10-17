@@ -873,7 +873,7 @@ li.objective.failed {
   }
 }
 
-/* Interactive controls (machine documents) */
+/* Interactive controls (machine + world documents) */
 #controls-panel {
   display: flex;
   flex-direction: column;
@@ -885,10 +885,31 @@ li.objective.failed {
   border-radius: var(--radius-lg);
   background: var(--panel);
   box-shadow: var(--shadow-card);
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+/* Prominent while controls exist: pressing them changes the running scene. */
+#controls-panel:not([hidden]) {
+  border-color: var(--accent-ring);
+  box-shadow:
+    0 0 0 1px var(--accent-soft),
+    var(--shadow-card);
 }
 
 #controls-panel[hidden] {
   display: none;
+}
+
+.controls-title {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 680;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
 .control-row {

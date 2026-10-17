@@ -3,6 +3,7 @@ import { validateGame } from "@prompt-to-playable/schema";
 import type { GameDoc, Vec3 } from "@prompt-to-playable/schema";
 import {
   ARCHETYPE_EXAMPLES,
+  CHARACTER_COMPOSITION_BLOCK,
   KIT_ARCHETYPES,
   KIT_SCHEMA_ARCHETYPE,
   buildGenerationPrompt,
@@ -581,12 +582,63 @@ describe("kit few-shot examples", () => {
       expect(root, rootId).toBeDefined();
       expect(root?.parent, `${rootId} is a root`).toBeUndefined();
       expect(root?.parts?.length ?? 0, `${rootId} parts`).toBeGreaterThanOrEqual(2);
+      expect(root?.label?.flat, `${rootId} carries a flat name label`).toBe(true);
       const limbs = doc.entities.filter((entity) => entity.parent === rootId);
       expect(limbs.length, `${rootId} limbs`).toBeGreaterThanOrEqual(3);
       for (const limb of limbs) {
         expect(limb.parts?.length ?? 0, limb.id).toBeGreaterThanOrEqual(1);
         expect(limb.position, `${limb.id} local pose`).toEqual([0, 0, 0]);
       }
+    }
+
+    // The humanoid carries TWO arms and TWO legs as parented entities; the
+    // animal carries four parented legs plus a parented head.
+    for (const limbId of [
+      "robot-arm-l",
+      "robot-arm-r",
+      "robot-leg-l",
+      "robot-leg-r",
+      "deer-head",
+      "deer-leg-fl",
+      "deer-leg-fr",
+      "deer-leg-bl",
+      "deer-leg-br",
+    ]) {
+      const limb = byId.get(limbId);
+      expect(limb, limbId).toBeDefined();
+      expect(limb?.parent, `${limbId} parent`).toBe(
+        limbId.startsWith("deer") ? "deer-body" : "robot-torso"
+      );
+    }
+
+    // Characters stand on the ground (feet at y = 0) at player scale.
+    const footClearance = (rootId: string, legId: string): number => {
+      const root = byId.get(rootId);
+      const leg = byId.get(legId);
+      const part = leg?.parts?.[0];
+      return (
+        (root?.position[1] ?? 0) +
+        (leg?.attach?.[1] ?? 0) +
+        (part?.offset?.[1] ?? 0) -
+        (part?.size?.[1] ?? 0) / 2
+      );
+    };
+    expect(footClearance("robot-torso", "robot-leg-l")).toBeCloseTo(0, 5);
+    expect(footClearance("deer-body", "deer-leg-fl")).toBeCloseTo(0, 5);
+    const robotTop =
+      (byId.get("robot-torso")?.position[1] ?? 0) +
+      (byId.get("robot-head")?.attach?.[1] ?? 0) +
+      0.23;
+    const deerTop =
+      (byId.get("deer-body")?.position[1] ?? 0) +
+      (byId.get("deer-head")?.attach?.[1] ?? 0) +
+      0.31;
+    for (const [label, top] of [
+      ["robot", robotTop],
+      ["deer", deerTop],
+    ] as const) {
+      expect(top, `${label} height`).toBeGreaterThanOrEqual(1.8);
+      expect(top, `${label} height`).toBeLessThanOrEqual(2.6);
     }
 
     // Idle bob starts on the character roots from one guarded tick rule.
@@ -798,6 +850,25 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.world, null, 2));
     expect(text).not.toContain("The game must be winnable through its rules alone.");
     expect(text).not.toContain("The race must be winnable through its rules.");
+  });
+
+  test("world prompt carries the shared character composition block", () => {
+    const text = buildGenerationPrompt("a sandbox island", "world");
+    expect(text).toContain(CHARACTER_COMPOSITION_BLOCK.join("\n"));
+    expect(text).toContain("TWO arms and TWO legs");
+    expect(text).toContain("Robot variant");
+    expect(text).toContain("Animal variant");
+    expect(text).toContain("antenna");
+    expect(text).toContain("FOUR parented legs");
+    expect(text).toContain("idle bob");
+    expect(text).toContain('"state": "patrol"');
+    expect(text).toContain("root y = leg attach + leg length");
+    expect(text).toContain("1.8-2.5 units tall");
+    expect(text).toContain("flat label");
+
+    // Other kits stay free of the world-only character block.
+    const machine = buildGenerationPrompt("a robotic arm", "machine");
+    expect(machine).not.toContain("TWO arms and TWO legs");
   });
 
   test("game and explore prompts keep their existing requirements", () => {

@@ -2,7 +2,9 @@ import { describe, expect, test, vi } from "vitest";
 import type { Control } from "@prompt-to-playable/schema";
 import {
   ControlsPanel,
+  controlsPanelLabel,
   controlsToViewModel,
+  DEFAULT_CONTROLS_LABEL,
   DEFAULT_SLIDER_MAX,
   DEFAULT_SLIDER_MIN,
   DEFAULT_SLIDER_STEP,
@@ -90,6 +92,19 @@ describe("controlsToViewModel", () => {
   });
 });
 
+describe("controlsPanelLabel", () => {
+  test("world and machine documents get dedicated labels", () => {
+    expect(controlsPanelLabel("world")).toBe("World controls");
+    expect(controlsPanelLabel("machine")).toBe("Machine controls");
+  });
+
+  test("every other mode falls back to the generic label", () => {
+    for (const mode of ["game", "explore", "inspect", "walkthrough", "drive"] as const) {
+      expect(controlsPanelLabel(mode), mode).toBe(DEFAULT_CONTROLS_LABEL);
+    }
+  });
+});
+
 describe("formatControlValue", () => {
   const slider = (value: number, step?: number) =>
     controlsToViewModel(
@@ -129,12 +144,27 @@ function createHarness() {
 }
 
 describe("ControlsPanel", () => {
+  /** Control rows, skipping the heading the panel always renders first. */
+  function rows(root: FakeNode): FakeNode[] {
+    return root.children.slice(1);
+  }
+
   test("starts hidden and stays hidden with no controls", () => {
     const { panel, root } = createHarness();
     expect(root.hidden).toBe(true);
     panel.update([], {});
     expect(root.hidden).toBe(true);
     expect(root.children).toHaveLength(0);
+    expect(root.getAttribute("aria-label")).toBe(DEFAULT_CONTROLS_LABEL);
+  });
+
+  test("renders the heading and aria-label for the given panel label", () => {
+    const { panel, root } = createHarness();
+    panel.update(CONTROLS, {}, "World controls");
+
+    expect(root.getAttribute("aria-label")).toBe("World controls");
+    expect(root.children[0]?.className).toBe("controls-title");
+    expect(root.children[0]?.textContent).toBe("World controls");
   });
 
   test("renders a row per control with id/type metadata", () => {
@@ -142,19 +172,19 @@ describe("ControlsPanel", () => {
     panel.update(CONTROLS, { swing: 0.5, grip: 1, home: 0 });
 
     expect(root.hidden).toBe(false);
-    expect(root.children).toHaveLength(3);
-    expect(root.children.map((child) => child.dataset.controlId)).toEqual([
+    expect(rows(root)).toHaveLength(3);
+    expect(rows(root).map((child) => child.dataset.controlId)).toEqual([
       "swing",
       "grip",
       "home",
     ]);
-    expect(root.children.map((child) => child.dataset.controlType)).toEqual([
+    expect(rows(root).map((child) => child.dataset.controlType)).toEqual([
       "slider",
       "toggle",
       "button",
     ]);
 
-    const slider = root.children[0]!;
+    const slider = rows(root)[0]!;
     expect(slider.find("control-label")?.textContent).toBe("Swing");
     expect(slider.find("control-value")?.textContent).toBe("0.5");
     const input = slider.children.find((child) => child.className === "control-input")!;
@@ -164,7 +194,7 @@ describe("ControlsPanel", () => {
     expect(input.step).toBe("0.1");
     expect(input.value).toBe("0.5");
 
-    const toggle = root.children[1]!;
+    const toggle = rows(root)[1]!;
     const checkbox = toggle.children.find(
       (child) => child.className === "control-input"
     )!;
@@ -172,15 +202,15 @@ describe("ControlsPanel", () => {
     expect(checkbox.checked).toBe(true);
     expect(toggle.find("control-value")?.textContent).toBe("On");
 
-    expect(root.children[2]!.className).toBe("control-button");
-    expect(root.children[2]!.textContent).toBe("HOME");
+    expect(rows(root)[2]!.className).toBe("control-button");
+    expect(rows(root)[2]!.textContent).toBe("HOME");
   });
 
   test("slider input forwards the numeric value to onInput", () => {
     const { panel, root, onInput } = createHarness();
     panel.update(CONTROLS, { swing: 0, grip: 0, home: 0 });
 
-    const input = root.children[0]!.children.find(
+    const input = rows(root)[0]!.children.find(
       (child) => child.className === "control-input"
     )!;
     input.value = "0.75";
@@ -193,7 +223,7 @@ describe("ControlsPanel", () => {
     const { panel, root, onInput } = createHarness();
     panel.update(CONTROLS, { swing: 0, grip: 0, home: 0 });
 
-    const checkbox = root.children[1]!.children.find(
+    const checkbox = rows(root)[1]!.children.find(
       (child) => child.className === "control-input"
     )!;
     checkbox.checked = true;
@@ -209,7 +239,7 @@ describe("ControlsPanel", () => {
     const { panel, root, onPress } = createHarness();
     panel.update(CONTROLS, { swing: 0, grip: 0, home: 0 });
 
-    root.children[2]!.click();
+    rows(root)[2]!.click();
     expect(onPress).toHaveBeenCalledTimes(1);
     expect(onPress).toHaveBeenCalledWith("home");
   });
@@ -217,16 +247,16 @@ describe("ControlsPanel", () => {
   test("live value updates patch inputs and labels without rebuilding rows", () => {
     const { panel, root } = createHarness();
     panel.update(CONTROLS, { swing: 0, grip: 0, home: 0 });
-    const firstRow = root.children[0];
-    const firstCheckbox = root.children[1]!.children.find(
+    const firstRow = rows(root)[0];
+    const firstCheckbox = rows(root)[1]!.children.find(
       (child) => child.className === "control-input"
     )!;
 
     panel.update(CONTROLS, { swing: 0.42, grip: 1, home: 0 });
-    expect(root.children[0]).toBe(firstRow);
+    expect(rows(root)[0]).toBe(firstRow);
     expect(firstRow!.find("control-value")?.textContent).toBe("0.4");
     expect(firstRow!.children.find((child) => child.className === "control-input")?.value).toBe("0.42");
-    expect(root.children[1]!.children.find((child) => child.className === "control-input")).toBe(
+    expect(rows(root)[1]!.children.find((child) => child.className === "control-input")).toBe(
       firstCheckbox
     );
     expect(firstCheckbox.checked).toBe(true);
@@ -235,15 +265,26 @@ describe("ControlsPanel", () => {
   test("definition changes rebuild the rows", () => {
     const { panel, root } = createHarness();
     panel.update(CONTROLS, {});
-    const firstRow = root.children[0];
+    const firstRow = rows(root)[0];
 
     panel.update(
       [{ ...CONTROLS[0]!, label: "Renamed" } as Control, CONTROLS[2]!],
       {}
     );
-    expect(root.children).toHaveLength(2);
-    expect(root.children[0]).not.toBe(firstRow);
-    expect(root.children[0]!.find("control-label")?.textContent).toBe("Renamed");
+    expect(rows(root)).toHaveLength(2);
+    expect(rows(root)[0]).not.toBe(firstRow);
+    expect(rows(root)[0]!.find("control-label")?.textContent).toBe("Renamed");
+  });
+
+  test("a label change rebuilds the rows under the new heading", () => {
+    const { panel, root } = createHarness();
+    panel.update(CONTROLS, {}, "Machine controls");
+    const firstRow = rows(root)[0];
+
+    panel.update(CONTROLS, {}, "World controls");
+    expect(root.children[0]?.textContent).toBe("World controls");
+    expect(rows(root)[0]).not.toBe(firstRow);
+    expect(root.getAttribute("aria-label")).toBe("World controls");
   });
 
   test("hides again when a reload drops every control", () => {

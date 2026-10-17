@@ -1,12 +1,13 @@
 /**
  * Captures the landing-page gallery from live generations.
  *
- * Boots the production server (`server/dist/index.js`, PORT 3310) which serves
- * the built studio (`apps/web/dist`), drives headless Chromium with software
- * WebGL (same launch flags as `qa-browser`), generates one scene per shot and
- * writes JPEG q85 files to `apps/web/public/shots/`.
+ * Boots the production server (`server/dist/index.js`, PORT 3310 by default,
+ * override with the PORT env var) which serves the built studio
+ * (`apps/web/dist`), drives headless Chromium with software WebGL (same launch
+ * flags as `qa-browser`), generates one scene per shot and writes JPEG q85
+ * files to `apps/web/public/shots/`.
  *
- * Usage: `npx tsx scripts/capture-shots.ts [--only pcb,house]`
+ * Usage: `npx tsx scripts/capture-shots.ts [--only world,machine]`
  *
  * Each generation is a live gateway call and can take a couple of minutes;
  * every shot gets exactly one retry on failure.
@@ -20,7 +21,7 @@ import { resolveChromiumExecutable } from "./playwright-env.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SHOTS_DIR = join(ROOT, "apps", "web", "public", "shots");
-const PORT = 3310;
+const PORT = Number(process.env.PORT ?? 3310);
 const BASE_URL = `http://localhost:${PORT}`;
 
 const VIEWPORT = { width: 1280, height: 800 };
@@ -39,8 +40,19 @@ const YAW_ZERO_FORWARD: readonly [number, number] = [
 ];
 /** Sine of 22.5 degrees: axis threshold for choosing a WASD key. */
 const AXIS_KEY_THRESHOLD = 0.383;
+/** Orbit rig yaw at rest: `atan2(DEFAULT_CAMERA_OFFSET.x, z)` = atan2(6, 12). */
+const DEFAULT_AZIMUTH = Math.atan2(6, 12);
+/** Radians of orbit yaw per pixel of horizontal drag (web `YAW_SENSITIVITY`). */
+const YAW_SENSITIVITY = 0.006;
 
-type ShotKind = "inspect" | "walkthrough" | "drive" | "explore" | "game";
+type ShotKind =
+  | "inspect"
+  | "walkthrough"
+  | "drive"
+  | "explore"
+  | "game"
+  | "world"
+  | "machine";
 
 interface ShotSpec {
   name: string;
@@ -48,9 +60,20 @@ interface ShotSpec {
   prompt: string;
 }
 
-/** The five landing gallery shots; order is capture order (write order). */
+/** The landing gallery shots; order is capture order (write order). */
 const SHOTS: readonly ShotSpec[] = [
-  // The hero image: the inspect kit with an info panel opened by a real click.
+  // The hero image: the open world with its live controls panel in frame.
+  {
+    name: "world",
+    kind: "world",
+    prompt: "an open world island with trees, animals and buttons to spawn things",
+  },
+  // The machine kit with its joint sliders visible next to the five-axis arm.
+  {
+    name: "machine",
+    kind: "machine",
+    prompt: "a robotic arm with joint sliders I can control",
+  },
   { name: "pcb", kind: "inspect", prompt: "a 3D PCB I can click and inspect" },
   { name: "house", kind: "walkthrough", prompt: "a house I can walk through" },
   { name: "race", kind: "drive", prompt: "a car racing game" },
@@ -488,6 +511,190 @@ async function settleScene(page: Page, requireObjectives: boolean): Promise<stri
   return requireObjectives ? "objectives visible" : "scene settled";
 }
 
+/**
+ * Make the sidebar fit the controls panel in frame: the panel sits below the
+ * chat log, examples and agent trace, and the expanded trace pushes it below
+ * the fold. Apply view-only framing measures (collapse the trace, then hide
+ * it, then hide the example chips, then cap the chat log) until the panel is
+ * fully inside the viewport. Returns which measures were needed.
+ */
+async function makeRoomForControls(page: Page): Promise<string> {
+  const measures: string[] = [];
+  const controlsVisible = (): Promise<boolean> =>
+    page.evaluate(() => {
+      const panel = document.querySelector<HTMLElement>("#controls-panel");
+      if (panel === null) return false;
+      const rect = panel.getBoundingClientRect();
+      return rect.top >= 0 && rect.bottom <= window.innerHeight;
+    });
+
+  const trace = page.locator("#agent-trace");
+  if ((await trace.count()) > 0) {
+    const toggleCount = await page.locator("#agent-trace .agent-trace-toggle").count();
+    const toggle = toggleCount
+      ? ((await page.locator("#agent-trace .agent-trace-toggle").textContent()) ?? "").trim()
+      : "";
+    if (toggle === "Hide") {
+      await page.locator("#agent-trace .agent-trace-head").click();
+      await page.waitForTimeout(250);
+      measures.push("trace collapsed");
+    }
+  }
+
+  if (!(await controlsVisible())) {
+    const examples = page.locator("#examples");
+    if ((await examples.count()) > 0) {
+      await examples.evaluate((element) => {
+        (element as HTMLElement).hidden = true;
+      });
+      await page.waitForTimeout(250);
+      measures.push("example chips hidden");
+    }
+  }
+
+  if (!(await controlsVisible())) {
+    await page.evaluate(() => {
+      const log = document.querySelector<HTMLElement>("#chat-log");
+      if (log !== null) log.style.maxHeight = "120px";
+    });
+    await page.waitForTimeout(250);
+    measures.push("chat log capped");
+  }
+
+  if (!(await controlsVisible())) {
+    if ((await trace.count()) > 0) {
+      await trace.evaluate((element) => {
+        (element as HTMLElement).hidden = true;
+      });
+      await page.waitForTimeout(250);
+      measures.push("trace hidden");
+    }
+  }
+
+  return measures.length === 0
+    ? "controls panel already in frame"
+    : `${measures.join(", ")}; controls panel in frame`;
+}
+
+/**
+ * World: aim the orbit camera at the densest cluster of ground props (the
+ * content the generator scattered), keep the pointer held so the rig's yaw
+ * cannot ease back to home, walk a little toward the cluster, and let the
+ * camera position settle behind the new yaw. The pointer stays down through
+ * the screenshot; the context closes right after.
+ */
+async function settleWorld(page: Page): Promise<string> {
+  await page.waitForFunction(
+    () => {
+      const panel = document.querySelector<HTMLElement>("#controls-panel");
+      return (
+        panel !== null &&
+        !panel.hidden &&
+        panel.querySelector(".control-button") !== null
+      );
+    },
+    undefined,
+    { timeout: RENDER_TIMEOUT_MS }
+  );
+  const room = await makeRoomForControls(page);
+
+  const aim = await page.evaluate(() => {
+    const debug = (
+      window as unknown as {
+        __gameDebug?: { getState: () => unknown };
+      }
+    ).__gameDebug;
+    if (!debug) return null;
+    const state = debug.getState() as {
+      entities?: Array<{ id?: string; kind?: string; position?: number[] }>;
+      entityRuntime?: Record<string, { position?: number[] }>;
+    };
+    const entities = state.entities ?? [];
+    const player = entities.find((entity) => entity.kind === "player");
+    const playerPos = player ? state.entityRuntime?.[player.id ?? ""]?.position : undefined;
+    if (!playerPos || playerPos.length < 3) return null;
+
+    let sumX = 0;
+    let sumZ = 0;
+    let count = 0;
+    for (const entity of entities) {
+      if (entity.id === player?.id || entity.kind !== "prop") continue;
+      const position = state.entityRuntime?.[entity.id ?? ""]?.position ?? entity.position;
+      if (!position || position.length < 3) continue;
+      if ((position[1] ?? 0) > 12) continue; // skip sky props like a moon
+      sumX += (position[0] ?? 0) - (playerPos[0] ?? 0);
+      sumZ += (position[2] ?? 0) - (playerPos[2] ?? 0);
+      count += 1;
+    }
+    if (count === 0) return null;
+    return { dx: sumX / count, dz: sumZ / count, count };
+  });
+
+  let aimed = "no ground props to aim at";
+  if (aim !== null && Math.hypot(aim.dx, aim.dz) > 1e-3) {
+    const desiredYaw = Math.atan2(
+      Math.sin(Math.atan2(-aim.dx, -aim.dz) - DEFAULT_AZIMUTH),
+      Math.cos(Math.atan2(-aim.dx, -aim.dz) - DEFAULT_AZIMUTH)
+    );
+    const pixels = desiredYaw / YAW_SENSITIVITY;
+    const box = await page.locator("#game").boundingBox();
+    if (box !== null) {
+      const startX = box.x + box.width / 2 - pixels / 2;
+      const y = box.y + box.height / 2;
+      await page.mouse.move(startX, y);
+      await page.mouse.down();
+      // Split into steps so pointermove deltas stay per-event sane.
+      await page.mouse.move(startX + pixels, y, { steps: 12 });
+      aimed = `yaw ${desiredYaw.toFixed(2)} rad toward ${aim.count} props`;
+      // Walk forward a touch so the cluster reads closer; the held pointer
+      // keeps the yaw, and W follows the new camera-forward basis.
+      await page.keyboard.down("w");
+      await page.waitForTimeout(1_600);
+      await page.keyboard.up("w");
+    }
+  }
+
+  await page.waitForTimeout(6_000);
+  const buttons = await page.locator("#controls-panel .control-button").count();
+  const title = (
+    (await page.locator("#controls-panel .controls-title").textContent()) ?? ""
+  ).trim();
+  return `world settled (${room}; ${aimed}); "${title}" visible with ${buttons} button(s)`;
+}
+
+/**
+ * Machine: same framing settle as the arm's assembly camera, with the first
+ * joint slider driven to mid-range so the chain reads posed, not at rest.
+ */
+async function poseMachine(page: Page): Promise<string> {
+  await page.waitForFunction(
+    () => {
+      const panel = document.querySelector<HTMLElement>("#controls-panel");
+      return (
+        panel !== null &&
+        !panel.hidden &&
+        panel.querySelector('input[type="range"]') !== null
+      );
+    },
+    undefined,
+    { timeout: RENDER_TIMEOUT_MS }
+  );
+  const room = await makeRoomForControls(page);
+  const slider = page.locator('#controls-panel input[type="range"]').first();
+  await slider.evaluate((element) => {
+    const input = element as HTMLInputElement;
+    const min = Number(input.min);
+    const max = Number(input.max);
+    input.value = String(min + (max - min) * 0.6);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await page.waitForTimeout(4_000);
+  const title = (
+    (await page.locator("#controls-panel .controls-title").textContent()) ?? ""
+  ).trim();
+  return `machine settled (${room}); first joint slider driven; panel "${title}"`;
+}
+
 /* ------------------------------------------------------------------ */
 /* Capture                                                              */
 /* ------------------------------------------------------------------ */
@@ -546,6 +753,12 @@ async function captureShot(browser: Browser, spec: ShotSpec): Promise<number> {
         break;
       case "game":
         detail = await settleScene(page, true);
+        break;
+      case "world":
+        detail = await settleWorld(page);
+        break;
+      case "machine":
+        detail = await poseMachine(page);
         break;
     }
 

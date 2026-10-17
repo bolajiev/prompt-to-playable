@@ -8,7 +8,7 @@ import {
   parseAgentTrace,
   type AgentTrace,
 } from "./ui/agent-trace.js";
-import { ControlsPanel } from "./ui/controls-panel.js";
+import { ControlsPanel, controlsPanelLabel } from "./ui/controls-panel.js";
 import { Hud } from "./ui/hud.js";
 import { ValidationBadge } from "./ui/badge.js";
 import { GenerationProgress } from "./ui/progress.js";
@@ -79,7 +79,7 @@ export interface AppElements {
   driveTime: HTMLElement;
   /** Overlay for `state.ui.panels` cards. */
   panels: HTMLElement;
-  /** Sidebar section with the document's interactive controls (machine docs). */
+  /** Sidebar section with the document's interactive controls (machine/world docs). */
   controlsPanel: HTMLElement;
   /** Collapsible agent tool-trace strip shown above the controls panel. */
   agentTrace: HTMLElement;
@@ -559,7 +559,11 @@ export class App {
       this.renderer.reconcile(state);
       this.hud.update(state);
       this.panels.update(state.ui.panels);
-      this.controlsPanel.update(state.doc.controls ?? [], state.ui.controls);
+      this.controlsPanel.update(
+        state.doc.controls ?? [],
+        state.ui.controls,
+        controlsPanelLabel(resolveMode(state.doc))
+      );
       this.updateModeHud(state);
       this.updateInteractPrompt(state);
       this.updateCamera(state, dt / 1000);
@@ -835,7 +839,11 @@ export class App {
     this.badge.setValidated(true);
     this.hud.update(state);
     this.panels.update(state.ui.panels);
-    this.controlsPanel.update(state.doc.controls ?? [], state.ui.controls);
+    this.controlsPanel.update(
+      state.doc.controls ?? [],
+      state.ui.controls,
+      controlsPanelLabel(mode)
+    );
     this.updateModeHud(state);
     this.renderer.reconcile(state);
     this.lastTime = this.now();

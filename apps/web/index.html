@@ -44,14 +44,15 @@
         <div class="container hero-grid">
           <div class="hero-copy">
             <p class="eyebrow reveal">
-              Prompt &rarr; validated game data &rarr; playable 3D
+              Open worlds &middot; live controls &middot; one prompt
             </p>
-            <h1 class="display reveal">Describe it. Play it. Reshape it.</h1>
+            <h1 class="display reveal">Describe a world. Walk into it.</h1>
             <p class="lede reveal">
-              Plain language goes in; an interactive 3D scene comes back —
-              movement, collisions, rules and objectives — running in your
-              browser. Keep talking and the world changes while you are inside
-              it.
+              Plain language goes in; an open 3D world comes back — islands,
+              villages, machines, race tracks — with characters the agent
+              builds from jointed parts and live on-screen controls that spawn
+              and change things while you are inside. Keep talking and the
+              world reshapes around you.
             </p>
             <div class="cta-row reveal">
               <a class="btn btn-primary" href="/app.html">Open the studio</a>
@@ -70,15 +71,15 @@
           <figure class="hero-visual reveal">
             <div class="frame">
               <img
-                src="/shots/pcb.jpg"
+                src="/shots/world.jpg"
                 width="1920"
                 height="1200"
-                alt="Studio screenshot: the inspect kit renders a circuit board in 3D with an info panel open for a clicked chip."
+                alt="Studio screenshot: an open-world island scene generated from one prompt, with the world controls panel open for spawning things."
               />
             </div>
             <figcaption class="figcaption">
-              FIG. 01 — inspect kit &middot; &ldquo;a 3D PCB I can click and
-              inspect&rdquo;
+              FIG. 01 — open world kit &middot; &ldquo;an open world island with
+              trees, animals and buttons to spawn things&rdquo;
             </figcaption>
           </figure>
         </div>
@@ -88,6 +89,12 @@
         <div class="container">
           <p class="section-label reveal">Start from a prompt</p>
           <div class="prompt-row reveal">
+            <a
+              class="prompt-chip"
+              href="/app.html"
+              data-prompt="an open world island with trees, animals and buttons to spawn things"
+              >Open world island</a
+            >
             <a
               class="prompt-chip"
               href="/app.html"
@@ -171,13 +178,96 @@
       <section id="kits" class="kits">
         <div class="container">
           <p class="section-label reveal">The kits</p>
-          <h2 class="section-title reveal">Five kinds of world, one pipeline</h2>
+          <h2 class="section-title reveal">Seven kinds of world, one pipeline</h2>
           <p class="section-lede reveal">
             The same generate &rarr; validate &rarr; play loop; the kit only
             changes what the scene is made of. Every screenshot below is a real
             generation captured from the studio.
           </p>
           <div class="kit-grid">
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/world.jpg"
+                  alt="An open-world island with trees, animals and the world controls panel open."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Open World</h3>
+              <p class="kit-body">
+                A large, walkable world from one prompt: terrain, trees,
+                villages, wildlife and characters built from jointed parts —
+                plus on-screen buttons, a toggle and a slider that spawn and
+                change things live.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/machine.jpg"
+                  alt="A five-axis robotic arm in the studio with the machine controls panel open."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Machine</h3>
+              <p class="kit-body">
+                A jointed five-axis arm built from labeled parts. Drag the joint
+                sliders and the whole chain sweeps with real forward
+                kinematics.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/race.jpg"
+                  alt="Chase-camera view of a race car on a closed course with a speed and lap HUD."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Drive</h3>
+              <p class="kit-body">
+                Chase-camera vehicles on a closed course: throttle and steering,
+                ordered checkpoints, speed, lap and timer HUD.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/house.jpg"
+                  alt="First-person view inside a small house with a door and a lamp."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Walkthrough</h3>
+              <p class="kit-body">
+                First-person interiors: a house with doors that slide open,
+                lamps that toggle, and walls that actually stop you.
+              </p>
+            </article>
+            <article class="kit-card reveal">
+              <div class="kit-shot">
+                <img
+                  src="/shots/pcb.jpg"
+                  alt="A 3D circuit board with chips, LEDs and silkscreen labels, plus an open info panel."
+                  width="1920"
+                  height="1200"
+                  loading="lazy"
+                />
+              </div>
+              <h3 class="kit-title">Inspect</h3>
+              <p class="kit-body">
+                Click-to-learn assemblies like a 3D PCB: silkscreen labels,
+                per-component info panels, camera focus on the first click.
+              </p>
+            </article>
             <article class="kit-card reveal">
               <div class="kit-shot">
                 <img
@@ -211,54 +301,6 @@
                 state — a clearing, a campfire, ambient light.
               </p>
             </article>
-            <article class="kit-card reveal">
-              <div class="kit-shot">
-                <img
-                  src="/shots/pcb.jpg"
-                  alt="A 3D circuit board with chips, LEDs and silkscreen labels, plus an open info panel."
-                  width="1920"
-                  height="1200"
-                  loading="lazy"
-                />
-              </div>
-              <h3 class="kit-title">Inspect</h3>
-              <p class="kit-body">
-                Click-to-learn assemblies like a 3D PCB: silkscreen labels,
-                per-component info panels, camera focus on the first click.
-              </p>
-            </article>
-            <article class="kit-card reveal">
-              <div class="kit-shot">
-                <img
-                  src="/shots/house.jpg"
-                  alt="First-person view inside a small house with a door and a lamp."
-                  width="1920"
-                  height="1200"
-                  loading="lazy"
-                />
-              </div>
-              <h3 class="kit-title">Walkthrough</h3>
-              <p class="kit-body">
-                First-person interiors: a house with doors that slide open,
-                lamps that toggle, and walls that actually stop you.
-              </p>
-            </article>
-            <article class="kit-card reveal">
-              <div class="kit-shot">
-                <img
-                  src="/shots/race.jpg"
-                  alt="Chase-camera view of a race car on a closed course with a speed and lap HUD."
-                  width="1920"
-                  height="1200"
-                  loading="lazy"
-                />
-              </div>
-              <h3 class="kit-title">Drive</h3>
-              <p class="kit-body">
-                Chase-camera vehicles on a closed course: throttle and steering,
-                ordered checkpoints, speed, lap and timer HUD.
-              </p>
-            </article>
           </div>
         </div>
       </section>
@@ -270,7 +312,8 @@
             <div class="stat reveal">
               <span class="stat-num">13/13</span>
               <span class="stat-label"
-                >generated documents usable in the live kit evaluation</span
+                >generated documents usable in the 2026-10-15 live kit
+                evaluation</span
               >
             </div>
             <div class="stat reveal">
@@ -281,7 +324,7 @@
               >
             </div>
             <div class="stat reveal">
-              <span class="stat-num">682</span>
+              <span class="stat-num">814</span>
               <span class="stat-label"
                 >automated tests across engine, renderer, server and web</span
               >
@@ -291,7 +334,8 @@
             Every generated document is schema-validated and sanity-checked
             server-side before the browser sees it, and the committed kit
             fixtures are replayed offline — click rules, door interact, race
-            win path. Generated content is data-validated, not hand-authored.
+            win path, world spawn buttons. Generated content is data-validated,
+            not hand-authored.
           </p>
         </div>
       </section>

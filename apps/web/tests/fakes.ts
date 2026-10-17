@@ -21,6 +21,7 @@ export class FakeNode {
   scrollHeight = 0;
   isContentEditable = false;
   readonly dataset: Record<string, string> = {};
+  readonly attributes: Record<string, string> = {};
   readonly children: FakeNode[] = [];
   readonly ownerDocument: FakeDocument;
   readonly blur = vi.fn();
@@ -33,6 +34,14 @@ export class FakeNode {
 
   append(...nodes: FakeNode[]): void {
     this.children.push(...nodes);
+  }
+
+  setAttribute(name: string, value: string): void {
+    this.attributes[name] = value;
+  }
+
+  getAttribute(name: string): string | null {
+    return this.attributes[name] ?? null;
   }
 
   replaceChildren(...nodes: FakeNode[]): void {

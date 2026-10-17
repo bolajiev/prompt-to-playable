@@ -1,4 +1,4 @@
-import type { Control } from "@prompt-to-playable/schema";
+import type { Control, GameMode } from "@prompt-to-playable/schema";
 
 /**
  * Right-sidebar interactive control panel: a pure view-model plus a small DOM
@@ -11,6 +11,20 @@ import type { Control } from "@prompt-to-playable/schema";
 export const DEFAULT_SLIDER_MIN = 0;
 export const DEFAULT_SLIDER_MAX = 1;
 export const DEFAULT_SLIDER_STEP = 0.01;
+
+/** Heading for documents whose mode has no dedicated control surface. */
+export const DEFAULT_CONTROLS_LABEL = "Controls";
+
+/**
+ * Panel heading for a document mode: open worlds get a dedicated "World
+ * controls" label, machines keep "Machine controls", every other mode with
+ * controls falls back to the generic "Controls".
+ */
+export function controlsPanelLabel(mode: GameMode): string {
+  if (mode === "world") return "World controls";
+  if (mode === "machine") return "Machine controls";
+  return DEFAULT_CONTROLS_LABEL;
+}
 
 /** Display data for one control row (stable field order, no extras). */
 export interface ControlViewModel {
@@ -88,17 +102,19 @@ export class ControlsPanel {
 
   update(
     controls: readonly Control[],
-    values: Readonly<Record<string, number>>
+    values: Readonly<Record<string, number>>,
+    label: string = DEFAULT_CONTROLS_LABEL
   ): void {
     const view = controlsToViewModel(controls, values);
-    const signature = view
+    const signature = `${label}\u0002${view
       .map(
         (control) =>
           `${control.id}\u0000${control.type}\u0000${control.label}\u0000${control.min}\u0000${control.max}\u0000${control.step}`
       )
-      .join("\u0001");
+      .join("\u0001")}`;
 
     this.root.hidden = view.length === 0;
+    this.root.setAttribute("aria-label", label);
     if (signature === this.signature) {
       for (const control of view) this.sync(control);
       return;
@@ -107,7 +123,15 @@ export class ControlsPanel {
     this.rows.clear();
 
     const doc = this.root.ownerDocument;
+    if (view.length === 0) {
+      this.root.replaceChildren();
+      return;
+    }
+    const heading = doc.createElement("p");
+    heading.className = "controls-title";
+    heading.textContent = label;
     this.root.replaceChildren(
+      heading,
       ...view.map((control) => this.buildRow(doc, control))
     );
     for (const control of view) this.sync(control);

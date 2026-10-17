@@ -10,7 +10,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_OUT_DIR = join(ROOT, "artifacts", "qa");
 
 /** Hero heading the landing smoke beat asserts on. */
-export const LANDING_HERO_TEXT = "Describe it. Play it. Reshape it.";
+export const LANDING_HERO_TEXT = "Describe a world. Walk into it.";
 
 export const QA_PROMPT =
   "a small room where I collect 3 glowing crystals while avoiding one guard";
