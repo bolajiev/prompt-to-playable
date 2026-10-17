@@ -12,10 +12,12 @@ describe("explore HUD decision", () => {
     expect(EXPLORE_HINT).toContain("drag to orbit");
   });
 
-  test("inspect, walkthrough, drive and game never get the explore hint", () => {
+  test("inspect, walkthrough, drive, machine, world and game never get the explore hint", () => {
     expect(exploreHint("inspect", 0)).toBeNull();
     expect(exploreHint("walkthrough", 0)).toBeNull();
     expect(exploreHint("drive", 0)).toBeNull();
+    expect(exploreHint("machine", 0)).toBeNull();
+    expect(exploreHint("world", 0)).toBeNull();
     expect(exploreHint("game", 0)).toBeNull();
   });
 

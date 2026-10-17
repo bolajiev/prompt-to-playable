@@ -156,6 +156,76 @@ describe("kit few-shots are playable in the engine", () => {
     expect(panel?.body.length).toBeGreaterThan(0);
   });
 
+  test("world: spawn buttons add entities, the player walks and props open panels", () => {
+    const engine = createEngine();
+    engine.load(ARCHETYPE_EXAMPLES.world);
+
+    const initialCount = engine.getState().entities.length;
+    const player = engine
+      .getState()
+      .entities.find((entity) => entity.kind === "player");
+    expect(player).toBeDefined();
+    if (!player) return;
+
+    // Spawn buttons visibly add entities (new ids, so the count only grows).
+    engine.pressControl("spawn-tree");
+    let state = engine.step(16.666);
+    expect(state.entities.length).toBe(initialCount + 1);
+    expect(state.scratch.treesSpawned).toBe(1);
+
+    engine.pressControl("spawn-robot");
+    state = engine.step(16.666);
+    expect(state.entities.length).toBe(initialCount + 5);
+    expect(state.scratch.robotsSpawned).toBe(1);
+
+    // The spawned robot is a real parent chain that resolves next to its root
+    // on the following tick (FK resolution runs before rules each tick).
+    state = engine.step(16.666);
+    const torso = state.entityRuntime["scout-torso"];
+    const head = state.entityRuntime["scout-head"];
+    expect(torso).toBeDefined();
+    expect(head).toBeDefined();
+    if (torso && head) {
+      expect(head.position[1] - torso.position[1]).toBeCloseTo(1.6, 1);
+    }
+
+    // The player walks on the open ground.
+    const before: [number, number, number] = [
+      ...engine.getState().entityRuntime[player.id].position,
+    ];
+    let moved = engine.getState();
+    for (let i = 0; i < 120; i += 1) moved = engine.step(16.666, { moveZ: 1 });
+    const after = moved.entityRuntime[player.id].position;
+    const travel = Math.hypot(after[0] - before[0], after[2] - before[2]);
+    expect(travel).toBeGreaterThan(1);
+
+    // Night mode hides/shows the moon, wind spins the rotor.
+    const dayMoon = engine.getState().entityRuntime.moon?.visible;
+    engine.setControl("night-mode", 1);
+    state = engine.step(16.666);
+    expect(state.entityRuntime.moon?.visible).toBe(true);
+    engine.setControl("night-mode", 0);
+    state = engine.step(16.666);
+    expect(state.entityRuntime.moon?.visible).toBe(false);
+    expect(dayMoon).toBe(false);
+
+    const restWind = engine.getState().entityRuntime["windmill-rotor"]?.rotation?.[1] ?? 0;
+    engine.setControl("wind", 2.4);
+    state = engine.step(16.666);
+    const blownWind = state.entityRuntime["windmill-rotor"]?.rotation?.[1] ?? 0;
+    expect(Math.abs(blownWind - restWind)).toBeGreaterThan(0.5);
+
+    // Clicking a labeled prop opens its info panel.
+    for (const id of ["ancient-oak", "well", "windmill-tower"]) {
+      engine.pushEvent({ type: "click", targetId: id });
+      state = engine.step(16.666);
+      expect(
+        state.ui.panels.some((panel) => panel.entity === id),
+        `${id} panel`
+      ).toBe(true);
+    }
+  });
+
   test("drive: throttle straight down the road wins the race", () => {
     const engine = createEngine();
     engine.load(ARCHETYPE_EXAMPLES.drive);

@@ -267,6 +267,14 @@ describe("GameSchema v1.1 additions", () => {
     expect(isGame(doc)).toBe(false);
   });
 
+  test("world mode parses", () => {
+    const doc = v11Doc();
+    doc.meta.mode = "world";
+    const res = validateGame(doc);
+    expect(res.ok).toBe(true);
+    expect(res.data?.meta.mode).toBe("world");
+  });
+
   test("old minimal doc still parses without v1.1 fields (backward compat)", () => {
     const res = validateGame(minimalDoc());
     expect(res.ok).toBe(true);

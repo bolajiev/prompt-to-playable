@@ -284,13 +284,13 @@ export const FOCUS_DISTANCE = 8;
 export const FOCUS_DISTANCE_RATE = 5;
 
 /**
- * Mode -> camera mapping. inspect / explore / game keep the orbit rig (with
- * different defaults), walkthrough becomes first person and drive becomes a
- * heading-following chase camera. A player flagged `props.vehicle` uses the
- * chase camera in every mode, matching the engine's vehicle controller.
- * Documents without an explicit `meta.mode` resolve through the regular
- * backward-compatible inference (explore archetype -> explore, every other
- * archetype -> game), so they stay orbit.
+ * Mode -> camera mapping. inspect / explore / game / machine / world keep the
+ * orbit rig (with different defaults), walkthrough becomes first person and
+ * drive becomes a heading-following chase camera. A player flagged
+ * `props.vehicle` uses the chase camera in every mode, matching the engine's
+ * vehicle controller. Documents without an explicit `meta.mode` resolve through
+ * the regular backward-compatible inference (explore archetype -> explore,
+ * every other archetype -> game), so they stay orbit.
  */
 export function resolveCameraMode(doc: GameDoc, vehicle = false): CameraMode {
   if (vehicle) return "chase";

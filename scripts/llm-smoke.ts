@@ -197,7 +197,8 @@ function kitFail(kit: GameMode, failure: string): KitCheck {
  * walkthrough: player + >=1 interactable; drive: vehicle + >=3 checkpoint
  * zones + a win path; machine: a bound slider, resolvable binds, a parent
  * chain with a rotation slider on a parented joint, a toggle, an animate
- * button and clickable labeled panels; game: a win path; explore: no zones.
+ * button and clickable labeled panels; world: a button that spawns a new
+ * entity; game: a win path; explore: no zones.
  */
 function kitCheck(doc: GameDoc): KitCheck {
   const kit = resolveKit(doc);
@@ -312,6 +313,18 @@ function kitCheck(doc: GameDoc): KitCheck {
           )
       );
       if (!labeledClick) return kitFail(kit, "MACHINE_NO_LABELED_PANEL");
+      return kitOk(kit);
+    }
+    case "world": {
+      const ids = new Set(doc.entities.map((entity) => entity.id));
+      const spawnsNewEntity = (doc.controls ?? []).some(
+        (control) =>
+          control.type === "button" &&
+          (control.bind?.onPress ?? []).some(
+            (action) => action.type === "spawn" && !ids.has(action.entity.id)
+          )
+      );
+      if (!spawnsNewEntity) return kitFail(kit, "WORLD_NO_SPAWN_BUTTON");
       return kitOk(kit);
     }
     case "explore": {
@@ -783,6 +796,7 @@ export async function runSmoke(options: SmokeOptions = {}): Promise<boolean> {
     "walkthrough",
     "drive",
     "machine",
+    "world",
     "game",
     "explore",
   ];

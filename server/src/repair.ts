@@ -73,6 +73,14 @@ function kitNote(doc: unknown): string[] {
       "clickable labeled parts with their showPanel rules.",
     ];
   }
+  if (profile.mode === "world") {
+    return [
+      "Kit note (world): keep objectives empty, never add zones or win/lose",
+      "actions; keep the player and at least one button whose onPress spawns an",
+      "entity with a NEW id, and keep every bind/rule reference pointing at an",
+      "existing entity (only spawn payloads may introduce new ids).",
+    ];
+  }
   if (profile.archetype === "explore") {
     return [
       "Kit note (explore): keep objectives empty, never add zone entities or",

@@ -333,6 +333,7 @@ describe("resolveCameraMode", () => {
     expect(resolveCameraMode(doc({ mode: "drive" }))).toBe("chase");
     expect(resolveCameraMode(doc({ mode: "inspect" }))).toBe("orbit");
     expect(resolveCameraMode(doc({ mode: "machine" }))).toBe("orbit");
+    expect(resolveCameraMode(doc({ mode: "world" }))).toBe("orbit");
     expect(resolveCameraMode(doc({ mode: "explore" }))).toBe("orbit");
     expect(resolveCameraMode(doc({ mode: "game" }))).toBe("orbit");
   });

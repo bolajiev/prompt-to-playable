@@ -10,7 +10,7 @@ export const EXPLORE_ARCHETYPE: Archetype = "explore";
  * Every label the classifier may return: the five schema archetypes plus the
  * interactive kits. Kit labels are not schema archetypes - generated documents
  * carry them in `meta.mode` while `meta.archetype` stays a schema value
- * (inspect/walkthrough/machine -> "explore", drive -> "collect-a-thon").
+ * (inspect/walkthrough/machine/world -> "explore", drive -> "collect-a-thon").
  */
 export const KIT_ARCHETYPES = [
   ...ARCHETYPES,
@@ -18,6 +18,7 @@ export const KIT_ARCHETYPES = [
   "walkthrough",
   "drive",
   "machine",
+  "world",
 ] as const;
 export type KitArchetype = (typeof KIT_ARCHETYPES)[number];
 
@@ -96,6 +97,15 @@ const WALKTHROUGH_VERB_PATTERN =
 const WALKTHROUGH_PLACE_PATTERN = /\b(house|home|building|apartment|villa|museum)\b/;
 
 /**
+ * World cues: an open, sandboxy place to roam - islands, cities, zoos, farms,
+ * villages, parks - or explicit "explore freely" / build-request language.
+ * "world" is deliberately generic; the more specific kits (machine, inspect,
+ * drive, walkthrough) outrank it in `parseArchetype`.
+ */
+const WORLD_PATTERN =
+  /\b(open[- ]world|sandbox|island|city|zoo|farm|village|park|world|explore freely|build me|create a)\b/;
+
+/**
  * Deterministic scene detector used when the LLM answer cannot be parsed:
  * non-goal prompts that describe a place or use display language are explore.
  */
@@ -147,6 +157,25 @@ export function isWalkthroughPrompt(prompt: string): boolean {
   return false;
 }
 
+/**
+ * Deterministic world/sandbox detector for the classifier fallback path. World
+ * prompts describe an open place to roam (island, city, zoo, farm, village,
+ * park) or ask to "build me" / "create a" world, with no goal to achieve.
+ * Prompts that state a goal, name a technical study object, race a vehicle or
+ * walk through an interior stay with their own kits - the same precedence
+ * `parseArchetype` applies: machine > inspect > drive > walkthrough > world >
+ * explore.
+ */
+export function isWorldPrompt(prompt: string): boolean {
+  const text = (prompt ?? "").toLowerCase();
+  if (GOAL_PATTERN.test(text)) return false;
+  if (INSPECT_OBJECT_PATTERN.test(text)) return false;
+  if (DRIVE_PATTERN.test(text)) return false;
+  if (WALKTHROUGH_VERB_PATTERN.test(text)) return false;
+  if (MACHINE_PATTERN.test(text)) return false;
+  return WORLD_PATTERN.test(text);
+}
+
 function normalize(raw: string): { spaced: string; compact: string } {
   const lowered = raw.toLowerCase();
   return {
@@ -176,6 +205,9 @@ export function buildClassifierPrompt(prompt: string): string {
     '- "machine": an interactive machine the player drives with on-screen controls -',
     "  a robot or robotic arm, crane, conveyor, turret, servo or jointed rig with",
     "  joint sliders, a grip toggle and clickable labeled parts.",
+    '- "world": an open world or sandbox to roam freely - an island, city, zoo,',
+    "  farm, village or park - with interactive on-screen controls that spawn or",
+    "  change things (spawn buttons, weather toggles, wind sliders).",
     "",
     "Rules:",
     "- Respond with ONLY the archetype string.",
@@ -186,6 +218,8 @@ export function buildClassifierPrompt(prompt: string): string {
     '- If the prompt involves driving, racing, laps or a track, choose "drive".',
     '- If the prompt describes an interactive machine with sliders, toggles or',
     '  buttons that move its joints, choose "machine".',
+    '- If the prompt describes an open world or sandbox to roam with on-screen',
+    '  controls that spawn or change things, choose "world".',
     `- If the prompt is unclear, choose "${DEFAULT_ARCHETYPE}".`,
     "",
     "Few-shot examples:",
@@ -198,6 +232,7 @@ export function buildClassifierPrompt(prompt: string): string {
     '- "a house I can walk through" -> walkthrough',
     '- "a car racing game with 3 laps" -> drive',
     '- "a robotic arm with joint sliders I can control" -> machine',
+    '- "an open world island with trees, animals and buttons to spawn things" -> world',
     "",
     "Game design prompt:",
     prompt,
@@ -219,6 +254,7 @@ export function parseArchetype(raw: string, prompt?: string): KitArchetype {
     if (isInspectPrompt(prompt)) return "inspect";
     if (isDrivePrompt(prompt)) return "drive";
     if (isWalkthroughPrompt(prompt)) return "walkthrough";
+    if (isWorldPrompt(prompt)) return "world";
     if (isExplorePrompt(prompt)) return EXPLORE_ARCHETYPE;
   }
   return DEFAULT_ARCHETYPE;

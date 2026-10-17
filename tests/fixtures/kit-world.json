@@ -1,0 +1,1488 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Sunward Atoll",
+    "archetype": "explore",
+    "genre": "sandbox",
+    "difficulty": 0,
+    "seed": 20260419,
+    "mode": "world"
+  },
+  "world": {
+    "bounds": [
+      60,
+      24,
+      60
+    ],
+    "lighting": "day",
+    "skybox": "outdoor",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "name": "Castaway",
+      "position": [
+        0,
+        1,
+        -22
+      ],
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "npc-goat",
+      "kind": "enemy",
+      "name": "Grazing goat",
+      "position": [
+        14,
+        1,
+        6
+      ],
+      "color": "#e8e0d0",
+      "tags": [
+        "animal"
+      ],
+      "active": true,
+      "speed": 1,
+      "state": "idle"
+    },
+    {
+      "id": "npc-crab",
+      "kind": "enemy",
+      "name": "Beach crab",
+      "position": [
+        -24,
+        1,
+        -22
+      ],
+      "color": "#d1495b",
+      "tags": [
+        "animal"
+      ],
+      "active": true,
+      "speed": 1.6,
+      "patrol": [
+        [
+          -24,
+          1,
+          -22
+        ],
+        [
+          -14,
+          1,
+          -26
+        ],
+        [
+          -4,
+          1,
+          -24
+        ],
+        [
+          -12,
+          1,
+          -16
+        ]
+      ],
+      "state": "patrol"
+    },
+    {
+      "id": "npc-seagull",
+      "kind": "enemy",
+      "name": "Hovering gull",
+      "position": [
+        -16,
+        4,
+        14
+      ],
+      "color": "#f5f5f5",
+      "tags": [
+        "animal"
+      ],
+      "active": true,
+      "speed": 1.2,
+      "state": "idle"
+    },
+    {
+      "id": "keeper-torso",
+      "kind": "prop",
+      "name": "Island keeper",
+      "position": [
+        6,
+        2,
+        14
+      ],
+      "tags": [
+        "character"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.35,
+            0
+          ],
+          "size": [
+            1,
+            1.1,
+            0.62
+          ],
+          "color": "#2f6f7e",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.38,
+            0
+          ],
+          "size": [
+            0.62,
+            0.42,
+            0.5
+          ],
+          "color": "#8d6e4a",
+          "material": {
+            "roughness": 0.9
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.3,
+            0.3
+          ],
+          "size": [
+            0.36,
+            0.36,
+            0.14
+          ],
+          "color": "#c9a227",
+          "material": {
+            "roughness": 0.7
+          }
+        }
+      ]
+    },
+    {
+      "id": "keeper-head",
+      "kind": "prop",
+      "name": "Keeper head",
+      "parent": "keeper-torso",
+      "attach": [
+        0,
+        1.05,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.55,
+            0.55,
+            0.55
+          ],
+          "color": "#e8c39e",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.32,
+            0
+          ],
+          "size": [
+            0.18,
+            0.26,
+            0.18
+          ],
+          "color": "#e8c39e",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cone",
+          "offset": [
+            0,
+            0.42,
+            0
+          ],
+          "size": [
+            0.9,
+            0.42,
+            0.9
+          ],
+          "color": "#c9a227",
+          "material": {
+            "roughness": 0.9,
+            "texture": "wood"
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            -0.14,
+            0.05,
+            0.24
+          ],
+          "size": [
+            0.09,
+            0.09,
+            0.09
+          ],
+          "color": "#2b2b2b"
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0.14,
+            0.05,
+            0.24
+          ],
+          "size": [
+            0.09,
+            0.09,
+            0.09
+          ],
+          "color": "#2b2b2b"
+        }
+      ]
+    },
+    {
+      "id": "keeper-arm-l",
+      "kind": "prop",
+      "name": "Keeper left arm",
+      "parent": "keeper-torso",
+      "attach": [
+        -0.68,
+        0.7,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.24,
+            1,
+            0.26
+          ],
+          "color": "#2f6f7e",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            -1.08,
+            0
+          ],
+          "size": [
+            0.26,
+            0.26,
+            0.26
+          ],
+          "color": "#e8c39e",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "keeper-arm-r",
+      "kind": "prop",
+      "name": "Keeper right arm",
+      "parent": "keeper-torso",
+      "attach": [
+        0.68,
+        0.7,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.24,
+            1,
+            0.26
+          ],
+          "color": "#2f6f7e",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            -1.08,
+            0
+          ],
+          "size": [
+            0.26,
+            0.26,
+            0.26
+          ],
+          "color": "#e8c39e",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "keeper-leg-l",
+      "kind": "prop",
+      "name": "Keeper left leg",
+      "parent": "keeper-torso",
+      "attach": [
+        -0.26,
+        -0.55,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.7,
+            0
+          ],
+          "size": [
+            0.24,
+            1.4,
+            0.24
+          ],
+          "color": "#2f4f5e",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -1.42,
+            0.08
+          ],
+          "size": [
+            0.28,
+            0.16,
+            0.46
+          ],
+          "color": "#3a3a3a",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "keeper-leg-r",
+      "kind": "prop",
+      "name": "Keeper right leg",
+      "parent": "keeper-torso",
+      "attach": [
+        0.26,
+        -0.55,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.7,
+            0
+          ],
+          "size": [
+            0.24,
+            1.4,
+            0.24
+          ],
+          "color": "#2f4f5e",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -1.42,
+            0.08
+          ],
+          "size": [
+            0.28,
+            0.16,
+            0.46
+          ],
+          "color": "#3a3a3a",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "turtle-body",
+      "kind": "prop",
+      "name": "Shore turtle",
+      "position": [
+        -8,
+        1.35,
+        4
+      ],
+      "tags": [
+        "character"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1.9,
+            0.9,
+            1.5
+          ],
+          "color": "#4a7c59",
+          "material": {
+            "roughness": 0.9
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0.28,
+            0
+          ],
+          "size": [
+            1.2,
+            0.45,
+            0.95
+          ],
+          "color": "#6fae7b",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            1.05,
+            0.05,
+            0
+          ],
+          "size": [
+            0.5,
+            0.4,
+            0.42
+          ],
+          "color": "#6b8f71",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            1.25,
+            0.14,
+            -0.13
+          ],
+          "size": [
+            0.08,
+            0.08,
+            0.08
+          ],
+          "color": "#1b1b1b"
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            1.25,
+            0.14,
+            0.13
+          ],
+          "size": [
+            0.08,
+            0.08,
+            0.08
+          ],
+          "color": "#1b1b1b"
+        },
+        {
+          "shape": "cone",
+          "offset": [
+            -1.05,
+            -0.1,
+            0
+          ],
+          "size": [
+            0.3,
+            0.3,
+            0.3
+          ],
+          "rotation": [
+            0,
+            0,
+            1.5708
+          ],
+          "color": "#6b8f71",
+          "material": {
+            "roughness": 0.85
+          }
+        }
+      ]
+    },
+    {
+      "id": "turtle-leg-fl",
+      "kind": "prop",
+      "name": "Turtle front left leg",
+      "parent": "turtle-body",
+      "attach": [
+        0.62,
+        -0.45,
+        0.5
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.45,
+            0
+          ],
+          "size": [
+            0.24,
+            0.9,
+            0.24
+          ],
+          "color": "#5a8a66",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "turtle-leg-fr",
+      "kind": "prop",
+      "name": "Turtle front right leg",
+      "parent": "turtle-body",
+      "attach": [
+        0.62,
+        -0.45,
+        -0.5
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.45,
+            0
+          ],
+          "size": [
+            0.24,
+            0.9,
+            0.24
+          ],
+          "color": "#5a8a66",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "turtle-leg-bl",
+      "kind": "prop",
+      "name": "Turtle back left leg",
+      "parent": "turtle-body",
+      "attach": [
+        -0.62,
+        -0.45,
+        0.5
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.45,
+            0
+          ],
+          "size": [
+            0.24,
+            0.9,
+            0.24
+          ],
+          "color": "#5a8a66",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "turtle-leg-br",
+      "kind": "prop",
+      "name": "Turtle back right leg",
+      "parent": "turtle-body",
+      "attach": [
+        -0.62,
+        -0.45,
+        -0.5
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.45,
+            0
+          ],
+          "size": [
+            0.24,
+            0.9,
+            0.24
+          ],
+          "color": "#5a8a66",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "palm-tree-1",
+      "kind": "prop",
+      "name": "Leaning palm",
+      "position": [
+        10,
+        4,
+        8
+      ],
+      "size": [
+        3,
+        8,
+        3
+      ],
+      "color": "#3f8f5a",
+      "tags": [
+        "flora"
+      ],
+      "active": true,
+      "props": {
+        "shape": "tree"
+      }
+    },
+    {
+      "id": "palm-tree-2",
+      "kind": "prop",
+      "name": "Shore palm",
+      "position": [
+        -14,
+        4,
+        -6
+      ],
+      "size": [
+        3,
+        7,
+        3
+      ],
+      "color": "#43a06a",
+      "tags": [
+        "flora"
+      ],
+      "active": true,
+      "props": {
+        "shape": "tree"
+      }
+    },
+    {
+      "id": "driftwood-rock",
+      "kind": "prop",
+      "name": "Driftwood boulder",
+      "position": [
+        18,
+        1.2,
+        -8
+      ],
+      "size": [
+        3,
+        2.4,
+        3
+      ],
+      "color": "#8b8b83",
+      "tags": [],
+      "active": true,
+      "props": {
+        "shape": "rock"
+      }
+    },
+    {
+      "id": "fisher-hut",
+      "kind": "prop",
+      "name": "Fisher's hut",
+      "position": [
+        -18,
+        3,
+        -14
+      ],
+      "size": [
+        7,
+        6,
+        6
+      ],
+      "color": "#b98b5e",
+      "tags": [
+        "building"
+      ],
+      "active": true,
+      "props": {
+        "shape": "building"
+      },
+      "label": {
+        "text": "Fisher's hut",
+        "offset": [
+          0,
+          0.62,
+          0
+        ],
+        "size": 0.45
+      }
+    },
+    {
+      "id": "beacon-tower",
+      "kind": "prop",
+      "name": "Beacon tower",
+      "position": [
+        22,
+        8,
+        18
+      ],
+      "size": [
+        4,
+        16,
+        4
+      ],
+      "color": "#efe9da",
+      "tags": [
+        "landmark"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            1,
+            0.5
+          ],
+          "color": "#efe9da",
+          "material": {
+            "roughness": 0.9
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0.46,
+            0
+          ],
+          "size": [
+            0.62,
+            0.06,
+            0.62
+          ],
+          "color": "#b0a99a",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0.42,
+            0
+          ],
+          "size": [
+            0.3,
+            0.05,
+            0.3
+          ],
+          "color": "#ffe9a8",
+          "material": {
+            "roughness": 0.3,
+            "emissive": "#ffd76e"
+          }
+        },
+        {
+          "shape": "cone",
+          "offset": [
+            0,
+            0.56,
+            0
+          ],
+          "size": [
+            0.66,
+            0.12,
+            0.66
+          ],
+          "color": "#5c4a3a",
+          "material": {
+            "roughness": 0.9
+          }
+        }
+      ],
+      "label": {
+        "text": "Beacon tower",
+        "offset": [
+          0,
+          0.6,
+          0
+        ],
+        "size": 0.45
+      }
+    },
+    {
+      "id": "windmill-tower",
+      "kind": "prop",
+      "name": "Old windmill",
+      "position": [
+        -20,
+        3.5,
+        18
+      ],
+      "size": [
+        4,
+        7,
+        4
+      ],
+      "color": "#d8c3a5",
+      "tags": [
+        "landmark"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.5,
+            1,
+            0.5
+          ],
+          "color": "#d8c3a5",
+          "material": {
+            "roughness": 0.9
+          }
+        },
+        {
+          "shape": "cone",
+          "offset": [
+            0,
+            0.58,
+            0
+          ],
+          "size": [
+            0.64,
+            0.34,
+            0.64
+          ],
+          "color": "#7b4b2a",
+          "material": {
+            "roughness": 0.85,
+            "texture": "wood"
+          }
+        }
+      ],
+      "label": {
+        "text": "Old windmill",
+        "offset": [
+          0,
+          0.72,
+          0
+        ],
+        "size": 0.4
+      }
+    },
+    {
+      "id": "windmill-rotor",
+      "kind": "prop",
+      "name": "Windmill rotor",
+      "parent": "windmill-tower",
+      "attach": [
+        0,
+        2.4,
+        -2.2
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            1.3,
+            0
+          ],
+          "size": [
+            0.3,
+            1.7,
+            0.12
+          ],
+          "color": "#e9c46a",
+          "material": {
+            "roughness": 0.7
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -1.3,
+            0
+          ],
+          "size": [
+            0.3,
+            1.7,
+            0.12
+          ],
+          "color": "#e9c46a",
+          "material": {
+            "roughness": 0.7
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            1.3,
+            0,
+            0
+          ],
+          "size": [
+            1.7,
+            0.3,
+            0.12
+          ],
+          "color": "#f4a261",
+          "material": {
+            "roughness": 0.7
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -1.3,
+            0,
+            0
+          ],
+          "size": [
+            1.7,
+            0.3,
+            0.12
+          ],
+          "color": "#f4a261",
+          "material": {
+            "roughness": 0.7
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.44,
+            0.32,
+            0.44
+          ],
+          "rotation": [
+            1.5708,
+            0,
+            0
+          ],
+          "color": "#495057",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        }
+      ]
+    },
+    {
+      "id": "moon-lantern",
+      "kind": "prop",
+      "name": "Night lantern moon",
+      "position": [
+        0,
+        18,
+        22
+      ],
+      "size": [
+        4,
+        4,
+        4
+      ],
+      "color": "#f5f3ce",
+      "tags": [
+        "sky"
+      ],
+      "active": true,
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            1,
+            1
+          ],
+          "color": "#f5f3ce",
+          "material": {
+            "roughness": 0.4,
+            "emissive": "#f5f3ce"
+          }
+        },
+        {
+          "shape": "torus",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1.15,
+            0.12,
+            1.15
+          ],
+          "rotation": [
+            1.5708,
+            0,
+            0
+          ],
+          "color": "#c9a227",
+          "material": {
+            "roughness": 0.5,
+            "emissive": "#c9a227"
+          }
+        }
+      ]
+    }
+  ],
+  "objectives": [],
+  "rules": [
+    {
+      "id": "characters-awake",
+      "on": {
+        "event": "tick"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "awake"
+        },
+        "right": 0
+      },
+      "then": [
+        {
+          "type": "animate",
+          "entity": "keeper-torso",
+          "kind": "bob",
+          "amplitude": 0.14,
+          "speed": 0.8
+        },
+        {
+          "type": "animate",
+          "entity": "turtle-body",
+          "kind": "bob",
+          "amplitude": 0.1,
+          "speed": 0.6
+        },
+        {
+          "type": "setVar",
+          "key": "awake",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "inspect-hut",
+      "on": {
+        "event": "click",
+        "entity": "fisher-hut"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "fisher-hut",
+          "color": "#e0b070"
+        },
+        {
+          "type": "showPanel",
+          "title": "Fisher's hut",
+          "body": "Salt-crusted nets hang from the rafters and a kettle still steams on the stove. Whoever lives here is out on the water.",
+          "entity": "fisher-hut"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "inspect-beacon",
+      "on": {
+        "event": "click",
+        "entity": "beacon-tower"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "beacon-tower",
+          "color": "#f2ead6"
+        },
+        {
+          "type": "showPanel",
+          "title": "Beacon tower",
+          "body": "The lamp is cold in daylight. Flip the Night mode toggle and the island's moon rises to keep watch over the reef.",
+          "entity": "beacon-tower"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "inspect-windmill",
+      "on": {
+        "event": "click",
+        "entity": "windmill-tower"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "windmill-tower",
+          "color": "#e9c46a"
+        },
+        {
+          "type": "showPanel",
+          "title": "Old windmill",
+          "body": "The mill grinds nothing these days, but the blades still turn. Drag the Wind slider to spin the rotor yourself.",
+          "entity": "windmill-tower"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "greet-goat",
+      "on": {
+        "event": "interact",
+        "entity": "npc-goat"
+      },
+      "then": [
+        {
+          "type": "showMessage",
+          "text": "The goat bumps your hand, hoping for fruit."
+        },
+        {
+          "type": "incVar",
+          "key": "goatsGreeted",
+          "by": 1
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "id": "plant-palm",
+      "type": "button",
+      "label": "Plant palm",
+      "bind": {
+        "onPress": [
+          {
+            "type": "spawn",
+            "entity": {
+              "id": "new-palm",
+              "kind": "prop",
+              "name": "Freshly planted palm",
+              "position": [
+                2,
+                4,
+                -12
+              ],
+              "size": [
+                3,
+                8,
+                3
+              ],
+              "color": "#3f8f5a",
+              "tags": [
+                "flora"
+              ],
+              "active": true,
+              "props": {
+                "shape": "tree"
+              }
+            }
+          },
+          {
+            "type": "incVar",
+            "key": "palmsPlanted",
+            "by": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "roll-boulder",
+      "type": "button",
+      "label": "Roll in a boulder",
+      "bind": {
+        "onPress": [
+          {
+            "type": "spawn",
+            "entity": {
+              "id": "new-boulder",
+              "kind": "prop",
+              "name": "Rolled boulder",
+              "position": [
+                22,
+                1.2,
+                -18
+              ],
+              "size": [
+                3,
+                2.4,
+                3
+              ],
+              "color": "#8b8b83",
+              "tags": [],
+              "active": true,
+              "props": {
+                "shape": "rock"
+              }
+            }
+          },
+          {
+            "type": "incVar",
+            "key": "bouldersRolled",
+            "by": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "light-campfire",
+      "type": "button",
+      "label": "Light a campfire",
+      "bind": {
+        "onPress": [
+          {
+            "type": "spawn",
+            "entity": {
+              "id": "new-campfire",
+              "kind": "prop",
+              "name": "Beach campfire",
+              "position": [
+                -6,
+                1,
+                -6
+              ],
+              "size": [
+                2,
+                2,
+                2
+              ],
+              "color": "#f4a261",
+              "tags": [
+                "light"
+              ],
+              "active": true,
+              "props": {
+                "shape": "campfire"
+              }
+            }
+          },
+          {
+            "type": "incVar",
+            "key": "campfiresLit",
+            "by": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "night-mode",
+      "type": "toggle",
+      "label": "Night mode",
+      "value": 0,
+      "bind": {
+        "entity": "moon-lantern",
+        "property": "visible",
+        "var": "night"
+      }
+    },
+    {
+      "id": "wind",
+      "type": "slider",
+      "label": "Wind",
+      "min": 0,
+      "max": 2.4,
+      "step": 0.1,
+      "value": 0.6,
+      "bind": {
+        "entity": "windmill-rotor",
+        "property": "rotation.y",
+        "scale": 2
+      }
+    }
+  ],
+  "scratch": {
+    "awake": 0,
+    "focused": 0,
+    "night": 0,
+    "palmsPlanted": 0,
+    "bouldersRolled": 0,
+    "campfiresLit": 0,
+    "goatsGreeted": 0
+  }
+}

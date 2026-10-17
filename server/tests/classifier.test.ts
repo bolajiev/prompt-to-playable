@@ -10,6 +10,7 @@ import {
   isInspectPrompt,
   isMachinePrompt,
   isWalkthroughPrompt,
+  isWorldPrompt,
   parseArchetype,
 } from "../src/classifier.js";
 import type { KitArchetype } from "../src/classifier.js";
@@ -40,6 +41,23 @@ const KIT_PROMPTS: ReadonlyArray<readonly [string, KitArchetype]> = [
 ];
 
 /**
+ * Deterministic world fallback coverage: the open-world cue families plus the
+ * higher-precedence prompts that must NOT reach the world kit.
+ */
+const WORLD_PROMPTS: ReadonlyArray<readonly [string, KitArchetype]> = [
+  [
+    "an open world island with trees, animals and buttons to spawn things",
+    "world",
+  ],
+  ["a sandbox city where I can roam and build things", "world"],
+  ["a village festival with lanterns and animal pens", "world"],
+  ["build me a zoo full of animals", "world"],
+  ["a farm with animals and a big red barn", "world"],
+  ["explore freely around a park with ponds", "world"],
+  ["create a world with floating islands and lanterns", "world"],
+];
+
+/**
  * Deterministic machine fallback coverage: every cue family in the brief plus
  * the deferred prompts that must NOT reach the machine kit.
  */
@@ -59,13 +77,14 @@ const MACHINE_PROMPTS: ReadonlyArray<readonly [string, KitArchetype]> = [
 ];
 
 describe("classifier label set", () => {
-  test("allows the five schema archetypes plus the four kits", () => {
-    expect(KIT_ARCHETYPES).toHaveLength(9);
+  test("allows the five schema archetypes plus the five kits", () => {
+    expect(KIT_ARCHETYPES).toHaveLength(10);
     for (const archetype of ARCHETYPES) expect(KIT_ARCHETYPES).toContain(archetype);
     expect(KIT_ARCHETYPES).toContain("inspect");
     expect(KIT_ARCHETYPES).toContain("walkthrough");
     expect(KIT_ARCHETYPES).toContain("drive");
     expect(KIT_ARCHETYPES).toContain("machine");
+    expect(KIT_ARCHETYPES).toContain("world");
   });
 
   test("classify returns the kit label the LLM chose", async () => {
@@ -74,6 +93,7 @@ describe("classifier label set", () => {
       ["a house I can walk through", "walkthrough"],
       ["a car racing game", "drive"],
       ["a robotic arm with joint sliders", "machine"],
+      ["an open world island to explore", "world"],
       ["collect 3 crystals", "collect-a-thon"],
     ];
     for (const [prompt, expected] of cases) {
@@ -87,19 +107,26 @@ describe("classifier label set", () => {
     expect(parseArchetype("WALKTHROUGH")).toBe("walkthrough");
     expect(parseArchetype('"drive"')).toBe("drive");
     expect(parseArchetype("Machine")).toBe("machine");
+    expect(parseArchetype("World")).toBe("world");
     expect(parseArchetype("I choose walkthrough here.")).toBe("walkthrough");
   });
 });
 
 describe("deterministic kit fallback", () => {
   test("maps kit prompts when the LLM answer cannot be parsed", async () => {
-    const cases = [...KIT_PROMPTS, ...MACHINE_PROMPTS, ...GAME_AND_EXPLORE];
+    const cases = [
+      ...KIT_PROMPTS,
+      ...MACHINE_PROMPTS,
+      ...WORLD_PROMPTS,
+      ...GAME_AND_EXPLORE,
+    ];
     for (const [prompt, expected] of cases) {
       const llm = vi.fn<LlmCall>(async () => "banana");
       await expect(classify(prompt, llm), prompt).resolves.toBe(expected);
     }
-    expect(cases.length).toBeGreaterThanOrEqual(20);
+    expect(cases.length).toBeGreaterThanOrEqual(25);
     expect(MACHINE_PROMPTS.length).toBeGreaterThanOrEqual(8);
+    expect(WORLD_PROMPTS.length).toBeGreaterThanOrEqual(6);
   });
 
   test("parseArchetype uses the prompt fallback for an unparseable answer", () => {
@@ -109,6 +136,9 @@ describe("deterministic kit fallback", () => {
     expect(
       parseArchetype("banana", "a robotic arm with joint sliders I can control")
     ).toBe("machine");
+    expect(
+      parseArchetype("banana", "an open world island with trees and animals")
+    ).toBe("world");
     expect(parseArchetype("banana", "a museum hall with marble statues")).toBe("explore");
     expect(parseArchetype("banana", "collect gems")).toBe(DEFAULT_ARCHETYPE);
   });
@@ -117,6 +147,12 @@ describe("deterministic kit fallback", () => {
     const prompt = "a robotic arm with joint sliders I can control";
     expect(parseArchetype("", prompt)).toBe(parseArchetype("", prompt));
     expect(parseArchetype("", prompt)).toBe("machine");
+  });
+
+  test("world fallback is deterministic across repeated calls", () => {
+    const prompt = "an open world island with trees, animals and buttons";
+    expect(parseArchetype("", prompt)).toBe(parseArchetype("", prompt));
+    expect(parseArchetype("", prompt)).toBe("world");
   });
 
   test("kit cues stay deterministic for repeated calls", () => {
@@ -176,6 +212,20 @@ describe("kit cue predicates", () => {
     expect(isMachinePrompt("a car racing machine on a track")).toBe(false);
     expect(isMachinePrompt("collect robot batteries")).toBe(false);
   });
+
+  test("world cues match open places but defer to higher-precedence kits", () => {
+    for (const [prompt, expected] of WORLD_PROMPTS) {
+      expect(isWorldPrompt(prompt), prompt).toBe(expected === "world");
+    }
+    expect(isWorldPrompt("a village with a mill and animal pens")).toBe(true);
+    expect(isWorldPrompt("a city park with paths and ponds")).toBe(true);
+    expect(isWorldPrompt("walk through the village museum")).toBe(false);
+    expect(isWorldPrompt("a car racing game on an island track")).toBe(false);
+    expect(isWorldPrompt("an interactive machine in a sandbox village")).toBe(false);
+    expect(isWorldPrompt("a PCB blueprint in a smart city")).toBe(false);
+    expect(isWorldPrompt("collect crystals on an island")).toBe(false);
+    expect(isWorldPrompt("a quiet forest clearing with a campfire at dusk")).toBe(false);
+  });
 });
 
 describe("buildClassifierPrompt", () => {
@@ -194,7 +244,12 @@ describe("buildClassifierPrompt", () => {
     expect(text).toContain(
       '"a robotic arm with joint sliders I can control" -> machine'
     );
+    expect(text).toContain(
+      '"an open world island with trees, animals and buttons to spawn things" -> world'
+    );
     expect(text).toContain("robot or robotic arm");
+    expect(text).toContain("open world or sandbox");
+    expect(text).toContain("choose \"world\"");
     expect(text).toContain("a 3D PCB I can click and inspect");
   });
 });
@@ -208,6 +263,10 @@ describe("eval-corpus keyword fallback", () => {
     expect(
       classifyByKeywords("a robotic arm with joint sliders I can control")
     ).toBe("machine");
+    expect(
+      classifyByKeywords("an open world island with trees and animals")
+    ).toBe("world");
+    expect(classifyByKeywords("explore freely around a village")).toBe("world");
     expect(
       classifyByKeywords("hide behind crates and escape the patrolling robot")
     ).toBe("stealth-chase");

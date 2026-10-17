@@ -23,6 +23,7 @@ export type SanityCode =
   | "not-a-vehicle"
   | "missing-win-path"
   | "missing-machine-control"
+  | "missing-world-spawn"
   | "missing-parent"
   | "parent-cycle"
   | "parented-actor"
@@ -640,12 +641,39 @@ function machineIssues(doc: GameDoc): SanityIssue[] {
   ];
 }
 
+/**
+ * world: the sandbox must ship at least one button that spawns a NEW entity
+ * (a spawn payload whose id is not already in `entities`), so pressing it
+ * visibly adds something to the world. Bind/onPress reference checks above
+ * guard every other control.
+ */
+function worldIssues(doc: GameDoc): SanityIssue[] {
+  const existing = new Set(doc.entities.map((entity) => entity.id));
+  const spawnButtons = (doc.controls ?? []).filter(
+    (control) =>
+      control.type === "button" &&
+      (control.bind?.onPress ?? []).some(
+        (action) => action.type === "spawn" && !existing.has(action.entity.id)
+      )
+  );
+  if (spawnButtons.length > 0) return [];
+  return [
+    {
+      code: "missing-world-spawn",
+      path: "controls",
+      message:
+        "World scene needs at least one button whose onPress spawns an entity with a new id (pressing it must add a visible object)",
+    },
+  ];
+}
+
 function kitIssues(doc: GameDoc): SanityIssue[] {
   const kit = resolveKit(doc);
   if (kit === "inspect") return inspectIssues(doc);
   if (kit === "walkthrough") return walkthroughIssues(doc);
   if (kit === "drive") return driveIssues(doc);
   if (kit === "machine") return machineIssues(doc);
+  if (kit === "world") return worldIssues(doc);
   return [];
 }
 
@@ -735,6 +763,7 @@ export const SANITY_CODES = [
   "not-a-vehicle",
   "missing-win-path",
   "missing-machine-control",
+  "missing-world-spawn",
   "missing-parent",
   "parent-cycle",
   "parented-actor",

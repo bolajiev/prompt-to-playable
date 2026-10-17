@@ -95,6 +95,7 @@ const MODE_LABELS: Record<GameMode, string> = {
   explore: "Explore",
   game: "Game",
   machine: "Machine",
+  world: "World",
 };
 
 export interface AppOptions {

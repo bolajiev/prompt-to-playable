@@ -382,6 +382,7 @@ export const GameModeSchema = z.enum([
   "explore",
   "game",
   "machine",
+  "world",
 ]);
 
 export const MetaSchema = z.object({

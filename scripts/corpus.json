@@ -132,6 +132,12 @@
       "prompt": "a robotic arm with joint sliders I can control and clickable parts",
       "archetype": "machine",
       "title": "Desk Arm Six"
+    },
+    {
+      "id": "open-world-island",
+      "prompt": "an open world island with trees, animals and buttons to spawn things",
+      "archetype": "world",
+      "title": "Ember Island"
     }
   ]
 }

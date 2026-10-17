@@ -10,6 +10,7 @@ import {
   isInspectPrompt,
   isMachinePrompt,
   isWalkthroughPrompt,
+  isWorldPrompt,
 } from "../server/src/classifier.js";
 import type { KitArchetype } from "../server/src/classifier.js";
 import {
@@ -87,6 +88,7 @@ const ARCHETYPE_SET = new Set<KitArchetype>([
   "walkthrough",
   "drive",
   "machine",
+  "world",
 ]);
 
 function asArchetype(value: unknown, context: string): KitArchetype {
@@ -186,6 +188,7 @@ const DIFFICULTY: Record<KitArchetype, number> = {
   walkthrough: 0,
   drive: 0.6,
   machine: 0,
+  world: 0,
 };
 
 /** Schema archetype stored in meta.archetype for every classification label. */
@@ -199,6 +202,7 @@ const SCHEMA_ARCHETYPE: Record<KitArchetype, Archetype> = {
   walkthrough: "explore",
   drive: "collect-a-thon",
   machine: "explore",
+  world: "explore",
 };
 
 const KIT_MODE: Partial<Record<KitArchetype, GameMode>> = {
@@ -206,6 +210,7 @@ const KIT_MODE: Partial<Record<KitArchetype, GameMode>> = {
   walkthrough: "walkthrough",
   drive: "drive",
   machine: "machine",
+  world: "world",
 };
 
 function metaOf(entry: CorpusEntry): Record<string, unknown> {
@@ -1237,6 +1242,421 @@ function machineDoc(entry: CorpusEntry): Record<string, unknown> {
   };
 }
 
+function worldDoc(entry: CorpusEntry): Record<string, unknown> {
+  return {
+    version: "1.0.0",
+    meta: metaOf(entry),
+    world: {
+      bounds: [60, 24, 60],
+      lighting: "day",
+      skybox: "outdoor",
+    },
+    entities: [
+      { id: "player", kind: "player", name: "Wayfarer", position: [0, 1, -8] },
+      {
+        id: "herder",
+        kind: "enemy",
+        name: "Patrolling herder",
+        position: [16, 1, 14],
+        speed: 2,
+        state: "patrol",
+        patrol: [
+          [16, 1, 14],
+          [24, 1, 24],
+        ],
+      },
+      {
+        id: "firefly",
+        kind: "enemy",
+        name: "Drifting firefly",
+        position: [-18, 2, 16],
+        speed: 1,
+        state: "idle",
+        color: "yellow",
+      },
+      {
+        id: "robot-torso",
+        kind: "prop",
+        name: "Scout robot",
+        position: [10, 1.1, -14],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0.75, 0],
+            size: [1.3, 1.5, 0.9],
+            color: "#6c7a89",
+            material: { metalness: 0.5, roughness: 0.5 },
+          },
+          {
+            shape: "box",
+            offset: [-0.32, -0.6, 0],
+            size: [0.32, 0.9, 0.42],
+            color: "#495057",
+          },
+          {
+            shape: "box",
+            offset: [0.32, -0.6, 0],
+            size: [0.32, 0.9, 0.42],
+            color: "#495057",
+          },
+        ],
+      },
+      {
+        id: "robot-head",
+        kind: "prop",
+        name: "Scout robot head",
+        parent: "robot-torso",
+        attach: [0, 1.6, 0],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [0.62, 0.5, 0.62],
+            color: "#8d99ae",
+          },
+        ],
+      },
+      {
+        id: "robot-arm-l",
+        kind: "prop",
+        name: "Scout robot left arm",
+        parent: "robot-torso",
+        attach: [-0.8, 1.35, 0],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, -0.45, 0],
+            size: [0.26, 0.9, 0.32],
+            color: "#8d99ae",
+          },
+        ],
+      },
+      {
+        id: "deer-body",
+        kind: "prop",
+        name: "Meadow deer",
+        position: [-12, 1.5, -12],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [1.7, 0.9, 0.8],
+            color: "#a4713c",
+          },
+          {
+            shape: "box",
+            offset: [1, 0.95, 0],
+            size: [0.5, 0.45, 0.5],
+            color: "#b8834a",
+          },
+        ],
+      },
+      {
+        id: "deer-leg-fl",
+        kind: "prop",
+        name: "Deer front left leg",
+        parent: "deer-body",
+        attach: [-0.6, -0.45, -0.32],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, -0.5, 0],
+            size: [0.16, 1, 0.16],
+            color: "#7a5230",
+          },
+        ],
+      },
+      {
+        id: "deer-leg-fr",
+        kind: "prop",
+        name: "Deer front right leg",
+        parent: "deer-body",
+        attach: [-0.6, -0.45, 0.32],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, -0.5, 0],
+            size: [0.16, 1, 0.16],
+            color: "#7a5230",
+          },
+        ],
+      },
+      {
+        id: "pine-tree-1",
+        kind: "prop",
+        name: "Pine tree",
+        position: [8, 4, 12],
+        size: [4, 8, 4],
+        color: "forestgreen",
+        props: { shape: "tree" },
+      },
+      {
+        id: "boulder-1",
+        kind: "prop",
+        name: "Mossy boulder",
+        position: [14, 1.2, -2],
+        size: [3, 2.4, 3],
+        color: "slategray",
+        props: { shape: "rock" },
+      },
+      {
+        id: "village-hall",
+        kind: "prop",
+        name: "Village hall",
+        position: [-8, 3, 18],
+        size: [8, 6, 6],
+        color: "#c9a227",
+        props: { shape: "building" },
+      },
+      {
+        id: "ancient-oak",
+        kind: "prop",
+        name: "Ancient oak",
+        position: [22, 5, 4],
+        size: [6, 10, 6],
+        color: "#6b4f2a",
+        props: { shape: "tree" },
+        label: { text: "Ancient oak", offset: [0, 0.75, 0], size: 0.5 },
+      },
+      {
+        id: "well",
+        kind: "prop",
+        name: "Old well",
+        position: [16, 1, -18],
+        size: [2, 2, 2],
+        color: "#8d99ae",
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [0.8, 0.5, 0.8],
+            color: "#8d99ae",
+          },
+          {
+            shape: "cone",
+            offset: [0, 0.8, 0],
+            size: [1.1, 0.45, 1.1],
+            color: "#7b4b2a",
+          },
+        ],
+        label: { text: "Old well", offset: [0, 1.1, 0], size: 0.4 },
+      },
+      {
+        id: "windmill-tower",
+        kind: "prop",
+        name: "Old windmill",
+        position: [-20, 3, -14],
+        size: [4, 6, 4],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [0.5, 1, 0.5],
+            color: "#d8c3a5",
+          },
+        ],
+      },
+      {
+        id: "windmill-rotor",
+        kind: "prop",
+        name: "Windmill rotor",
+        parent: "windmill-tower",
+        attach: [0, 1.8, -2],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 1.2, 0],
+            size: [0.3, 1.6, 0.12],
+            color: "#e9c46a",
+          },
+          {
+            shape: "box",
+            offset: [1.2, 0, 0],
+            size: [1.6, 0.3, 0.12],
+            color: "#e9c46a",
+          },
+        ],
+      },
+      {
+        id: "moon",
+        kind: "prop",
+        name: "Rising moon",
+        position: [24, 16, -24],
+        size: [4, 4, 4],
+        color: "#f5f3ce",
+        parts: [
+          {
+            shape: "sphere",
+            offset: [0, 0, 0],
+            size: [1, 1, 1],
+            color: "#f5f3ce",
+            material: { emissive: "#f5f3ce" },
+          },
+        ],
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "characters-awake",
+        on: { event: "tick" },
+        if: { op: "==", left: { var: "awake" }, right: 0 },
+        then: [
+          {
+            type: "animate",
+            entity: "robot-torso",
+            kind: "bob",
+            amplitude: 0.18,
+            speed: 0.9,
+          },
+          {
+            type: "animate",
+            entity: "deer-body",
+            kind: "bob",
+            amplitude: 0.12,
+            speed: 0.7,
+          },
+          { type: "setVar", key: "awake", value: 1 },
+        ],
+      },
+      {
+        id: "inspect-oak",
+        on: { event: "click", entity: "ancient-oak" },
+        then: [
+          { type: "setColor", entity: "ancient-oak", color: "#8a6d3b" },
+          {
+            type: "showPanel",
+            title: "Ancient oak",
+            body: "The oldest tree on the island.",
+            entity: "ancient-oak",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+      {
+        id: "inspect-well",
+        on: { event: "click", entity: "well" },
+        then: [
+          { type: "setColor", entity: "well", color: "#adb5bd" },
+          {
+            type: "showPanel",
+            title: "Old well",
+            body: "Cold, clear water seven rungs down.",
+            entity: "well",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+    ],
+    controls: [
+      {
+        id: "spawn-tree",
+        type: "button",
+        label: "Spawn tree",
+        bind: {
+          onPress: [
+            {
+              type: "spawn",
+              entity: {
+                id: "new-pine",
+                kind: "prop",
+                name: "Fresh pine",
+                position: [6, 3, 6],
+                size: [3, 6, 3],
+                color: "forestgreen",
+                props: { shape: "tree" },
+              },
+            },
+            { type: "incVar", key: "treesSpawned" },
+          ],
+        },
+      },
+      {
+        id: "spawn-robot",
+        type: "button",
+        label: "Spawn robot",
+        bind: {
+          onPress: [
+            {
+              type: "spawn",
+              entity: {
+                id: "scout-torso",
+                kind: "prop",
+                name: "Scout robot torso",
+                position: [2, 1.1, 8],
+                parts: [
+                  {
+                    shape: "box",
+                    offset: [0, 0.75, 0],
+                    size: [1.3, 1.5, 0.9],
+                    color: "#6c7a89",
+                  },
+                  {
+                    shape: "box",
+                    offset: [0.32, -0.6, 0],
+                    size: [0.32, 0.9, 0.42],
+                    color: "#495057",
+                  },
+                ],
+              },
+            },
+            {
+              type: "spawn",
+              entity: {
+                id: "scout-head",
+                kind: "prop",
+                name: "Scout robot head",
+                parent: "scout-torso",
+                attach: [0, 1.6, 0],
+                position: [0, 0, 0],
+                parts: [
+                  {
+                    shape: "box",
+                    offset: [0, 0, 0],
+                    size: [0.62, 0.5, 0.62],
+                    color: "#8d99ae",
+                  },
+                ],
+              },
+            },
+            { type: "incVar", key: "robotsSpawned" },
+          ],
+        },
+      },
+      {
+        id: "night-mode",
+        type: "toggle",
+        label: "Night mode",
+        value: 0,
+        bind: { entity: "moon", property: "visible", var: "night" },
+      },
+      {
+        id: "wind",
+        type: "slider",
+        label: "Wind",
+        min: 0,
+        max: 2.4,
+        step: 0.1,
+        value: 0.6,
+        bind: { entity: "windmill-rotor", property: "rotation.y", scale: 2.4 },
+      },
+    ],
+    scratch: {
+      promptId: entry.id,
+      awake: 0,
+      focused: 0,
+      night: 0,
+      treesSpawned: 0,
+      robotsSpawned: 0,
+    },
+  };
+}
+
 export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
   switch (entry.archetype) {
     case "collect-a-thon":
@@ -1257,6 +1677,8 @@ export function buildDoc(entry: CorpusEntry): Record<string, unknown> {
       return driveDoc(entry);
     case "machine":
       return machineDoc(entry);
+    case "world":
+      return worldDoc(entry);
   }
 }
 
@@ -1278,6 +1700,9 @@ export function classifyByKeywords(prompt: string): KitArchetype {
   }
   if (isWalkthroughPrompt(prompt)) {
     return "walkthrough";
+  }
+  if (isWorldPrompt(prompt)) {
+    return "world";
   }
   if (/stealth|sneak|guard|patrol|searchlight|escape|evade|hide|sentry/i.test(prompt)) {
     return "stealth-chase";

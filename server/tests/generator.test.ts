@@ -552,6 +552,85 @@ describe("kit few-shot examples", () => {
     expect(forearmReach).toBeLessThanOrEqual(3.2);
   });
 
+  test("world example is an open sandbox with spawning controls and composed characters", () => {
+    const doc = ARCHETYPE_EXAMPLES.world;
+    expect(doc.meta.mode).toBe("world");
+    expect(doc.meta.archetype).toBe("explore");
+    expect(doc.objectives).toEqual([]);
+    expect(requiresWinPath(doc)).toBe(false);
+    expect(hasWinPath(doc)).toBe(false);
+    expect(doc.world.bounds[0]).toBeGreaterThanOrEqual(40);
+    expect(doc.world.bounds[2]).toBeGreaterThanOrEqual(40);
+    expect(doc.entities.length).toBeLessThanOrEqual(24);
+    expect(doc.rules.length).toBeLessThanOrEqual(12);
+
+    const byId = new Map(doc.entities.map((entity) => [entity.id, entity]));
+
+    // 3-6 NPCs: peaceful idle/patrol enemies plus composed characters.
+    const enemies = doc.entities.filter((entity) => entity.kind === "enemy");
+    expect(enemies.length).toBeGreaterThanOrEqual(1);
+    for (const enemy of enemies) {
+      expect(["idle", "patrol"]).toContain(enemy.state);
+      expect(enemy.sight, `${enemy.id} stays peaceful`).toBeUndefined();
+    }
+
+    // Two composed characters: a root prop with parented head/arms/legs.
+    const roots = ["robot-torso", "deer-body"];
+    for (const rootId of roots) {
+      const root = byId.get(rootId);
+      expect(root, rootId).toBeDefined();
+      expect(root?.parent, `${rootId} is a root`).toBeUndefined();
+      expect(root?.parts?.length ?? 0, `${rootId} parts`).toBeGreaterThanOrEqual(2);
+      const limbs = doc.entities.filter((entity) => entity.parent === rootId);
+      expect(limbs.length, `${rootId} limbs`).toBeGreaterThanOrEqual(3);
+      for (const limb of limbs) {
+        expect(limb.parts?.length ?? 0, limb.id).toBeGreaterThanOrEqual(1);
+        expect(limb.position, `${limb.id} local pose`).toEqual([0, 0, 0]);
+      }
+    }
+
+    // Idle bob starts on the character roots from one guarded tick rule.
+    const bobTargets = doc.rules
+      .flatMap((rule) => rule.then)
+      .filter((action) => action.type === "animate" && action.kind === "bob")
+      .map((action) => (action.type === "animate" ? action.entity : ""));
+    for (const rootId of roots) expect(bobTargets).toContain(rootId);
+    const bobRule = doc.rules.find((rule) => rule.id === "characters-awake");
+    expect(bobRule?.on.event).toBe("tick");
+    expect(bobRule?.if).toBeDefined();
+
+    // 4-6 controls with at least two spawn buttons that add NEW entities.
+    const controls = doc.controls ?? [];
+    expect(controls.length).toBeGreaterThanOrEqual(4);
+    expect(controls.length).toBeLessThanOrEqual(6);
+    const existing = new Set(doc.entities.map((entity) => entity.id));
+    const spawnButtons = controls.filter(
+      (control) =>
+        control.type === "button" &&
+        (control.bind?.onPress ?? []).some(
+          (action) => action.type === "spawn" && !existing.has(action.entity.id)
+        )
+    );
+    expect(spawnButtons.length).toBeGreaterThanOrEqual(2);
+    expect(controls.some((control) => control.type === "toggle")).toBe(true);
+    const slider = controls.find((control) => control.type === "slider");
+    expect(slider?.bind?.entity).toBe("windmill-rotor");
+    expect(slider?.bind?.property).toBe("rotation.y");
+
+    // 2-3 labeled click props open info panels.
+    const panelRules = doc.rules.filter(
+      (rule) =>
+        rule.on.event === "click" &&
+        rule.then.some((action) => action.type === "showPanel")
+    );
+    expect(panelRules.length).toBeGreaterThanOrEqual(2);
+    expect(panelRules.length).toBeLessThanOrEqual(3);
+    for (const rule of panelRules) {
+      const target = doc.entities.find((entity) => entity.id === rule.on.entity);
+      expect(target?.label, `${rule.id} clicks a labeled prop`).toBeDefined();
+    }
+  });
+
   test("drive example is a winnable, ordered checkpoint race", () => {
     const doc = ARCHETYPE_EXAMPLES.drive;
     expect(doc.meta.mode).toBe("drive");
@@ -642,6 +721,7 @@ describe("buildGenerationPrompt kit catalogs", () => {
       ["walkthrough", "Budget: at most 16 entities and 10 rules"],
       ["drive", "Budget: at most 14 entities and 10 rules"],
       ["machine", "Budget: at most 14 entities, 8 rules and 8 controls"],
+      ["world", "Budget: at most 24 entities, 12 rules and 6 controls"],
       ["explore", "Budget: at most 14 entities and 6 rules"],
       ["collect-a-thon", "Budget: at most 14 entities and 8 rules"],
       ["puzzle-switch", "Budget: at most 14 entities and 8 rules"],
@@ -701,6 +781,25 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).not.toContain("The race must be winnable through its rules.");
   });
 
+  test("world prompt teaches large bounds, character composition and spawn buttons", () => {
+    const text = buildGenerationPrompt(
+      "an open world island with trees, animals and buttons to spawn things",
+      "world"
+    );
+    expect(text).toContain('"mode": "world"');
+    expect(text).toContain('"controls"');
+    expect(text).toContain("LARGE bounds");
+    expect(text).toContain("composed character");
+    expect(text).toContain("parent chain");
+    expect(text).toContain("spawn");
+    expect(text).toContain("controlPressed");
+    expect(text).toContain("MUST be an empty array: []");
+    expect(text).toContain("Budget: at most 24 entities, 12 rules and 6 controls");
+    expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.world, null, 2));
+    expect(text).not.toContain("The game must be winnable through its rules alone.");
+    expect(text).not.toContain("The race must be winnable through its rules.");
+  });
+
   test("game and explore prompts keep their existing requirements", () => {
     const collect = buildGenerationPrompt("collect gems", "collect-a-thon");
     expect(collect).toContain("The game must be winnable through its rules alone.");
@@ -753,6 +852,12 @@ describe("eval-corpus mock kit coverage", () => {
       archetype: "machine",
       title: "Mock Arm",
     },
+    {
+      id: "mock-world",
+      prompt: "an open world island with trees, animals and buttons",
+      archetype: "world",
+      title: "Mock Island",
+    },
   ];
 
   test("builds kit documents that pass the full evaluation harness", async () => {
@@ -762,6 +867,7 @@ describe("eval-corpus mock kit coverage", () => {
       "walkthrough",
       "drive",
       "machine",
+      "world",
     ]);
     for (const outcome of outcomes) {
       expect(outcome.valid, outcome.id).toBe(true);

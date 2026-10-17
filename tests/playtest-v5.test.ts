@@ -292,6 +292,89 @@ describe("live kit fixtures are playable offline", () => {
     expect(state.ticks).toBeLessThanOrEqual(TICK_BUDGET);
   });
 
+  test("world: spawn buttons add entities, the player walks and labeled props open panels", () => {
+    const doc = loadFixture("kit-world.json");
+    expect(doc.meta.archetype).toBe("explore");
+    expect(doc.meta.mode).toBe("world");
+    expect(validateGame(doc).ok).toBe(true);
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(doc.objectives).toEqual([]);
+    expect(doc.world.bounds[0]).toBeGreaterThanOrEqual(40);
+    expect(doc.world.bounds[2]).toBeGreaterThanOrEqual(40);
+
+    const controls = doc.controls ?? [];
+    expect(controls.length).toBeGreaterThanOrEqual(4);
+    expect(controls.length).toBeLessThanOrEqual(6);
+
+    const engine = createEngine();
+    engine.load(doc);
+    const player = doc.entities.find((entity) => entity.kind === "player");
+    expect(player).toBeDefined();
+    if (!player) return;
+
+    // 1. Every spawn button press adds its new entities to the world.
+    const known = new Set(doc.entities.map((entity) => entity.id));
+    const spawnButtons = controls.filter(
+      (control) =>
+        control.type === "button" &&
+        (control.bind?.onPress ?? []).some(
+          (action) => action.type === "spawn" && !known.has(action.entity.id)
+        )
+    );
+    expect(
+      spawnButtons.length,
+      "world docs need at least one spawn button that adds a new entity"
+    ).toBeGreaterThanOrEqual(1);
+
+    let state = engine.getState();
+    for (const button of spawnButtons) {
+      const additions = (button.bind?.onPress ?? []).filter(
+        (action) => action.type === "spawn" && !known.has(action.entity.id)
+      );
+      for (const action of additions) {
+        if (action.type === "spawn") known.add(action.entity.id);
+      }
+      const before = state.entities.length;
+      engine.pressControl(button.id);
+      state = engine.step(FIXED_DT_MS);
+      expect(
+        state.entities.length,
+        `${button.id} adds ${additions.length} entities`
+      ).toBe(before + additions.length);
+    }
+
+    // 2. The player walks freely on the open ground.
+    const start: Vec3 = [
+      ...engine.getState().entityRuntime[player.id].position,
+    ] as Vec3;
+    for (let tick = 0; tick < 240; tick += 1) {
+      state = engine.step(FIXED_DT_MS, { moveZ: 1 });
+    }
+    const end = state.entityRuntime[player.id].position;
+    expect(
+      Math.hypot(end[0] - start[0], end[2] - start[2]),
+      "the player moves across the world"
+    ).toBeGreaterThan(1);
+
+    // 3. Clicking a labeled prop opens its info panel.
+    const candidates = clickableLabeledEntities(doc);
+    expect(candidates.length).toBeGreaterThan(0);
+    const withPanel = candidates.find((entity) =>
+      actionsOf(doc, "click", entity.id).some(
+        (action) => action.type === "showPanel"
+      )
+    );
+    expect(withPanel, "a labeled prop opens a panel").toBeDefined();
+    if (!withPanel) return;
+
+    engine.pushEvent({ type: "click", targetId: withPanel.id });
+    state = engine.step(FIXED_DT_MS);
+    const panel = state.ui.panels.find((item) => item.entity === withPanel.id);
+    expect(panel, `clicking ${withPanel.id} opens its panel`).toBeDefined();
+    expect(panel?.title.length ?? 0).toBeGreaterThan(0);
+    expect(panel?.body.length ?? 0).toBeGreaterThan(0);
+  });
+
   test(`drive: throttle and checkpoint pursuit wins within ${TICK_BUDGET} ticks`, () => {
     const doc = loadFixture("kit-race.json");
     expect(doc.meta.archetype).toBe("collect-a-thon");

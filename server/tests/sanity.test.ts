@@ -641,6 +641,95 @@ describe("sanityCheck — machine kit", () => {
   });
 });
 
+function worldFixture(): GameDoc {
+  return kitFixture({
+    version: "1.0.0",
+    meta: { title: "Open Meadow", archetype: "explore", mode: "world" },
+    world: { bounds: [60, 24, 60], lighting: "day" },
+    entities: [
+      { id: "player", kind: "player", position: [0, 1, 0] },
+      { id: "moon", kind: "prop", position: [24, 16, -24], size: [4, 4, 4] },
+    ],
+    objectives: [],
+    rules: [],
+    controls: [
+      {
+        id: "night",
+        type: "toggle",
+        label: "Night mode",
+        value: 0,
+        bind: { entity: "moon", property: "visible" },
+      },
+      {
+        id: "spawn-tree",
+        type: "button",
+        label: "Spawn tree",
+        bind: {
+          onPress: [
+            {
+              type: "spawn",
+              entity: {
+                id: "new-tree",
+                kind: "prop",
+                position: [6, 3, 6],
+                size: [3, 6, 3],
+                props: { shape: "tree" },
+              },
+            },
+          ],
+        },
+      },
+    ],
+    scratch: {},
+  });
+}
+
+describe("sanityCheck — world kit", () => {
+  test("accepts a spawnable sandbox with no win path", () => {
+    const doc = worldFixture();
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(requiresWinPath(doc)).toBe(false);
+    expect(hasWinPath(doc)).toBe(false);
+  });
+
+  test("rejects a world without a spawn button", () => {
+    const doc = worldFixture();
+    doc.controls = doc.controls?.filter((control) => control.type !== "button");
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-world-spawn");
+  });
+
+  test("rejects a button whose spawn payload reuses an existing entity id", () => {
+    const doc = worldFixture();
+    const button = doc.controls?.find((control) => control.type === "button");
+    if (button?.bind) {
+      button.bind.onPress = [
+        { type: "spawn", entity: { id: "moon", kind: "prop", position: [0, 0, 0] } },
+      ];
+    }
+    const result = sanityCheck(doc);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("missing-world-spawn");
+  });
+
+  test("still reports missing players and unknown control binds", () => {
+    const noPlayer = worldFixture();
+    noPlayer.entities = noPlayer.entities.filter(
+      (entity) => entity.kind !== "player"
+    );
+    expect(codes(sanityCheck(noPlayer))).toContain("no-player");
+
+    const badBind = worldFixture();
+    if (badBind.controls?.[0]) {
+      badBind.controls[0].bind = { entity: "ghost-moon", property: "visible" };
+    }
+    const result = sanityCheck(badBind);
+    expect(result.ok).toBe(false);
+    expect(codes(result)).toContain("invalid-control-bind");
+  });
+});
+
 describe("sanityCheck — new interaction action refs", () => {
   test("reports unknown entities for setVisible, setColor, animate and panels", () => {
     const doc = docWith({});

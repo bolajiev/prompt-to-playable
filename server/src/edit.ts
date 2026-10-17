@@ -101,6 +101,14 @@ function kitConstraints(profile: EditDocProfile): string[] {
       "  values covering 0..n-1 in order, and keep a rule that can win the race.",
     ];
   }
+  if (profile.mode === "world") {
+    return [
+      "- This is an open world sandbox: keep objectives empty, never add zones or",
+      "  win/lose actions, keep the player and at least one button whose onPress",
+      "  spawns an entity with a new id, and keep every control bind targeting an",
+      "  existing entity (new ids only inside spawn payloads).",
+    ];
+  }
   if (profile.archetype === "explore") {
     return [
       "- This is an explore scene: keep objectives empty and never add win/lose",

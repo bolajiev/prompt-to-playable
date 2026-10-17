@@ -10,8 +10,8 @@ export { KIT_ARCHETYPES };
 /**
  * Schema archetype stored in `meta.archetype` for each classification label.
  * The kits are not schema archetypes: they are carried in `meta.mode`, with
- * inspect/walkthrough/machine shaped as free-roam "explore" scenes and drive
- * as a goal-shaped "collect-a-thon".
+ * inspect/walkthrough/machine/world shaped as free-roam "explore" scenes and
+ * drive as a goal-shaped "collect-a-thon".
  */
 export const KIT_SCHEMA_ARCHETYPE: Record<KitArchetype, Archetype> = {
   "collect-a-thon": "collect-a-thon",
@@ -23,6 +23,7 @@ export const KIT_SCHEMA_ARCHETYPE: Record<KitArchetype, Archetype> = {
   walkthrough: "explore",
   drive: "collect-a-thon",
   machine: "explore",
+  world: "explore",
 };
 
 function example(raw: Record<string, unknown>): GameDoc {
@@ -1511,6 +1512,719 @@ export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
     ],
     scratch: { focused: 0, grip: 0, homed: 0, waved: 0 },
   }),
+  world: example({
+    version: "1.0.0",
+    meta: {
+      title: "Ember Hollow",
+      archetype: "explore",
+      mode: "world",
+      genre: "sandbox",
+      difficulty: 0,
+    },
+    world: {
+      bounds: [60, 24, 60],
+      lighting: "day",
+      skybox: "outdoor",
+      terrain: { type: "flat", obstacles: [] },
+    },
+    entities: [
+      { id: "player", kind: "player", name: "Wayfarer", position: [0, 1, -8] },
+      {
+        id: "herder",
+        kind: "enemy",
+        name: "Patrolling herder",
+        position: [16, 1, 14],
+        speed: 2,
+        state: "patrol",
+        patrol: [
+          [16, 1, 14],
+          [24, 1, 24],
+          [6, 1, 24],
+        ],
+      },
+      {
+        id: "firefly",
+        kind: "enemy",
+        name: "Drifting firefly",
+        position: [-18, 2, 16],
+        speed: 1,
+        state: "idle",
+        color: "yellow",
+      },
+      {
+        id: "robot-torso",
+        kind: "prop",
+        name: "Scout robot",
+        position: [10, 1.1, -14],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0.75, 0],
+            size: [1.3, 1.5, 0.9],
+            color: "#6c7a89",
+            material: { metalness: 0.5, roughness: 0.5 },
+          },
+          {
+            shape: "cylinder",
+            offset: [0, -0.15, 0],
+            size: [0.9, 0.5, 0.9],
+            color: "#495057",
+            material: { metalness: 0.55, roughness: 0.45 },
+          },
+          {
+            shape: "box",
+            offset: [-0.32, -0.6, 0],
+            size: [0.32, 0.9, 0.42],
+            color: "#495057",
+            material: { metalness: 0.45, roughness: 0.55 },
+          },
+          {
+            shape: "box",
+            offset: [0.32, -0.6, 0],
+            size: [0.32, 0.9, 0.42],
+            color: "#495057",
+            material: { metalness: 0.45, roughness: 0.55 },
+          },
+          {
+            shape: "sphere",
+            offset: [0, 1.1, 0.5],
+            size: [0.28, 0.28, 0.28],
+            color: "#22d3ee",
+            material: { emissive: "#22d3ee" },
+          },
+        ],
+      },
+      {
+        id: "robot-head",
+        kind: "prop",
+        name: "Scout robot head",
+        parent: "robot-torso",
+        attach: [0, 1.6, 0],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [0.62, 0.5, 0.62],
+            color: "#8d99ae",
+            material: { metalness: 0.5, roughness: 0.5 },
+          },
+          {
+            shape: "sphere",
+            offset: [0, 0, 0.33],
+            size: [0.14, 0.14, 0.14],
+            color: "#22d3ee",
+            material: { emissive: "#22d3ee" },
+          },
+          {
+            shape: "cylinder",
+            offset: [0, 0.45, 0],
+            size: [0.05, 0.5, 0.05],
+            color: "#adb5bd",
+            material: { metalness: 0.7, roughness: 0.3 },
+          },
+        ],
+      },
+      {
+        id: "robot-arm-l",
+        kind: "prop",
+        name: "Scout robot left arm",
+        parent: "robot-torso",
+        attach: [-0.8, 1.35, 0],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, -0.35, 0],
+            size: [0.26, 0.9, 0.32],
+            color: "#8d99ae",
+            material: { metalness: 0.5, roughness: 0.5 },
+          },
+          {
+            shape: "sphere",
+            offset: [0, -0.9, 0],
+            size: [0.3, 0.3, 0.3],
+            color: "#f4a261",
+            material: { roughness: 0.6 },
+          },
+        ],
+      },
+      {
+        id: "robot-arm-r",
+        kind: "prop",
+        name: "Scout robot right arm",
+        parent: "robot-torso",
+        attach: [0.8, 1.35, 0],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, -0.35, 0],
+            size: [0.26, 0.9, 0.32],
+            color: "#8d99ae",
+            material: { metalness: 0.5, roughness: 0.5 },
+          },
+          {
+            shape: "sphere",
+            offset: [0, -0.9, 0],
+            size: [0.3, 0.3, 0.3],
+            color: "#f4a261",
+            material: { roughness: 0.6 },
+          },
+        ],
+      },
+      {
+        id: "deer-body",
+        kind: "prop",
+        name: "Meadow deer",
+        position: [-12, 1.5, -12],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 0, 0],
+            size: [1.7, 0.9, 0.8],
+            color: "#a4713c",
+            material: { roughness: 0.85 },
+          },
+          {
+            shape: "box",
+            offset: [0.75, 0.5, 0],
+            size: [0.35, 0.7, 0.35],
+            color: "#a4713c",
+            material: { roughness: 0.85 },
+          },
+          {
+            shape: "box",
+            offset: [1, 0.95, 0],
+            size: [0.5, 0.45, 0.5],
+            color: "#b8834a",
+            material: { roughness: 0.8 },
+          },
+          {
+            shape: "sphere",
+            offset: [-0.9, 0.15, 0],
+            size: [0.22, 0.22, 0.22],
+            color: "#f5e6c8",
+            material: { roughness: 0.7 },
+          },
+        ],
+      },
+      {
+        id: "deer-leg-fl",
+        kind: "prop",
+        name: "Deer front left leg",
+        parent: "deer-body",
+        attach: [-0.6, -0.45, -0.32],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, -0.5, 0],
+            size: [0.16, 1, 0.16],
+            color: "#7a5230",
+            material: { roughness: 0.85 },
+          },
+        ],
+      },
+      {
+        id: "deer-leg-fr",
+        kind: "prop",
+        name: "Deer front right leg",
+        parent: "deer-body",
+        attach: [-0.6, -0.45, 0.32],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, -0.5, 0],
+            size: [0.16, 1, 0.16],
+            color: "#7a5230",
+            material: { roughness: 0.85 },
+          },
+        ],
+      },
+      {
+        id: "deer-leg-bl",
+        kind: "prop",
+        name: "Deer back left leg",
+        parent: "deer-body",
+        attach: [0.6, -0.45, -0.32],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, -0.5, 0],
+            size: [0.16, 1, 0.16],
+            color: "#7a5230",
+            material: { roughness: 0.85 },
+          },
+        ],
+      },
+      {
+        id: "deer-leg-br",
+        kind: "prop",
+        name: "Deer back right leg",
+        parent: "deer-body",
+        attach: [0.6, -0.45, 0.32],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, -0.5, 0],
+            size: [0.16, 1, 0.16],
+            color: "#7a5230",
+            material: { roughness: 0.85 },
+          },
+        ],
+      },
+      {
+        id: "pine-tree-1",
+        kind: "prop",
+        name: "Pine tree",
+        position: [8, 4, 12],
+        size: [4, 8, 4],
+        color: "forestgreen",
+        props: { shape: "tree" },
+      },
+      {
+        id: "pine-tree-2",
+        kind: "prop",
+        name: "Tall pine",
+        position: [-16, 4, 4],
+        size: [4, 8, 4],
+        color: "forestgreen",
+        props: { shape: "tree" },
+      },
+      {
+        id: "boulder-1",
+        kind: "prop",
+        name: "Mossy boulder",
+        position: [14, 1.2, -2],
+        size: [3, 2.4, 3],
+        color: "slategray",
+        props: { shape: "rock" },
+      },
+      {
+        id: "village-hall",
+        kind: "prop",
+        name: "Village hall",
+        position: [-8, 3, 18],
+        size: [8, 6, 6],
+        color: "#c9a227",
+        props: { shape: "building" },
+      },
+      {
+        id: "well",
+        kind: "prop",
+        name: "Old well",
+        position: [16, 1, -18],
+        size: [2, 2, 2],
+        color: "#8d99ae",
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [0.8, 0.5, 0.8],
+            color: "#8d99ae",
+            material: { roughness: 0.95 },
+          },
+          {
+            shape: "torus",
+            offset: [0, 0.28, 0],
+            size: [0.85, 0.12, 0.85],
+            rotation: [1.5708, 0, 0],
+            color: "#6c757d",
+            material: { roughness: 0.9 },
+          },
+          {
+            shape: "cone",
+            offset: [0, 0.8, 0],
+            size: [1.1, 0.45, 1.1],
+            color: "#7b4b2a",
+            material: { roughness: 0.85, texture: "wood" },
+          },
+        ],
+        label: { text: "Old well", offset: [0, 1.1, 0], size: 0.4 },
+      },
+      {
+        id: "ancient-oak",
+        kind: "prop",
+        name: "Ancient oak",
+        position: [22, 5, 4],
+        size: [6, 10, 6],
+        color: "#6b4f2a",
+        props: { shape: "tree" },
+        label: { text: "Ancient oak", offset: [0, 0.75, 0], size: 0.5 },
+      },
+      {
+        id: "windmill-tower",
+        kind: "prop",
+        name: "Old windmill",
+        position: [-20, 3, -14],
+        size: [4, 6, 4],
+        parts: [
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [0.5, 1, 0.5],
+            color: "#d8c3a5",
+            material: { roughness: 0.9 },
+          },
+          {
+            shape: "cone",
+            offset: [0, 0.6, 0],
+            size: [0.6, 0.35, 0.6],
+            color: "#7b4b2a",
+            material: { roughness: 0.85, texture: "wood" },
+          },
+        ],
+        label: { text: "Old windmill", offset: [0, 0.8, 0], size: 0.4 },
+      },
+      {
+        id: "windmill-rotor",
+        kind: "prop",
+        name: "Windmill rotor",
+        parent: "windmill-tower",
+        attach: [0, 1.8, -2],
+        position: [0, 0, 0],
+        parts: [
+          {
+            shape: "box",
+            offset: [0, 1.2, 0],
+            size: [0.3, 1.6, 0.12],
+            color: "#e9c46a",
+            material: { roughness: 0.7 },
+          },
+          {
+            shape: "box",
+            offset: [0, -1.2, 0],
+            size: [0.3, 1.6, 0.12],
+            color: "#e9c46a",
+            material: { roughness: 0.7 },
+          },
+          {
+            shape: "box",
+            offset: [1.2, 0, 0],
+            size: [1.6, 0.3, 0.12],
+            color: "#e9c46a",
+            material: { roughness: 0.7 },
+          },
+          {
+            shape: "box",
+            offset: [-1.2, 0, 0],
+            size: [1.6, 0.3, 0.12],
+            color: "#e9c46a",
+            material: { roughness: 0.7 },
+          },
+          {
+            shape: "cylinder",
+            offset: [0, 0, 0],
+            size: [0.4, 0.3, 0.4],
+            rotation: [1.5708, 0, 0],
+            color: "#495057",
+            material: { metalness: 0.6, roughness: 0.4 },
+          },
+        ],
+      },
+      {
+        id: "moon",
+        kind: "prop",
+        name: "Rising moon",
+        position: [24, 16, -24],
+        size: [4, 4, 4],
+        color: "#f5f3ce",
+        active: true,
+        parts: [
+          {
+            shape: "sphere",
+            offset: [0, 0, 0],
+            size: [1, 1, 1],
+            color: "#f5f3ce",
+            material: { emissive: "#f5f3ce", roughness: 0.4 },
+          },
+        ],
+      },
+    ],
+    objectives: [],
+    rules: [
+      {
+        id: "characters-awake",
+        on: { event: "tick" },
+        if: { op: "==", left: { var: "awake" }, right: 0 },
+        then: [
+          {
+            type: "animate",
+            entity: "robot-torso",
+            kind: "bob",
+            amplitude: 0.18,
+            speed: 0.9,
+          },
+          {
+            type: "animate",
+            entity: "deer-body",
+            kind: "bob",
+            amplitude: 0.12,
+            speed: 0.7,
+          },
+          { type: "setVar", key: "awake", value: 1 },
+        ],
+      },
+      {
+        id: "inspect-oak",
+        on: { event: "click", entity: "ancient-oak" },
+        then: [
+          { type: "setColor", entity: "ancient-oak", color: "#8a6d3b" },
+          {
+            type: "showPanel",
+            title: "Ancient oak",
+            body: "Hollow and wide, the oldest tree in the hollow. Its rings are said to count the winters of the village.",
+            entity: "ancient-oak",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+      {
+        id: "inspect-well",
+        on: { event: "click", entity: "well" },
+        then: [
+          { type: "setColor", entity: "well", color: "#adb5bd" },
+          {
+            type: "showPanel",
+            title: "Old well",
+            body: "Cold, clear water seven rungs down. The bucket rope still holds after all these years.",
+            entity: "well",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+      {
+        id: "inspect-windmill",
+        on: { event: "click", entity: "windmill-tower" },
+        then: [
+          { type: "setColor", entity: "windmill-tower", color: "#e9c46a" },
+          {
+            type: "showPanel",
+            title: "Old windmill",
+            body: "The mill still turns when the wind picks up. Drag the Wind slider to spin the rotor.",
+            entity: "windmill-tower",
+          },
+          { type: "setVar", key: "focused", value: 1 },
+        ],
+      },
+    ],
+    controls: [
+      {
+        id: "spawn-tree",
+        type: "button",
+        label: "Spawn tree",
+        bind: {
+          onPress: [
+            {
+              type: "spawn",
+              entity: {
+                id: "new-pine",
+                kind: "prop",
+                name: "Fresh pine",
+                position: [6, 3, 6],
+                size: [3, 6, 3],
+                color: "forestgreen",
+                props: { shape: "tree" },
+              },
+            },
+            { type: "incVar", key: "treesSpawned" },
+          ],
+        },
+      },
+      {
+        id: "spawn-robot",
+        type: "button",
+        label: "Spawn robot",
+        bind: {
+          onPress: [
+            {
+              type: "spawn",
+              entity: {
+                id: "scout-torso",
+                kind: "prop",
+                name: "Scout robot torso",
+                position: [2, 1.1, 8],
+                parts: [
+                  {
+                    shape: "box",
+                    offset: [0, 0.75, 0],
+                    size: [1.3, 1.5, 0.9],
+                    color: "#6c7a89",
+                    material: { metalness: 0.5, roughness: 0.5 },
+                  },
+                  {
+                    shape: "box",
+                    offset: [-0.32, -0.6, 0],
+                    size: [0.32, 0.9, 0.42],
+                    color: "#495057",
+                  },
+                  {
+                    shape: "box",
+                    offset: [0.32, -0.6, 0],
+                    size: [0.32, 0.9, 0.42],
+                    color: "#495057",
+                  },
+                ],
+              },
+            },
+            {
+              type: "spawn",
+              entity: {
+                id: "scout-head",
+                kind: "prop",
+                name: "Scout robot head",
+                parent: "scout-torso",
+                attach: [0, 1.6, 0],
+                position: [0, 0, 0],
+                parts: [
+                  {
+                    shape: "box",
+                    offset: [0, 0, 0],
+                    size: [0.62, 0.5, 0.62],
+                    color: "#8d99ae",
+                    material: { metalness: 0.5, roughness: 0.5 },
+                  },
+                ],
+              },
+            },
+            {
+              type: "spawn",
+              entity: {
+                id: "scout-arm-l",
+                kind: "prop",
+                name: "Scout robot left arm",
+                parent: "scout-torso",
+                attach: [-0.8, 1.35, 0],
+                position: [0, 0, 0],
+                parts: [
+                  {
+                    shape: "box",
+                    offset: [0, -0.45, 0],
+                    size: [0.26, 0.9, 0.32],
+                    color: "#8d99ae",
+                    material: { metalness: 0.5, roughness: 0.5 },
+                  },
+                ],
+              },
+            },
+            {
+              type: "spawn",
+              entity: {
+                id: "scout-arm-r",
+                kind: "prop",
+                name: "Scout robot right arm",
+                parent: "scout-torso",
+                attach: [0.8, 1.35, 0],
+                position: [0, 0, 0],
+                parts: [
+                  {
+                    shape: "box",
+                    offset: [0, -0.45, 0],
+                    size: [0.26, 0.9, 0.32],
+                    color: "#8d99ae",
+                    material: { metalness: 0.5, roughness: 0.5 },
+                  },
+                ],
+              },
+            },
+            { type: "incVar", key: "robotsSpawned" },
+          ],
+        },
+      },
+      {
+        id: "call-companion",
+        type: "button",
+        label: "Call companion",
+        bind: {
+          onPress: [
+            {
+              type: "spawn",
+              entity: {
+                id: "companion-deer",
+                kind: "prop",
+                name: "Companion deer",
+                position: [-4, 1.5, 2],
+                parts: [
+                  {
+                    shape: "box",
+                    offset: [0, 0, 0],
+                    size: [1.7, 0.9, 0.8],
+                    color: "#a4713c",
+                    material: { roughness: 0.85 },
+                  },
+                  {
+                    shape: "box",
+                    offset: [1, 0.95, 0],
+                    size: [0.5, 0.45, 0.5],
+                    color: "#b8834a",
+                    material: { roughness: 0.8 },
+                  },
+                  {
+                    shape: "cylinder",
+                    offset: [-0.6, -0.9, -0.32],
+                    size: [0.16, 1, 0.16],
+                    color: "#7a5230",
+                    material: { roughness: 0.85 },
+                  },
+                  {
+                    shape: "cylinder",
+                    offset: [-0.6, -0.9, 0.32],
+                    size: [0.16, 1, 0.16],
+                    color: "#7a5230",
+                    material: { roughness: 0.85 },
+                  },
+                  {
+                    shape: "cylinder",
+                    offset: [0.6, -0.9, -0.32],
+                    size: [0.16, 1, 0.16],
+                    color: "#7a5230",
+                    material: { roughness: 0.85 },
+                  },
+                  {
+                    shape: "cylinder",
+                    offset: [0.6, -0.9, 0.32],
+                    size: [0.16, 1, 0.16],
+                    color: "#7a5230",
+                    material: { roughness: 0.85 },
+                  },
+                ],
+              },
+            },
+            { type: "setVar", key: "companionCalled", value: 1 },
+          ],
+        },
+      },
+      {
+        id: "night-mode",
+        type: "toggle",
+        label: "Night mode",
+        value: 0,
+        bind: { entity: "moon", property: "visible", var: "night" },
+      },
+      {
+        id: "wind",
+        type: "slider",
+        label: "Wind",
+        min: 0,
+        max: 2.4,
+        step: 0.1,
+        value: 0.6,
+        bind: { entity: "windmill-rotor", property: "rotation.y", scale: 2.4 },
+      },
+    ],
+    scratch: {
+      awake: 0,
+      focused: 0,
+      night: 0,
+      treesSpawned: 0,
+      robotsSpawned: 0,
+      companionCalled: 0,
+    },
+  }),
 };
 
 const GAME_WINNABILITY_BLOCK: readonly string[] = [
@@ -1747,12 +2461,51 @@ const MACHINE_KIT_BLOCK: readonly string[] = [
   "  example verbatim - keep the exact structural vocabulary.",
 ];
 
+const WORLD_KIT_BLOCK: readonly string[] = [
+  "Open world requirements (world kit):",
+  '- "meta" MUST carry "mode": "world" with schema archetype "explore";',
+  '  "objectives" MUST be an empty array: []. No win/lose actions, no trigger',
+  "  zones and no playerEnter rules - the world is roamed freely.",
+  "- LARGE bounds: about 60x24x60 (at least 40 wide and deep). Open ground with",
+  "  no obstacle walls; scatter terrain props (kind \"prop\" with \"props\": {",
+  '  "shape": "tree"|"rock"|"building"|"flower"|"pillar"|"statue"|"campfire" })',
+  "  at least 4 units apart so the player can walk everywhere.",
+  "- Populate 3-6 NPCs: enemy entities with \"state\": \"idle\" or \"patrol\"",
+  '  (patrol waypoints inside bounds, no "sight" so they stay peaceful) plus at',
+  "  least TWO composed characters. A composed character is a parent chain: a",
+  "  root prop (torso/body) with limb entities parented onto it - head, two arms",
+  "  and legs for a humanoid or robot (boxes + cylinders), a body with four",
+  "  parented legs for an animal. Author each limb's parts in WORLD units",
+  "  (leave `size` off limb entities) with offsets that reach the limb's mount",
+  "  point, and start an idle bob animation on each character root from one",
+  "  guarded tick rule so the characters breathe.",
+  '- Interactive controls (4-6 total): at least TWO buttons that spawn a visible',
+  '  entity through {"type":"spawn","entity":{...}} - give every spawn payload an',
+  '  id that does NOT already exist in "entities" so a press adds a new object.',
+  "  Also include a toggle that changes an entity (Night mode: bind visible,",
+  "  emissive or color on a moon/lantern prop with a modest scale) and a slider",
+  "  that drives a real entity property (Wind: bind rotation.y on a windmill",
+  "  rotor with a scale of about 2). Buttons MUST visibly spawn or change",
+  "  things; never ship a button whose press does nothing observable.",
+  "- Click rules on 2-3 labeled props (tree, well, windmill, statue) open info",
+  '  panels: {"event":"click"} -> {"type":"showPanel"} with a title and a body,',
+  "  plus setColor and a setVar flag. Label every clickable prop so the player",
+  "  knows what is interactive.",
+  "- Reference discipline: every bind.entity and every rule/action id must name",
+  "  an existing entity; only spawn payloads may carry new ids.",
+  "- Budget: at most 24 entities, 12 rules and 6 controls. Keep positions, spawn",
+  "  payloads and patrol points well inside the world bounds.",
+  "- Vary the title, terrain, characters, colors and controls instead of copying",
+  "  the example verbatim - keep the exact structural vocabulary.",
+];
+
 function kitRequirementsBlock(archetype: KitArchetype): readonly string[] {
   if (archetype === "explore") return EXPLORE_KIT_BLOCK;
   if (archetype === "inspect") return INSPECT_KIT_BLOCK;
   if (archetype === "walkthrough") return WALKTHROUGH_KIT_BLOCK;
   if (archetype === "drive") return DRIVE_KIT_BLOCK;
   if (archetype === "machine") return MACHINE_KIT_BLOCK;
+  if (archetype === "world") return WORLD_KIT_BLOCK;
   return GAME_WINNABILITY_BLOCK;
 }
 
@@ -1762,7 +2515,10 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
   const isWalkthrough = archetype === "walkthrough";
   const isDrive = archetype === "drive";
   const isMachine = archetype === "machine";
-  const isFreeRoamKit = isExplore || isInspect || isWalkthrough || isMachine;
+  const isWorld = archetype === "world";
+  const isKitMode = isInspect || isWalkthrough || isDrive || isMachine || isWorld;
+  const isFreeRoamKit =
+    isExplore || isInspect || isWalkthrough || isMachine || isWorld;
   const schemaArchetype = KIT_SCHEMA_ARCHETYPE[archetype];
 
   return [
@@ -1774,9 +2530,11 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
           ? `Design a complete, drivable racing game that fits the "${archetype}" kit.`
           : isMachine
             ? `Design a complete, interactive 3D machine that fits the "${archetype}" kit.`
-            : isExplore
-              ? `Design a complete, explorable 3D scene that fits the "${archetype}" archetype.`
-              : `Design a complete, playable game that fits the "${archetype}" archetype.`,
+            : isWorld
+              ? `Design a complete, open 3D world that fits the "${archetype}" kit.`
+              : isExplore
+                ? `Design a complete, explorable 3D scene that fits the "${archetype}" archetype.`
+                : `Design a complete, playable game that fits the "${archetype}" archetype.`,
     isFreeRoamKit
       ? "It uses the same JSON document shape but has NO objectives, NO trigger zones"
       : "",
@@ -1787,7 +2545,9 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
           ? "and no win or lose condition: the player walks the interior in first person."
           : isMachine
             ? "and no win or lose condition: the player drives the machine with the on-screen controls."
-            : "and no win or lose condition: the player simply roams a small, atmospheric place."
+            : isWorld
+              ? "and no win or lose condition: the player roams a large open world and uses the on-screen controls to spawn and change things."
+              : "and no win or lose condition: the player simply roams a small, atmospheric place."
       : "",
     ...(isInspect
       ? [
@@ -1805,12 +2565,18 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
               "part assemblies, with click rules that explain each part and on-screen",
               "sliders, a toggle and buttons that drive the joints live.",
             ]
-          : []),
+          : isWorld
+            ? [
+                "It is an open world sandbox: a large walkable place with scattered",
+                "terrain, NPC characters composed from parented part assemblies, and",
+                "on-screen buttons, a toggle and a slider that spawn and change things.",
+              ]
+            : []),
     "",
     "Respond with ONLY one JSON object - no markdown fences, no commentary -",
     "with exactly this shape:",
     `- "version": "${SCHEMA_VERSION}" (exact string)`,
-    ...(isInspect || isWalkthrough || isDrive || isMachine
+    ...(isKitMode
       ? [
           `- "meta": { "title": non-empty string, "archetype": "${schemaArchetype}"`,
           `  (exact string), "mode": "${archetype}" (exact string), optional`,
@@ -1832,7 +2598,8 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
     '  Optional parenting: "parent" (another entity id) plus "attach"',
     '  ([x,y,z] offset in the PARENT\'s local space where this entity mounts);',
     '  a parented entity\'s "position"/"rotation" are its LOCAL pose and follow',
-    '  the parent\'s motion (used by the machine kit for arm linkages).',
+    '  the parent\'s motion (used by the machine kit for arm linkages and the',
+    "  world kit for composed character limbs).",
     '  For kind "prop", set "props": { "shape": "<one of: tree, rock, campfire,',
     '  pillar, statue, lamp, table, flower, building, chip, header, capacitor,',
     '  led, hole>" } so decorative props and PCB components render as real',
@@ -1866,7 +2633,13 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
           '  above for the exact shape: id/type/label/min/max/step/value/bind with',
           '  optional entity, property, scale, offset, var and onPress)',
         ]
-      : []),
+      : isWorld
+        ? [
+            '- "controls": array of interactive controls (see the world requirements',
+            '  above for the exact shape: id/type/label/min/max/step/value/bind with',
+            '  optional entity, property, scale, offset, var and onPress)',
+          ]
+        : []),
     '- "scratch": object of string|number|boolean values (may be empty)',
     "",
     "Prefer readable, well-formed JSON: keep names, labels and props meaningful.",
@@ -1875,7 +2648,7 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
     '  {"event":"playerEnter","zone":"<zone-id>"}   fired when the player enters a zone',
     '  {"event":"interact","entity":"<id>"}         fired when the player presses interact near the entity',
     '  {"event":"click","entity":"<id>"}            fired when the player clicks the entity',
-    ...(isMachine
+    ...((isMachine || isWorld)
       ? [
           '  {"event":"controlPressed","entity":"<control-id>"}  fired when a control',
           "  button is pressed (controls also run their own bind.onPress actions)",
@@ -1935,7 +2708,9 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
           ? "Layout - track:"
           : isMachine
             ? "Layout - workbench:"
-            : "Layout - open ground:",
+            : isWorld
+              ? "Layout - open world:"
+              : "Layout - open ground:",
     "- Every position and patrol point must lie inside world.bounds.",
     '- Unless the user explicitly asks for obstacles or cover, use "terrain": { "type": "flat", "obstacles": [] }.',
     ...(isExplore
@@ -1972,10 +2747,19 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
                   "  front of the arm, and keep every entity, attach offset and joint pivot",
                   "  well inside the world bounds even at the sliders' extremes.",
                 ]
-              : [
-                  "- If obstacles are requested, keep them well clear of the straight line between",
-                  "  the player spawn and every objective target; targets must be reachable on foot.",
-                ]),
+              : isWorld
+                ? [
+                    "- Scatter props, NPCs and characters across the whole map with at",
+                    "  least 4 units between neighbours; keep the player spawn and the",
+                    "  paths between points of interest clear and walkable.",
+                    "- Keep every character standing on the ground plane: the root's",
+                    "  height matches its legs, and parented limbs attach at the joints",
+                    "  with attach offsets that connect them (no floating parts).",
+                  ]
+                : [
+                    "- If obstacles are requested, keep them well clear of the straight line between",
+                    "  the player spawn and every objective target; targets must be reachable on foot.",
+                  ]),
     "",
     `Few-shot example for the "${archetype}" archetype`,
     "(structure and quality target - do not copy verbatim):",

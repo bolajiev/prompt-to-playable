@@ -9,6 +9,7 @@ import {
   interactPrompt,
   MACHINE_HINT,
   WALKTHROUGH_HINT,
+  WORLD_HINT,
 } from "../src/ui/mode-hud.js";
 
 interface DriveOverrides {
@@ -54,6 +55,14 @@ describe("hudForMode", () => {
   test("machine points at the sidebar controls instead of WASD", () => {
     const view = hudForMode("machine", driveState());
     expect(view.lines).toEqual([MACHINE_HINT]);
+    expect(view.crosshair).toBe(false);
+  });
+
+  test("world points at the world controls", () => {
+    const view = hudForMode("world", driveState());
+    expect(view.lines).toEqual([WORLD_HINT]);
+    expect(WORLD_HINT).toContain("Explore freely");
+    expect(WORLD_HINT).toContain("world controls");
     expect(view.crosshair).toBe(false);
   });
 
