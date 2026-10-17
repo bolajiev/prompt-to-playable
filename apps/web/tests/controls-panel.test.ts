@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import type { Control } from "@prompt-to-playable/schema";
 import {
+  CONTROLS_PANEL_SECTION_KEY,
   ControlsPanel,
   controlsPanelLabel,
   controlsToViewModel,
@@ -10,7 +11,8 @@ import {
   DEFAULT_SLIDER_STEP,
   formatControlValue,
 } from "../src/ui/controls-panel.js";
-import { FakeNode } from "./fakes.js";
+import { COLLAPSED_STORAGE_KEY } from "../src/ui/collapsible.js";
+import { FakeNode, FakeStorage } from "./fakes.js";
 
 const CONTROLS: Control[] = [
   {
@@ -132,15 +134,21 @@ describe("formatControlValue", () => {
   });
 });
 
-function createHarness() {
+function createHarness(storage?: FakeStorage) {
   const root = new FakeNode();
   const onInput = vi.fn();
   const onPress = vi.fn();
   const panel = new ControlsPanel(root as unknown as HTMLElement, {
     onInput,
     onPress,
+    storage: storage ?? null,
   });
   return { panel, root, onInput, onPress };
+}
+
+/** The clickable section head the panel always renders first. */
+function head(root: FakeNode): FakeNode {
+  return root.children[0]!;
 }
 
 describe("ControlsPanel", () => {
@@ -163,8 +171,51 @@ describe("ControlsPanel", () => {
     panel.update(CONTROLS, {}, "World controls");
 
     expect(root.getAttribute("aria-label")).toBe("World controls");
-    expect(root.children[0]?.className).toBe("controls-title");
-    expect(root.children[0]?.textContent).toBe("World controls");
+    expect(head(root).className).toBe("controls-head");
+    expect(head(root).find("controls-title")?.textContent).toBe(
+      "World controls"
+    );
+    expect(head(root).getAttribute("aria-expanded")).toBe("true");
+    expect(head(root).find("section-toggle")?.textContent).toBe("Hide");
+  });
+
+  test("the header click collapses and expands the rows", () => {
+    const { panel, root } = createHarness();
+    panel.update(CONTROLS, {}, "World controls");
+
+    head(root).click();
+    expect(root.dataset.collapsed).toBe("true");
+    expect(head(root).getAttribute("aria-expanded")).toBe("false");
+    expect(head(root).find("section-toggle")?.textContent).toBe("Show");
+    expect(rows(root)).toHaveLength(3);
+
+    head(root).click();
+    expect(root.dataset.collapsed).toBe("false");
+    expect(head(root).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("collapsed state persists in ptp.collapsed and survives rebuilds", () => {
+    const storage = new FakeStorage();
+    const { panel, root } = createHarness(storage);
+    panel.update(CONTROLS, {}, "World controls");
+    head(root).click();
+    expect(storage.getItem(COLLAPSED_STORAGE_KEY)).toBe(
+      '{"controls-panel":true}'
+    );
+
+    // Row rebuilds (label/definition changes) keep the collapsed state.
+    panel.update(CONTROLS, {}, "Machine controls");
+    expect(root.dataset.collapsed).toBe("true");
+
+    // A fresh panel with the same storage restores the collapsed header.
+    const restored = createHarness(storage);
+    restored.panel.update(CONTROLS, {}, "World controls");
+    expect(restored.root.dataset.collapsed).toBe("true");
+    expect(head(restored.root).getAttribute("aria-expanded")).toBe("false");
+
+    head(restored.root).click();
+    expect(storage.getItem(COLLAPSED_STORAGE_KEY)).toBe("{}");
+    expect(CONTROLS_PANEL_SECTION_KEY).toBe("controls-panel");
   });
 
   test("renders a row per control with id/type metadata", () => {
@@ -282,7 +333,9 @@ describe("ControlsPanel", () => {
     const firstRow = rows(root)[0];
 
     panel.update(CONTROLS, {}, "World controls");
-    expect(root.children[0]?.textContent).toBe("World controls");
+    expect(head(root).find("controls-title")?.textContent).toBe(
+      "World controls"
+    );
     expect(rows(root)[0]).not.toBe(firstRow);
     expect(root.getAttribute("aria-label")).toBe("World controls");
   });

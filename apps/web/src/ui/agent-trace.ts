@@ -1,3 +1,9 @@
+import {
+  CollapsedStore,
+  safeLocalStorage,
+  type StorageLike,
+} from "./collapsible.js";
+
 /**
  * Agent trace strip: a pure view-model plus a small DOM renderer for the
  * `agent` payload returned by POST /generate. The strip is read-only - it
@@ -5,7 +11,18 @@
  * compact collapsible section with one row per step (tool label, status dot,
  * detail, milliseconds) and a summary line such as
  * "5 steps · 1 repair · simulated 3 checks".
+ *
+ * Collapse state lives in the shared `ptp.collapsed` map (default: expanded)
+ * so the Hide control behaves exactly like the other sidebar sections.
  */
+
+/** `ptp.collapsed` key for this section. */
+export const AGENT_TRACE_SECTION_KEY = "agent-trace";
+
+export interface AgentTraceStripOptions {
+  /** Collapse-state storage; defaults to localStorage when available. */
+  storage?: StorageLike | null;
+}
 
 export type AgentStepStatus = "ok" | "fail" | "skipped";
 
@@ -148,10 +165,18 @@ export class AgentTraceStrip {
   private readonly summaryEl: HTMLElement;
   private readonly toggleEl: HTMLElement;
   private readonly list: HTMLElement;
-  private expanded = true;
+  private readonly store: CollapsedStore;
+  private expanded: boolean;
 
-  constructor(private readonly root: HTMLElement) {
+  constructor(
+    private readonly root: HTMLElement,
+    options: AgentTraceStripOptions = {}
+  ) {
     const doc = root.ownerDocument;
+    this.store = new CollapsedStore(
+      options.storage === undefined ? safeLocalStorage() : options.storage
+    );
+    this.expanded = !this.store.isCollapsed(AGENT_TRACE_SECTION_KEY);
 
     this.head = doc.createElement("button");
     this.head.type = "button";
@@ -165,7 +190,7 @@ export class AgentTraceStrip {
     this.summaryEl.className = "agent-trace-summary";
 
     this.toggleEl = doc.createElement("span");
-    this.toggleEl.className = "agent-trace-toggle";
+    this.toggleEl.className = "agent-trace-toggle section-toggle";
     this.toggleEl.textContent = "Hide";
 
     this.head.append(title, this.summaryEl, this.toggleEl);
@@ -185,6 +210,7 @@ export class AgentTraceStrip {
 
   toggle(): void {
     this.expanded = !this.expanded;
+    this.store.setCollapsed(AGENT_TRACE_SECTION_KEY, !this.expanded);
     this.syncExpanded();
   }
 
@@ -238,6 +264,7 @@ export class AgentTraceStrip {
   private syncExpanded(): void {
     this.list.hidden = !this.expanded;
     this.toggleEl.textContent = this.expanded ? "Hide" : "Show";
+    this.root.dataset.collapsed = String(!this.expanded);
     if (typeof this.head.setAttribute === "function") {
       this.head.setAttribute("aria-expanded", String(this.expanded));
     }

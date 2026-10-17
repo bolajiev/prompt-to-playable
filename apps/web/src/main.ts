@@ -1,9 +1,28 @@
 import "./styles/tokens.css";
 import "./styles/studio.css";
 import { createApp } from "./app.js";
+import { SidebarResizer } from "./ui/sidebar-resize.js";
 
 const app = createApp();
 app.start();
+
+/**
+ * Wires the vertical divider: restores the persisted sidebar width, mirrors it
+ * onto the `--sidebar-width` grid column and re-clamps on viewport changes.
+ * The canvas follows through the App's ResizeObserver.
+ */
+function setupSidebarResize(): void {
+  const handle = document.querySelector<HTMLElement>("#sidebar-resize");
+  const root = document.querySelector<HTMLElement>("#app");
+  if (handle === null || root === null) return;
+
+  const resizer = new SidebarResizer(handle, {
+    onWidth: (width) => root.style.setProperty("--sidebar-width", `${width}px`),
+  });
+  globalThis.addEventListener("resize", () => resizer.clampToViewport());
+}
+
+setupSidebarResize();
 
 /**
  * Landing chips deep-link as `/app.html?prompt=<text>`. Once the app is wired

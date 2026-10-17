@@ -242,6 +242,8 @@ export class App {
   private readonly requestFrame: (callback: FrameRequestCallback) => number;
   private readonly cancelFrame: (handle: number) => void;
   private readonly history: string[] = [];
+  /** Defined only when the browser exposes ResizeObserver. */
+  private canvasObserver: ResizeObserver | null = null;
 
   private lastValidatedDoc: GameDoc | null = null;
   private lastTime = 0;
@@ -325,6 +327,12 @@ export class App {
     this.agentTrace = new AgentTraceStrip(elements.agentTrace);
 
     this.handleResize();
+    // Layout-driven size changes (sidebar drag, panel collapse) bypass the
+    // window resize event; observe the canvas so the framebuffer follows.
+    if (typeof ResizeObserver !== "undefined") {
+      this.canvasObserver = new ResizeObserver(() => this.handleResize());
+      this.canvasObserver.observe(elements.canvas);
+    }
     globalThis.addEventListener("resize", this.handleResize);
     globalThis.addEventListener("keydown", this.handleKeyDown);
     globalThis.addEventListener("keyup", this.handleKeyUp);

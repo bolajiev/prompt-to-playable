@@ -7,21 +7,44 @@ import {
 import { FakeDocument, FakeNode } from "./fakes.js";
 
 describe("example prompt list", () => {
-  test("covers each game archetype, an explore scene and each interactive kit", () => {
-    expect(EXAMPLE_PROMPTS).toHaveLength(9);
+  test("covers each game archetype, a world free-form default, an explore scene and each interactive kit", () => {
+    expect(EXAMPLE_PROMPTS).toHaveLength(10);
     expect(new Set(EXAMPLE_PROMPTS.map((example) => example.kind)).size).toBe(
       EXAMPLE_PROMPTS.length
     );
     expect(EXAMPLE_PROMPTS.map((example) => example.prompt)).toEqual([
+      "surprise me: build an open world with something unexpected I can explore and control",
+      "a 3D PCB I can click and inspect",
+      "a robot with animated arms",
       "a room where I collect 3 glowing crystals while avoiding one guard",
       "puzzle room: activate three switches to open the exit",
       "a platforming course with moving hazards to reach the door",
       "sneak past patrolling guards to the exit",
       "a quiet forest clearing with a campfire at dusk",
-      "a 3D PCB I can click and inspect",
       "a house I can walk through",
       "a car racing game",
-      "a robot with animated arms",
+    ]);
+  });
+
+  test("orders chips world-first, then machine, then the rest", () => {
+    const firstChip = EXAMPLE_PROMPTS[0]!;
+    expect(firstChip.id).toBe("surprise");
+    expect(firstChip.kind).toBe("world");
+    expect(firstChip.label).toBe("Surprise me");
+    expect(firstChip.prompt).toBe(
+      "surprise me: build an open world with something unexpected I can explore and control"
+    );
+
+    const machineKinds = EXAMPLE_PROMPTS.slice(1, 3).map((example) => example.kind);
+    expect(machineKinds).toEqual(["inspect", "animated"]);
+    expect(EXAMPLE_PROMPTS.slice(3).map((example) => example.kind)).toEqual([
+      "collect-a-thon",
+      "puzzle-switch",
+      "platformer-lite",
+      "stealth-chase",
+      "explore",
+      "walkthrough",
+      "drive",
     ]);
   });
 
@@ -70,8 +93,10 @@ describe("Onboarding", () => {
     });
 
     expect(emptyState.hidden).toBe(false);
-    examples.children[4].click();
-    expect(picks).toEqual(["a quiet forest clearing with a campfire at dusk"]);
+    examples.children[0].click();
+    expect(picks).toEqual([
+      "surprise me: build an open world with something unexpected I can explore and control",
+    ]);
     expect(emptyState.hidden).toBe(false);
   });
 

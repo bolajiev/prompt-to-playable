@@ -59,9 +59,13 @@ export class FakeNode {
     return null;
   }
 
-  emit(type: string): void {
+  emit(type: string, event: Record<string, unknown> = {}): void {
     for (const handler of this.listeners.get(type) ?? []) {
-      handler({ preventDefault: () => {} });
+      handler({
+        preventDefault: () => {},
+        stopPropagation: () => {},
+        ...event,
+      });
     }
   }
 
@@ -79,5 +83,22 @@ export class FakeNode {
 export class FakeDocument {
   createElement(): FakeNode {
     return new FakeNode(this);
+  }
+}
+
+/** Minimal in-memory localStorage stand-in for persistence tests. */
+export class FakeStorage {
+  private readonly values = new Map<string, string>();
+
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
   }
 }

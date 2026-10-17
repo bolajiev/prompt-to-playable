@@ -8,7 +8,8 @@ import {
   traceView,
   type AgentTrace,
 } from "../src/ui/agent-trace.js";
-import { FakeNode } from "./fakes.js";
+import { COLLAPSED_STORAGE_KEY } from "../src/ui/collapsible.js";
+import { FakeNode, FakeStorage } from "./fakes.js";
 
 function trace(): AgentTrace {
   return {
@@ -143,6 +144,37 @@ describe("AgentTraceStrip DOM", () => {
     strip.clear();
     expect(node.hidden).toBe(true);
     expect(list?.children).toHaveLength(0);
+  });
+
+  test("remembers a collapsed state in ptp.collapsed across instances", () => {
+    const storage = new FakeStorage();
+    const node = new FakeNode();
+    const strip = new AgentTraceStrip(node as unknown as HTMLElement, {
+      storage,
+    });
+
+    expect(strip.isExpanded).toBe(true);
+    expect(node.dataset.collapsed).toBe("false");
+    strip.toggle();
+    expect(node.dataset.collapsed).toBe("true");
+    expect(storage.getItem(COLLAPSED_STORAGE_KEY)).toBe(
+      '{"agent-trace":true}'
+    );
+
+    const restoredNode = new FakeNode();
+    const restored = new AgentTraceStrip(
+      restoredNode as unknown as HTMLElement,
+      { storage }
+    );
+    expect(restored.isExpanded).toBe(false);
+    expect(restoredNode.dataset.collapsed).toBe("true");
+    expect(restoredNode.children[1]?.hidden).toBe(true);
+    expect(
+      restoredNode.children[0]?.find("agent-trace-toggle")?.textContent
+    ).toBe("Show");
+
+    restored.toggle();
+    expect(storage.getItem(COLLAPSED_STORAGE_KEY)).toBe("{}");
   });
 
   test("show marks a failed trace on the root", () => {

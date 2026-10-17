@@ -1,11 +1,22 @@
 import type { Control, GameMode } from "@prompt-to-playable/schema";
+import {
+  CollapsedStore,
+  safeLocalStorage,
+  type StorageLike,
+} from "./collapsible.js";
 
 /**
  * Right-sidebar interactive control panel: a pure view-model plus a small DOM
  * renderer. The panel only *reads* `doc.controls` and `state.ui.controls` and
  * forwards edits through `onInput` / `onPress` (the app calls
  * `engine.setControl` / `engine.pressControl`); it never touches engine state.
+ *
+ * The heading is a click target that collapses the rows; the state lives in
+ * the shared `ptp.collapsed` map (default: expanded) and survives row rebuilds.
  */
+
+/** `ptp.collapsed` key for this section. */
+export const CONTROLS_PANEL_SECTION_KEY = "controls-panel";
 
 /** Slider fallbacks when the document leaves `min` / `max` / `step` out. */
 export const DEFAULT_SLIDER_MIN = 0;
@@ -76,6 +87,8 @@ export interface ControlsPanelOptions {
   onInput(id: string, value: number): void;
   /** Button click: forward the press to the engine. */
   onPress(id: string): void;
+  /** Collapse-state storage; defaults to localStorage when available. */
+  storage?: StorageLike | null;
 }
 
 interface ControlRow {
@@ -92,11 +105,19 @@ interface ControlRow {
 export class ControlsPanel {
   private signature: string | null = null;
   private readonly rows = new Map<string, ControlRow>();
+  private readonly store: CollapsedStore;
+  private collapsed: boolean;
+  private head: HTMLButtonElement | null = null;
+  private toggleEl: HTMLElement | null = null;
 
   constructor(
     private readonly root: HTMLElement,
     private readonly options: ControlsPanelOptions
   ) {
+    this.store = new CollapsedStore(
+      options.storage === undefined ? safeLocalStorage() : options.storage
+    );
+    this.collapsed = this.store.isCollapsed(CONTROLS_PANEL_SECTION_KEY);
     this.update([], {});
   }
 
@@ -124,17 +145,48 @@ export class ControlsPanel {
 
     const doc = this.root.ownerDocument;
     if (view.length === 0) {
+      this.head = null;
+      this.toggleEl = null;
       this.root.replaceChildren();
       return;
     }
-    const heading = doc.createElement("p");
-    heading.className = "controls-title";
-    heading.textContent = label;
+    const heading = doc.createElement("button");
+    heading.type = "button";
+    heading.className = "controls-head";
+    const title = doc.createElement("span");
+    title.className = "controls-title";
+    title.textContent = label;
+    const toggle = doc.createElement("span");
+    toggle.className = "section-toggle";
+    toggle.textContent = this.collapsed ? "Show" : "Hide";
+    heading.append(title, toggle);
+    heading.addEventListener("click", () => this.setCollapsed(!this.collapsed));
+    this.head = heading;
+    this.toggleEl = toggle;
     this.root.replaceChildren(
       heading,
       ...view.map((control) => this.buildRow(doc, control))
     );
+    this.syncCollapsed();
     for (const control of view) this.sync(control);
+  }
+
+  /** Toggle the section, persist the state and refresh the head chrome. */
+  private setCollapsed(collapsed: boolean): void {
+    if (collapsed === this.collapsed) return;
+    this.collapsed = collapsed;
+    this.store.setCollapsed(CONTROLS_PANEL_SECTION_KEY, collapsed);
+    this.syncCollapsed();
+  }
+
+  private syncCollapsed(): void {
+    this.root.dataset.collapsed = this.collapsed ? "true" : "false";
+    if (this.head !== null) {
+      this.head.setAttribute("aria-expanded", String(!this.collapsed));
+    }
+    if (this.toggleEl !== null) {
+      this.toggleEl.textContent = this.collapsed ? "Show" : "Hide";
+    }
   }
 
   private buildRow(doc: Document, control: ControlViewModel): HTMLElement {

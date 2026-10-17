@@ -1,4 +1,5 @@
 export type ExampleKind =
+  | "world"
   | "collect-a-thon"
   | "puzzle-switch"
   | "platformer-lite"
@@ -17,11 +18,32 @@ export interface ExamplePrompt {
 }
 
 /**
- * One example per supported game archetype plus an explore-style scene prompt,
- * then one prompt per interactive kit (inspect, walkthrough, drive, animated
- * parts). Pure data so the chip row, tests and docs share a single source.
+ * Chip ordering: world first (the free-form "Surprise me" prompt exercises the
+ * world default), then the machine-family kits (inspect, animated parts), then
+ * the game archetypes, the explore scene and the remaining interactive kits
+ * (walkthrough, drive). Pure data so the chip row, tests and docs share a
+ * single source.
  */
 export const EXAMPLE_PROMPTS: readonly ExamplePrompt[] = [
+  {
+    id: "surprise",
+    kind: "world",
+    label: "Surprise me",
+    prompt:
+      "surprise me: build an open world with something unexpected I can explore and control",
+  },
+  {
+    id: "pcb",
+    kind: "inspect",
+    label: "Inspect a 3D PCB",
+    prompt: "a 3D PCB I can click and inspect",
+  },
+  {
+    id: "robot",
+    kind: "animated",
+    label: "Animated robot",
+    prompt: "a robot with animated arms",
+  },
   {
     id: "collect",
     kind: "collect-a-thon",
@@ -53,12 +75,6 @@ export const EXAMPLE_PROMPTS: readonly ExamplePrompt[] = [
     prompt: "a quiet forest clearing with a campfire at dusk",
   },
   {
-    id: "pcb",
-    kind: "inspect",
-    label: "Inspect a 3D PCB",
-    prompt: "a 3D PCB I can click and inspect",
-  },
-  {
     id: "house",
     kind: "walkthrough",
     label: "Walk through a house",
@@ -69,12 +85,6 @@ export const EXAMPLE_PROMPTS: readonly ExamplePrompt[] = [
     kind: "drive",
     label: "Race a car",
     prompt: "a car racing game",
-  },
-  {
-    id: "robot",
-    kind: "animated",
-    label: "Animated robot",
-    prompt: "a robot with animated arms",
   },
 ];
 

@@ -8,8 +8,9 @@ body.studio {
 }
 
 #app {
+  --sidebar-width: 348px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 348px;
+  grid-template-columns: minmax(0, 1fr) 6px var(--sidebar-width);
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   height: 100%;
@@ -485,11 +486,58 @@ button.panel-close:hover {
 }
 
 /* ------------------------------------------------------------------ */
+/* Sidebar resize divider                                               */
+/* ------------------------------------------------------------------ */
+
+#sidebar-resize {
+  grid-column: 2;
+  grid-row: 2;
+  position: relative;
+  z-index: 6;
+  min-width: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#sidebar-resize::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--border-strong);
+  transition:
+    width var(--dur) var(--ease),
+    background-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+#sidebar-resize:hover::before,
+#sidebar-resize:focus-visible::before,
+#sidebar-resize[data-dragging="true"]::before {
+  width: 2px;
+  background: var(--accent);
+  box-shadow: 0 0 14px rgba(124, 92, 255, 0.6);
+}
+
+#sidebar-resize:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ------------------------------------------------------------------ */
 /* Sidebar: HUD + chat                                                  */
 /* ------------------------------------------------------------------ */
 
 #sidebar {
-  grid-column: 2;
+  grid-column: 3;
   grid-row: 2;
   display: flex;
   flex-direction: column;
@@ -769,7 +817,8 @@ li.objective.failed {
   white-space: nowrap;
 }
 
-.agent-trace-toggle {
+.agent-trace-toggle,
+.section-toggle {
   flex: 0 0 auto;
   padding: 2px 9px;
   border-radius: 999px;
@@ -777,9 +826,11 @@ li.objective.failed {
   color: var(--muted);
   font-size: 0.68rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
-.agent-trace-head:hover .agent-trace-toggle {
+.agent-trace-head:hover .agent-trace-toggle,
+.controls-head:hover .section-toggle {
   color: var(--text);
   border-color: var(--accent-ring);
 }
@@ -902,14 +953,42 @@ li.objective.failed {
   display: none;
 }
 
-.controls-title {
-  padding-bottom: 6px;
+.controls-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 0 0 6px;
+  border: none;
   border-bottom: 1px solid var(--border);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.controls-head:focus-visible {
+  outline: 2px solid var(--accent-ring);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+.controls-title {
+  flex: 1 1 auto;
+  min-width: 0;
   color: var(--accent);
   font-size: 0.7rem;
   font-weight: 680;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Collapsed sections keep their header and hide the body. */
+#controls-panel[data-collapsed="true"] > .control-row,
+#controls-panel[data-collapsed="true"] > .control-button {
+  display: none;
 }
 
 .control-row {
@@ -1128,6 +1207,11 @@ li.objective.failed {
   #stage {
     grid-column: 1;
     grid-row: 2;
+  }
+
+  /* Stacked mode has no side-by-side panes: no divider, no drag handle. */
+  #sidebar-resize {
+    display: none;
   }
 
   #sidebar {
