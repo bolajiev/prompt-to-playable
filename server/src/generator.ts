@@ -39,6 +39,997 @@ function example(raw: Record<string, unknown>): GameDoc {
   return result.data;
 }
 
+/**
+ * City variant of the world few-shot. The generic world example teaches an
+ * island sandbox; a city prompt needs block-scale density: part-assembly
+ * towers, asphalt streets, street furniture and six ambient walkers with
+ * criss-crossing patrol routes. It is selected by `buildGenerationPrompt`
+ * whenever the prompt asks for a city, street, downtown or urban scene.
+ */
+export const CITY_WORLD_EXAMPLE: GameDoc = example({
+  version: "1.0.0",
+  meta: {
+    title: "Neon Grid",
+    archetype: "explore",
+    mode: "world",
+    genre: "sandbox",
+    difficulty: 0,
+  },
+  world: {
+    bounds: [70, 28, 70],
+    lighting: "day",
+    skybox: "outdoor",
+    terrain: { type: "flat", obstacles: [] },
+  },
+  entities: [
+    { id: "player", kind: "player", name: "City wanderer", position: [0, 1, -30] },
+    {
+      id: "street-ew",
+      kind: "prop",
+      name: "Cross street",
+      position: [0, 0.05, 0],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0, 0],
+          size: [68, 0.12, 12],
+          color: "#2f3437",
+          material: { roughness: 0.95, texture: "grid" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.02, 0],
+          size: [68, 0.13, 0.35],
+          color: "#e8e2d0",
+          material: { roughness: 0.8 },
+        },
+      ],
+    },
+    {
+      id: "street-ns",
+      kind: "prop",
+      name: "Main street",
+      position: [0, 0.05, 0],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0, 0],
+          size: [12, 0.12, 68],
+          color: "#2f3437",
+          material: { roughness: 0.95, texture: "grid" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.02, 0],
+          size: [0.35, 0.13, 68],
+          color: "#e8e2d0",
+          material: { roughness: 0.8 },
+        },
+      ],
+    },
+    {
+      id: "clock-tower",
+      kind: "prop",
+      name: "Clock tower",
+      position: [-18, 8, -18],
+      size: [10, 16, 10],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0, 0],
+          size: [1, 1, 1],
+          color: "#8d6e63",
+          material: { roughness: 0.9, texture: "brick" },
+        },
+        {
+          shape: "box",
+          offset: [0, -0.18, 0],
+          size: [0.94, 0.05, 0.94],
+          color: "#7ec8e3",
+          material: {
+            roughness: 0.15,
+            metalness: 0.2,
+            opacity: 0.65,
+            texture: "glass",
+          },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.18, 0],
+          size: [0.94, 0.05, 0.94],
+          color: "#7ec8e3",
+          material: {
+            roughness: 0.15,
+            metalness: 0.2,
+            opacity: 0.65,
+            texture: "glass",
+          },
+        },
+        {
+          shape: "wedge",
+          offset: [0, 0.53, 0],
+          size: [0.94, 0.09, 0.94],
+          color: "#4e342e",
+          material: { roughness: 0.8 },
+        },
+      ],
+      label: { text: "Clock tower", offset: [0, 0.6, 0], size: 0.45 },
+    },
+    {
+      id: "clock-windows",
+      kind: "prop",
+      name: "Clock tower window bands",
+      parent: "clock-tower",
+      attach: [0, 0, 0],
+      position: [0, 0, 0],
+      color: "#7ec8e3",
+      parts: [
+        {
+          shape: "box",
+          offset: [0, -6, 0],
+          size: [10.4, 0.5, 10.4],
+          color: "#7ec8e3",
+          material: { roughness: 0.15, opacity: 0.7, texture: "glass" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0, 0],
+          size: [10.4, 0.5, 10.4],
+          color: "#7ec8e3",
+          material: { roughness: 0.15, opacity: 0.7, texture: "glass" },
+        },
+        {
+          shape: "box",
+          offset: [0, 6, 0],
+          size: [10.4, 0.5, 10.4],
+          color: "#7ec8e3",
+          material: { roughness: 0.15, opacity: 0.7, texture: "glass" },
+        },
+      ],
+    },
+    {
+      id: "midtown-grid",
+      kind: "prop",
+      name: "Midtown grid tower",
+      position: [18, 5.5, -18],
+      size: [8, 11, 8],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0, 0],
+          size: [1, 1, 1],
+          color: "#607d8b",
+          material: { roughness: 0.55, metalness: 0.45, texture: "grid" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.22, 0],
+          size: [0.92, 0.06, 0.92],
+          color: "#9be7ff",
+          material: { roughness: 0.15, opacity: 0.6, texture: "glass" },
+        },
+        {
+          shape: "box",
+          offset: [0, -0.2, 0],
+          size: [0.92, 0.06, 0.92],
+          color: "#9be7ff",
+          material: { roughness: 0.15, opacity: 0.6, texture: "glass" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.52, 0],
+          size: [0.98, 0.025, 0.98],
+          color: "#455a64",
+          material: { roughness: 0.7 },
+        },
+      ],
+    },
+    {
+      id: "glass-hall",
+      kind: "prop",
+      name: "Glass hall",
+      position: [-18, 4.5, 18],
+      size: [9, 9, 9],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0, 0],
+          size: [1, 1, 1],
+          color: "#78909c",
+          material: { roughness: 0.5, metalness: 0.35, texture: "metal" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.3, 0],
+          size: [0.95, 0.18, 0.95],
+          color: "#b3e5fc",
+          material: { roughness: 0.1, opacity: 0.55, texture: "glass" },
+        },
+        {
+          shape: "box",
+          offset: [0, -0.1, 0],
+          size: [0.95, 0.18, 0.95],
+          color: "#b3e5fc",
+          material: { roughness: 0.1, opacity: 0.55, texture: "glass" },
+        },
+      ],
+    },
+    {
+      id: "brick-block",
+      kind: "prop",
+      name: "Brick block",
+      position: [18, 7, 18],
+      size: [10, 14, 10],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0, 0],
+          size: [1, 1, 1],
+          color: "#a1887f",
+          material: { roughness: 0.9, texture: "brick" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.12, 0],
+          size: [0.92, 0.05, 0.92],
+          color: "#ffe082",
+          material: { roughness: 0.2, opacity: 0.7, texture: "glass" },
+        },
+        {
+          shape: "box",
+          offset: [0, -0.25, 0],
+          size: [0.92, 0.05, 0.92],
+          color: "#ffe082",
+          material: { roughness: 0.2, opacity: 0.7, texture: "glass" },
+        },
+        {
+          shape: "box",
+          offset: [0, 0.52, 0],
+          size: [0.98, 0.03, 0.98],
+          color: "#5d4037",
+          material: { roughness: 0.8 },
+        },
+      ],
+      label: { text: "Brick block", offset: [0, 0.6, 0], size: 0.4 },
+    },
+    {
+      id: "lamp-west",
+      kind: "prop",
+      name: "West street lamp",
+      position: [-6, 2, 6],
+      parts: [
+        {
+          shape: "cylinder",
+          offset: [0, -0.5, 0],
+          size: [0.18, 3, 0.18],
+          color: "#37474f",
+          material: { metalness: 0.6, roughness: 0.4 },
+        },
+        {
+          shape: "sphere",
+          offset: [0, 1.1, 0],
+          size: [0.6, 0.6, 0.6],
+          color: "#ffd166",
+          material: { emissive: "#ffd166", roughness: 0.3 },
+        },
+      ],
+      label: { text: "Street lamp", offset: [0, 1.9, 0], size: 0.35 },
+    },
+    {
+      id: "lamp-east",
+      kind: "prop",
+      name: "East street lamp",
+      position: [6, 2, -6],
+      parts: [
+        {
+          shape: "cylinder",
+          offset: [0, -0.5, 0],
+          size: [0.18, 3, 0.18],
+          color: "#37474f",
+          material: { metalness: 0.6, roughness: 0.4 },
+        },
+        {
+          shape: "sphere",
+          offset: [0, 1.1, 0],
+          size: [0.6, 0.6, 0.6],
+          color: "#ffd166",
+          material: { emissive: "#ffd166", roughness: 0.3 },
+        },
+      ],
+    },
+    {
+      id: "tree-west",
+      kind: "prop",
+      name: "Plaza tree",
+      position: [-30, 3, -4],
+      size: [4, 6, 4],
+      color: "forestgreen",
+      props: { shape: "tree" },
+    },
+    {
+      id: "tree-east",
+      kind: "prop",
+      name: "Sidewalk tree",
+      position: [30, 3, 10],
+      size: [4, 6, 4],
+      color: "forestgreen",
+      props: { shape: "tree" },
+    },
+    {
+      id: "fountain",
+      kind: "prop",
+      name: "Union fountain",
+      position: [8, 1, 8],
+      parts: [
+        {
+          shape: "cylinder",
+          offset: [0, -0.2, 0],
+          size: [3.4, 0.9, 3.4],
+          color: "#b0bec5",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "cylinder",
+          offset: [0, 0.05, 0],
+          size: [2.8, 0.2, 2.8],
+          color: "#4fc3f7",
+          material: { roughness: 0.2, metalness: 0.1 },
+        },
+        {
+          shape: "torus",
+          offset: [0, 0.28, 0],
+          size: [3.2, 0.16, 3.2],
+          rotation: [1.5708, 0, 0],
+          color: "#90a4ae",
+          material: { roughness: 0.7 },
+        },
+      ],
+      label: { text: "Union fountain", offset: [0, 0.7, 0], size: 0.4 },
+    },
+    {
+      id: "wind-spinner",
+      kind: "prop",
+      name: "Rooftop wind spinner",
+      position: [-18, 10.2, 18],
+      parts: [
+        {
+          shape: "cylinder",
+          offset: [0, 0, 0],
+          size: [0.4, 0.5, 0.4],
+          rotation: [1.5708, 0, 0],
+          color: "#263238",
+          material: { metalness: 0.6, roughness: 0.4 },
+        },
+        {
+          shape: "box",
+          offset: [0, 1.2, 0],
+          size: [0.3, 2.2, 0.1],
+          color: "#eceff1",
+          material: { roughness: 0.6 },
+        },
+        {
+          shape: "box",
+          offset: [1.04, -0.6, 0],
+          size: [0.3, 2.2, 0.1],
+          rotation: [0, 0, 2.0944],
+          color: "#eceff1",
+          material: { roughness: 0.6 },
+        },
+        {
+          shape: "box",
+          offset: [-1.04, -0.6, 0],
+          size: [0.3, 2.2, 0.1],
+          rotation: [0, 0, -2.0944],
+          color: "#eceff1",
+          material: { roughness: 0.6 },
+        },
+      ],
+    },
+    {
+      id: "walker-a",
+      kind: "enemy",
+      name: "Walker Mira",
+      position: [-24, 1, -24],
+      speed: 1.8,
+      state: "patrol",
+      patrol: [
+        [-24, 1, -24],
+        [24, 1, 24],
+        [0, 1, 30],
+      ],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0.75, 0],
+          size: [0.9, 1.2, 0.55],
+          color: "#e76f51",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [-0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#f4a261",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#f4a261",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "cylinder",
+          offset: [-0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#264653",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "cylinder",
+          offset: [0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#264653",
+          material: { roughness: 0.85 },
+        },
+      ],
+      label: { text: "Mira", flat: true, offset: [0, 0.8, 0.3], size: 0.3 },
+    },
+    {
+      id: "walker-a-head",
+      kind: "prop",
+      name: "Mira head",
+      parent: "walker-a",
+      attach: [0, 1.62, 0],
+      position: [0, 0, 0],
+      parts: [
+        {
+          shape: "sphere",
+          offset: [0, 0, 0],
+          size: [0.5, 0.5, 0.5],
+          color: "#ffcc9c",
+          material: { roughness: 0.75 },
+        },
+      ],
+    },
+    {
+      id: "walker-b",
+      kind: "enemy",
+      name: "Walker Tomas",
+      position: [24, 1, -24],
+      speed: 2.1,
+      state: "patrol",
+      patrol: [
+        [24, 1, -24],
+        [-24, 1, 24],
+        [0, 1, -30],
+      ],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0.75, 0],
+          size: [0.9, 1.2, 0.55],
+          color: "#2a9d8f",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [-0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#e9c46a",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#e9c46a",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "cylinder",
+          offset: [-0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#3d405b",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "cylinder",
+          offset: [0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#3d405b",
+          material: { roughness: 0.85 },
+        },
+      ],
+      label: { text: "Tomas", flat: true, offset: [0, 0.8, 0.3], size: 0.3 },
+    },
+    {
+      id: "walker-b-head",
+      kind: "prop",
+      name: "Tomas head",
+      parent: "walker-b",
+      attach: [0, 1.62, 0],
+      position: [0, 0, 0],
+      parts: [
+        {
+          shape: "sphere",
+          offset: [0, 0, 0],
+          size: [0.5, 0.5, 0.5],
+          color: "#d9a066",
+          material: { roughness: 0.75 },
+        },
+      ],
+    },
+    {
+      id: "walker-c",
+      kind: "enemy",
+      name: "Walker along main street",
+      position: [0, 1, -30],
+      speed: 1.6,
+      state: "patrol",
+      patrol: [
+        [0, 1, -30],
+        [0, 1, 30],
+      ],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0.75, 0],
+          size: [0.9, 1.2, 0.55],
+          color: "#6d597a",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "sphere",
+          offset: [0, 1.62, 0],
+          size: [0.5, 0.5, 0.5],
+          color: "#ffcc9c",
+          material: { roughness: 0.75 },
+        },
+        {
+          shape: "cylinder",
+          offset: [-0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#355070",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "cylinder",
+          offset: [0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#355070",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "box",
+          offset: [-0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#b56576",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#b56576",
+          material: { roughness: 0.8 },
+        },
+      ],
+    },
+    {
+      id: "walker-d",
+      kind: "enemy",
+      name: "Walker along cross street",
+      position: [-30, 1, 0],
+      speed: 2.2,
+      state: "patrol",
+      patrol: [
+        [-30, 1, 0],
+        [30, 1, 0],
+      ],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0.75, 0],
+          size: [0.9, 1.2, 0.55],
+          color: "#457b9d",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "sphere",
+          offset: [0, 1.62, 0],
+          size: [0.5, 0.5, 0.5],
+          color: "#d9a066",
+          material: { roughness: 0.75 },
+        },
+        {
+          shape: "cylinder",
+          offset: [-0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#1d3557",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "cylinder",
+          offset: [0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#1d3557",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "box",
+          offset: [-0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#a8dadc",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#a8dadc",
+          material: { roughness: 0.8 },
+        },
+      ],
+    },
+    {
+      id: "walker-e",
+      kind: "enemy",
+      name: "Diagonal walker",
+      position: [-22, 1, 10],
+      speed: 1.9,
+      state: "patrol",
+      patrol: [
+        [-22, 1, 10],
+        [20, 1, -14],
+        [8, 1, 24],
+      ],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0.75, 0],
+          size: [0.9, 1.2, 0.55],
+          color: "#e9c46a",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "sphere",
+          offset: [0, 1.62, 0],
+          size: [0.5, 0.5, 0.5],
+          color: "#c68b59",
+          material: { roughness: 0.75 },
+        },
+        {
+          shape: "cylinder",
+          offset: [-0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#264653",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "cylinder",
+          offset: [0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#264653",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "box",
+          offset: [-0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#f4a261",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#f4a261",
+          material: { roughness: 0.8 },
+        },
+      ],
+    },
+    {
+      id: "walker-f",
+      kind: "enemy",
+      name: "Cross-town walker",
+      position: [22, 1, 12],
+      speed: 2.4,
+      state: "patrol",
+      patrol: [
+        [22, 1, 12],
+        [-20, 1, 14],
+        [-12, 1, -22],
+      ],
+      parts: [
+        {
+          shape: "box",
+          offset: [0, 0.75, 0],
+          size: [0.9, 1.2, 0.55],
+          color: "#f28482",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "sphere",
+          offset: [0, 1.62, 0],
+          size: [0.5, 0.5, 0.5],
+          color: "#ffcc9c",
+          material: { roughness: 0.75 },
+        },
+        {
+          shape: "cylinder",
+          offset: [-0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#495057",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "cylinder",
+          offset: [0.22, -0.5, 0],
+          size: [0.24, 1, 0.24],
+          color: "#495057",
+          material: { roughness: 0.85 },
+        },
+        {
+          shape: "box",
+          offset: [-0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#84a59d",
+          material: { roughness: 0.8 },
+        },
+        {
+          shape: "box",
+          offset: [0.58, 0.8, 0],
+          size: [0.22, 0.95, 0.26],
+          color: "#84a59d",
+          material: { roughness: 0.8 },
+        },
+      ],
+    },
+  ],
+  objectives: [],
+  rules: [
+    {
+      id: "inspect-clock-tower",
+      on: { event: "click", entity: "clock-tower" },
+      then: [
+        { type: "setColor", entity: "clock-tower", color: "#d7a86e" },
+        {
+          type: "showPanel",
+          title: "Clock tower",
+          body: "The oldest landmark in the grid. Its four faces still keep time for the whole district, and the glass bands glow at night.",
+          entity: "clock-tower",
+        },
+        { type: "setVar", key: "focused", value: 1 },
+      ],
+    },
+    {
+      id: "inspect-fountain",
+      on: { event: "click", entity: "fountain" },
+      then: [
+        { type: "setColor", entity: "fountain", color: "#81d4fa" },
+        {
+          type: "showPanel",
+          title: "Union fountain",
+          body: "The meeting point at the center of the grid. Locals rest here between the cross streets while the walkers pass by.",
+          entity: "fountain",
+        },
+        { type: "setVar", key: "focused", value: 1 },
+      ],
+    },
+    {
+      id: "night-lights-on",
+      on: { event: "tick" },
+      if: {
+        op: "and",
+        conditions: [
+          { op: "==", left: { var: "night" }, right: 1 },
+          { op: "==", left: { var: "nightApplied" }, right: 0 },
+        ],
+      },
+      then: [
+        { type: "setColor", entity: "lamp-west", color: "#ffe082" },
+        { type: "setColor", entity: "lamp-east", color: "#ffe082" },
+        { type: "setVar", key: "nightApplied", value: 1 },
+      ],
+    },
+    {
+      id: "day-lights-off",
+      on: { event: "tick" },
+      if: {
+        op: "and",
+        conditions: [
+          { op: "==", left: { var: "night" }, right: 0 },
+          { op: "==", left: { var: "nightApplied" }, right: 1 },
+        ],
+      },
+      then: [
+        { type: "setColor", entity: "lamp-west", color: "#ffd166" },
+        { type: "setColor", entity: "lamp-east", color: "#ffd166" },
+        { type: "setVar", key: "nightApplied", value: 0 },
+      ],
+    },
+  ],
+  controls: [
+    {
+      id: "build-tower",
+      type: "button",
+      label: "Build tower",
+      bind: {
+        onPress: [
+          {
+            type: "spawn",
+            entity: {
+              id: "tower-spawn-1",
+              kind: "prop",
+              name: "New tower",
+              position: [30, 8, -14],
+              size: [8, 16, 8],
+              parts: [
+                {
+                  shape: "box",
+                  offset: [0, 0, 0],
+                  size: [1, 1, 1],
+                  color: "#546e7a",
+                  material: {
+                    roughness: 0.5,
+                    metalness: 0.45,
+                    texture: "metal",
+                  },
+                },
+                {
+                  shape: "box",
+                  offset: [0, -0.2, 0],
+                  size: [0.9, 0.04, 0.9],
+                  color: "#80deea",
+                  material: { roughness: 0.15, opacity: 0.6, texture: "glass" },
+                },
+                {
+                  shape: "box",
+                  offset: [0, 0.1, 0],
+                  size: [0.9, 0.04, 0.9],
+                  color: "#80deea",
+                  material: { roughness: 0.15, opacity: 0.6, texture: "glass" },
+                },
+                {
+                  shape: "box",
+                  offset: [0, 0.4, 0],
+                  size: [0.9, 0.04, 0.9],
+                  color: "#80deea",
+                  material: { roughness: 0.15, opacity: 0.6, texture: "glass" },
+                },
+                {
+                  shape: "box",
+                  offset: [0, 0.52, 0],
+                  size: [0.96, 0.03, 0.96],
+                  color: "#37474f",
+                  material: { roughness: 0.7 },
+                },
+              ],
+              label: { text: "New tower", offset: [0, 0.6, 0], size: 0.4 },
+            },
+          },
+          { type: "incVar", key: "towersBuilt" },
+        ],
+      },
+    },
+    {
+      id: "traffic",
+      type: "button",
+      label: "Traffic",
+      bind: {
+        onPress: [
+          {
+            type: "spawn",
+            entity: {
+              id: "traffic-car-1",
+              kind: "enemy",
+              name: "Traffic car",
+              position: [0, 1, 14],
+              speed: 3,
+              state: "patrol",
+              patrol: [
+                [0, 1, 14],
+                [0, 1, -14],
+                [12, 1, -14],
+              ],
+              parts: [
+                {
+                  shape: "box",
+                  offset: [0, 0.25, 0],
+                  size: [2.6, 0.6, 1.2],
+                  color: "#f9c74f",
+                  material: { metalness: 0.35, roughness: 0.45 },
+                },
+                {
+                  shape: "box",
+                  offset: [0.2, 0.75, 0],
+                  size: [1.2, 0.5, 1],
+                  color: "#f9844a",
+                  material: { metalness: 0.3, roughness: 0.4 },
+                },
+                {
+                  shape: "box",
+                  offset: [-0.85, -0.3, -0.55],
+                  size: [0.5, 0.5, 0.2],
+                  color: "#212529",
+                  material: { roughness: 0.9 },
+                },
+                {
+                  shape: "box",
+                  offset: [-0.85, -0.3, 0.55],
+                  size: [0.5, 0.5, 0.2],
+                  color: "#212529",
+                  material: { roughness: 0.9 },
+                },
+                {
+                  shape: "box",
+                  offset: [0.85, -0.3, -0.55],
+                  size: [0.5, 0.5, 0.2],
+                  color: "#212529",
+                  material: { roughness: 0.9 },
+                },
+                {
+                  shape: "box",
+                  offset: [0.85, -0.3, 0.55],
+                  size: [0.5, 0.5, 0.2],
+                  color: "#212529",
+                  material: { roughness: 0.9 },
+                },
+                {
+                  shape: "sphere",
+                  offset: [1.32, 0.25, -0.35],
+                  size: [0.18, 0.18, 0.18],
+                  color: "#fff3b0",
+                  material: { emissive: "#fff3b0" },
+                },
+                {
+                  shape: "sphere",
+                  offset: [1.32, 0.25, 0.35],
+                  size: [0.18, 0.18, 0.18],
+                  color: "#fff3b0",
+                  material: { emissive: "#fff3b0" },
+                },
+              ],
+            },
+          },
+          { type: "incVar", key: "trafficSpawned" },
+        ],
+      },
+    },
+    {
+      id: "night",
+      type: "toggle",
+      label: "Night",
+      value: 0,
+      bind: {
+        entity: "clock-windows",
+        property: "emissive",
+        scale: 3,
+        var: "night",
+      },
+    },
+    {
+      id: "wind",
+      type: "slider",
+      label: "Wind",
+      min: 0,
+      max: 2.4,
+      step: 0.1,
+      value: 0.6,
+      bind: { entity: "wind-spinner", property: "rotation.y", scale: 2.4 },
+    },
+  ],
+  scratch: {
+    focused: 0,
+    night: 0,
+    nightApplied: 0,
+    towersBuilt: 0,
+    trafficSpawned: 0,
+  },
+});
+
 export const ARCHETYPE_EXAMPLES: Record<KitArchetype, GameDoc> = {
   "collect-a-thon": example({
     version: "1.0.0",
@@ -2603,6 +3594,82 @@ const WORLD_KIT_BLOCK: readonly string[] = [
   "  the example verbatim - keep the exact structural vocabulary.",
 ];
 
+/**
+ * City cue detector. City prompts get block-scale guidance (towers, streets,
+ * six criss-crossing walkers) and the city few-shot instead of the island one.
+ */
+const CITY_PROMPT_PATTERN =
+  /\b(city|cities|downtown|metropolis|metropolitan|urban|skyscraper|skyscrapers|cityscape|street|streets|sidewalk|avenue|boulevard|traffic)\b/;
+
+export function isCityWorldPrompt(prompt: string): boolean {
+  return CITY_PROMPT_PATTERN.test((prompt ?? "").toLowerCase());
+}
+
+/**
+ * City requirements: same world mode and JSON vocabulary as the open world,
+ * but dense enough that a city prompt actually produces a city: part-assembly
+ * towers on a street grid, six ambient walkers crossing the map and controls
+ * that build, populate and light it.
+ */
+export const CITY_WORLD_BLOCK: readonly string[] = [
+  "City world requirements (world kit, city variant):",
+  '- "meta" MUST carry "mode": "world" with schema archetype "explore";',
+  '  "objectives" MUST be an empty array: []. No win/lose actions, no trigger',
+  "  zones and no playerEnter rules - the city is roamed freely.",
+  "- LARGE bounds: about 70x28x70 (always 60-80 wide and deep). The city fills",
+  "  the map; no obstacle walls.",
+  "- BUILDINGS (at least 4, as one prop entity each with a parts assembly):",
+  "  a box tower body with a material texture of brick, metal or grid; TWO to",
+  "  four glass window-band parts stacked up the facade (thin boxes that wrap",
+  "  the body, material texture glass, opacity about 0.5-0.7); an optional roof",
+  "  (box or wedge). Vary the heights between 6 and 16 units - double-check that",
+  "  no tower exceeds 16. Arrange the towers in a rough grid of city blocks with",
+  "  straight streets between them - never overlap towers or seal the streets.",
+  "- STREETS: flat prop entities (thin box or plane) with a dark asphalt",
+  "  material (color #2f3437, roughness about 0.95, texture grid). Lay one long",
+  "  street along X and one along Z through the center so they form a cross,",
+  "  optionally with lane markings; streets are non-solid and sit at y about 0.",
+  "- AMBIENT NPCs (at least 6, all kind \"enemy\" with \"state\": \"patrol\",",
+  "  no \"sight\" so they stay peaceful): compose each as a character with a",
+  "  body, head, arms and legs (reuse the character composition pattern below).",
+  "  At least two may be full parent chains; the rest may keep head and limbs",
+  "  as parts of the root entity so six walkers fit the city budget. Every walker",
+  "  carries its own 2-4 waypoint patrol route and the routes MUST CRISS-CROSS",
+  "  the city - diagonals, different streets and different quadrants - so the",
+  "  characters visibly move all over the place instead of circling one block.",
+  "  Roots stand on the ground and every waypoint stays inside the bounds.",
+  ...CHARACTER_COMPOSITION_BLOCK,
+  "  City budget note: reserve parented head/limb chains for at most two hero",
+  "  characters; build the others as single-root composed walkers so six NPCs",
+  "  plus four towers still fit the entity budget below.",
+  "- STREET PROPS: at least two lamps (pole plus an emissive sphere or box",
+  "  globe) and at least two trees, placed along the streets or sidewalks.",
+  "- CONTROLS (3-5 total, every one visibly changes the city):",
+  '  a button "Build tower" whose onPress spawns a NEW building entity (a new',
+  "  id plus a parts assembly with glass windows) in a clear vacant block;",
+  '  a button "Traffic" whose onPress spawns a car-like character (a new id; a',
+  "  body/cabin/wheels/lights parts assembly with a patrol path along a street);",
+  '  a toggle "Night" bound to a lamp or window entity property "emissive" with',
+  '  a scale around 2-3 and "var": "night", plus a guarded tick rule pair that',
+  "  recolors the lamps and window props for night and back for day;",
+  '  a slider "Wind" bound to rotation.y on a rooftop wind spinner or turbine',
+  "  with a scale around 2.4. Spawn payload ids MUST NOT already exist.",
+  "- Click rules on 2 landmarks (tower, fountain, statue): {\"event\":\"click\"} ->",
+  '  {"type":"showPanel"} with a title and body, plus setColor and a setVar',
+  "  flag. Label both clickable landmarks.",
+  "- Reference discipline: every bind.entity and every rule/action id must name",
+  "  an existing entity; only spawn payloads may carry new ids.",
+  "- Budget: at most 28 entities TOTAL (player included), 12 rules and 6",
+  "  controls. Count every entity - towers, streets, lamps, trees, landmarks,",
+  "  each walker and every parented limb - before returning; if full parented",
+  "  hero characters would push the total past 28, keep their limbs as parts of",
+  "  the root entity instead. Keep positions, spawn payloads and patrol points",
+  "  well inside the world bounds.",
+  "- Vary the title, building colors, materials, street layout, walkers and",
+  "  landmarks instead of copying the example verbatim - keep the exact",
+  "  structural vocabulary.",
+];
+
 function kitRequirementsBlock(archetype: KitArchetype): readonly string[] {
   if (archetype === "explore") return EXPLORE_KIT_BLOCK;
   if (archetype === "inspect") return INSPECT_KIT_BLOCK;
@@ -2620,10 +3687,14 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
   const isDrive = archetype === "drive";
   const isMachine = archetype === "machine";
   const isWorld = archetype === "world";
+  const isCityWorld = isWorld && isCityWorldPrompt(prompt);
   const isKitMode = isInspect || isWalkthrough || isDrive || isMachine || isWorld;
   const isFreeRoamKit =
     isExplore || isInspect || isWalkthrough || isMachine || isWorld;
   const schemaArchetype = KIT_SCHEMA_ARCHETYPE[archetype];
+  const fewShotExample = isCityWorld
+    ? CITY_WORLD_EXAMPLE
+    : ARCHETYPE_EXAMPLES[archetype];
 
   return [
     isInspect
@@ -2635,7 +3706,9 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
           : isMachine
             ? `Design a complete, interactive 3D machine that fits the "${archetype}" kit.`
             : isWorld
-              ? `Design a complete, open 3D world that fits the "${archetype}" kit.`
+              ? isCityWorld
+                ? `Design a complete, open 3D city that fits the "${archetype}" kit.`
+                : `Design a complete, open 3D world that fits the "${archetype}" kit.`
               : isExplore
                 ? `Design a complete, explorable 3D scene that fits the "${archetype}" archetype.`
                 : `Design a complete, playable game that fits the "${archetype}" archetype.`,
@@ -2650,7 +3723,9 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
           : isMachine
             ? "and no win or lose condition: the player drives the machine with the on-screen controls."
             : isWorld
-              ? "and no win or lose condition: the player roams a large open world and uses the on-screen controls to spawn and change things."
+              ? isCityWorld
+                ? "and no win or lose condition: the player roams a city of towers, streets and walkers and uses the on-screen controls to build, populate and light it."
+                : "and no win or lose condition: the player roams a large open world and uses the on-screen controls to spawn and change things."
               : "and no win or lose condition: the player simply roams a small, atmospheric place."
       : "",
     ...(isInspect
@@ -2670,11 +3745,18 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
               "sliders, a toggle and buttons that drive the joints live.",
             ]
           : isWorld
-            ? [
-                "It is an open world sandbox: a large walkable place with scattered",
-                "terrain, NPC characters composed from parented part assemblies, and",
-                "on-screen buttons, a toggle and a slider that spawn and change things.",
-              ]
+            ? isCityWorld
+              ? [
+                  "It is an open city sandbox: at least four part-assembly towers on a",
+                  "street grid, six ambient walkers crossing the map on different patrol",
+                  "routes, street lamps and trees, and buttons, a toggle and a slider that",
+                  "build, populate, light and animate the city.",
+                ]
+              : [
+                  "It is an open world sandbox: a large walkable place with scattered",
+                  "terrain, NPC characters composed from parented part assemblies, and",
+                  "on-screen buttons, a toggle and a slider that spawn and change things.",
+                ]
             : []),
     "",
     "Respond with ONLY one JSON object - no markdown fences, no commentary -",
@@ -2802,7 +3884,7 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
     '  { "type": "hidePanel", optional "entity": "<id>" }',
     '  Never invent action types (no "stateChange") and never use an event name as an action.',
     "",
-    ...kitRequirementsBlock(archetype),
+    ...(isCityWorld ? CITY_WORLD_BLOCK : kitRequirementsBlock(archetype)),
     "",
     isInspect
       ? "Layout - showcase:"
@@ -2813,7 +3895,9 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
           : isMachine
             ? "Layout - workbench:"
             : isWorld
-              ? "Layout - open world:"
+              ? isCityWorld
+                ? "Layout - city blocks:"
+                : "Layout - open world:"
               : "Layout - open ground:",
     "- Every position and patrol point must lie inside world.bounds.",
     '- Unless the user explicitly asks for obstacles or cover, use "terrain": { "type": "flat", "obstacles": [] }.',
@@ -2852,14 +3936,25 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
                   "  well inside the world bounds even at the sliders' extremes.",
                 ]
               : isWorld
-                ? [
-                    "- Scatter props, NPCs and characters across the whole map with at",
-                    "  least 4 units between neighbours; keep the player spawn and the",
-                    "  paths between points of interest clear and walkable.",
-                    "- Keep every character standing on the ground plane: the root's",
-                    "  height matches its legs, and parented limbs attach at the joints",
-                    "  with attach offsets that connect them (no floating parts).",
-                  ]
+                ? isCityWorld
+                  ? [
+                      "- Arrange towers on a rough grid with wide straight streets between",
+                      "  them; keep the streets clear of solid props and never overlap a",
+                      "  tower's footprint with another building or a spawn payload.",
+                      "- Spread the six walkers over different quadrants and give each a",
+                      "  distinct diagonal or street route so their paths cross the city.",
+                      "- Keep every character standing on the ground plane: the root's",
+                      "  height matches its legs, and parented limbs attach at the joints",
+                      "  with attach offsets that connect them (no floating parts).",
+                    ]
+                  : [
+                      "- Scatter props, NPCs and characters across the whole map with at",
+                      "  least 4 units between neighbours; keep the player spawn and the",
+                      "  paths between points of interest clear and walkable.",
+                      "- Keep every character standing on the ground plane: the root's",
+                      "  height matches its legs, and parented limbs attach at the joints",
+                      "  with attach offsets that connect them (no floating parts).",
+                    ]
                 : [
                     "- If obstacles are requested, keep them well clear of the straight line between",
                     "  the player spawn and every objective target; targets must be reachable on foot.",
@@ -2867,7 +3962,7 @@ export function buildGenerationPrompt(prompt: string, archetype: KitArchetype): 
     "",
     `Few-shot example for the "${archetype}" archetype`,
     "(structure and quality target - do not copy verbatim):",
-    JSON.stringify(ARCHETYPE_EXAMPLES[archetype], null, 2),
+    JSON.stringify(fewShotExample, null, 2),
     "",
     `Player prompt: ${prompt}`,
     "",

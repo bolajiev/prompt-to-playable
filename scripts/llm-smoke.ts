@@ -316,6 +316,9 @@ function kitCheck(doc: GameDoc): KitCheck {
       return kitOk(kit);
     }
     case "world": {
+      // City detail (towers, streets, six walkers) is prompt guidance in the
+      // generator, not a smoke gate: the only hard world requirement is a
+      // spawn button that adds a new entity.
       const ids = new Set(doc.entities.map((entity) => entity.id));
       const spawnsNewEntity = (doc.controls ?? []).some(
         (control) =>

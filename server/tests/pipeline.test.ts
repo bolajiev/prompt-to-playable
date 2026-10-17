@@ -175,7 +175,6 @@ describe("explore archetype", () => {
 
   const exploreCases: readonly string[] = [
     "a quiet forest clearing with a campfire at dusk",
-    "a museum hall with marble statues",
     "show me a cozy room",
   ];
 
@@ -183,6 +182,7 @@ describe("explore archetype", () => {
     "an open world island with trees, animals and buttons to spawn things",
     "a sandbox city where I can roam and build things",
     "a village festival with lanterns and animal pens",
+    "a museum hall with marble statues",
   ];
 
   test("classifies goal prompts into the four game archetypes", async () => {
@@ -206,7 +206,7 @@ describe("explore archetype", () => {
     }
   });
 
-  test("deterministic fallback maps scene prompts to explore", async () => {
+  test("deterministic fallback maps quiet scenes to explore", async () => {
     for (const prompt of exploreCases) {
       const llm = vi.fn<LlmCall>(async () => "banana");
       await expect(classify(prompt, llm)).resolves.toBe("explore");
@@ -217,12 +217,19 @@ describe("explore archetype", () => {
     expect(parseArchetype("banana", "a quiet forest clearing at dusk")).toBe("explore");
   });
 
-  test("deterministic fallback maps open-world prompts to world", async () => {
+  test("deterministic fallback defaults neutral scenes to world", async () => {
     for (const prompt of worldCases) {
       const llm = vi.fn<LlmCall>(async () => "banana");
       await expect(classify(prompt, llm)).resolves.toBe("world");
     }
     expect(parseArchetype("banana", "an open world island with trees")).toBe("world");
+    expect(parseArchetype("banana", "a museum hall with marble statues")).toBe("world");
+    expect(
+      parseArchetype(
+        "banana",
+        "a city with tall buildings, streets and characters walking around everywhere"
+      )
+    ).toBe("world");
     expect(parseArchetype("banana", "a car racing game on an open world island")).toBe(
       "drive"
     );

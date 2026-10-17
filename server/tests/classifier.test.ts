@@ -9,6 +9,7 @@ import {
   isExplorePrompt,
   isInspectPrompt,
   isMachinePrompt,
+  isQuietScenePrompt,
   isWalkthroughPrompt,
   isWorldPrompt,
   parseArchetype,
@@ -18,13 +19,17 @@ import { classifyByKeywords } from "../../scripts/eval-corpus.js";
 
 type LlmCall = (prompt: string) => Promise<string>;
 
-const GAME_AND_EXPLORE: ReadonlyArray<readonly [string, KitArchetype]> = [
+/**
+ * Free-roam fallback: quiet scenes keep explore, every other neutral scene
+ * (museum halls, cities, streets) is the free-form default and routes world.
+ */
+const GAME_AND_FREEROAM: ReadonlyArray<readonly [string, KitArchetype]> = [
   ["collect 3 crystals while avoiding patrolling guards", "collect-a-thon"],
   ["puzzle room where I rotate beams to light 3 crystals", "collect-a-thon"],
   ["hop across floating platforms to reach the summit", "collect-a-thon"],
   ["sneak past a patrolling guard to the shadowed exit", "collect-a-thon"],
   ["a quiet forest clearing with a campfire at dusk", "explore"],
-  ["a museum hall with marble statues", "explore"],
+  ["a museum hall with marble statues", "world"],
   ["show me a cozy room", "explore"],
 ];
 
@@ -55,6 +60,10 @@ const WORLD_PROMPTS: ReadonlyArray<readonly [string, KitArchetype]> = [
   ["a farm with animals and a big red barn", "world"],
   ["explore freely around a park with ponds", "world"],
   ["create a world with floating islands and lanterns", "world"],
+  [
+    "a city with tall buildings, streets and characters walking around everywhere",
+    "world",
+  ],
 ];
 
 /**
@@ -118,7 +127,7 @@ describe("deterministic kit fallback", () => {
       ...KIT_PROMPTS,
       ...MACHINE_PROMPTS,
       ...WORLD_PROMPTS,
-      ...GAME_AND_EXPLORE,
+      ...GAME_AND_FREEROAM,
     ];
     for (const [prompt, expected] of cases) {
       const llm = vi.fn<LlmCall>(async () => "banana");
@@ -139,7 +148,7 @@ describe("deterministic kit fallback", () => {
     expect(
       parseArchetype("banana", "an open world island with trees and animals")
     ).toBe("world");
-    expect(parseArchetype("banana", "a museum hall with marble statues")).toBe("explore");
+    expect(parseArchetype("banana", "a museum hall with marble statues")).toBe("world");
     expect(parseArchetype("banana", "collect gems")).toBe(DEFAULT_ARCHETYPE);
   });
 
@@ -225,6 +234,18 @@ describe("kit cue predicates", () => {
     expect(isWorldPrompt("a PCB blueprint in a smart city")).toBe(false);
     expect(isWorldPrompt("collect crystals on an island")).toBe(false);
     expect(isWorldPrompt("a quiet forest clearing with a campfire at dusk")).toBe(false);
+    // Free-form default: neutral scenes route world, quiet cues keep explore.
+    expect(isWorldPrompt("a museum hall with marble statues")).toBe(true);
+    expect(
+      isWorldPrompt(
+        "a city with tall buildings, streets and characters walking around everywhere"
+      )
+    ).toBe(true);
+    expect(isQuietScenePrompt("a quiet forest clearing with a campfire at dusk")).toBe(
+      true
+    );
+    expect(isQuietScenePrompt("show me a cozy room")).toBe(true);
+    expect(isQuietScenePrompt("a museum hall with marble statues")).toBe(false);
   });
 });
 
@@ -250,6 +271,10 @@ describe("buildClassifierPrompt", () => {
     expect(text).toContain("robot or robotic arm");
     expect(text).toContain("open world or sandbox");
     expect(text).toContain("choose \"world\"");
+    expect(text).toContain("free-form default");
+    expect(text).toContain(
+      '"a city with tall buildings, streets and people walking around" -> world'
+    );
     expect(text).toContain("a 3D PCB I can click and inspect");
   });
 });
@@ -282,6 +307,11 @@ describe("eval-corpus keyword fallback", () => {
     expect(classifyByKeywords("a quiet forest clearing with a campfire at dusk")).toBe(
       "explore"
     );
-    expect(classifyByKeywords("a museum hall with marble statues")).toBe("explore");
+    expect(classifyByKeywords("a museum hall with marble statues")).toBe("world");
+    expect(
+      classifyByKeywords(
+        "a city with tall buildings, streets and characters walking around everywhere"
+      )
+    ).toBe("world");
   });
 });

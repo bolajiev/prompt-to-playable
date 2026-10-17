@@ -103,16 +103,33 @@ const WALKTHROUGH_PLACE_PATTERN = /\b(house|home|building|apartment|villa|museum
  * drive, walkthrough) outrank it in `parseArchetype`.
  */
 const WORLD_PATTERN =
-  /\b(open[- ]world|sandbox|island|city|zoo|farm|village|park|world|explore freely|build me|create a)\b/;
+  /\b(open[- ]world|sandbox|island|zoo|farm|village|park|world|explore freely|build me|create a)\b/;
+
+/**
+ * Quiet-scene cues: prompts that explicitly ask for a calm, small place keep
+ * the static explore kit. Every other neutral scene prompt is free-form and
+ * defaults to the interactive world kit.
+ */
+const QUIET_SCENE_PATTERN =
+  /\b(quiet|calm|peaceful|clearing|forest|room|cozy)\b/;
 
 /**
  * Deterministic scene detector used when the LLM answer cannot be parsed:
- * non-goal prompts that describe a place or use display language are explore.
+ * non-goal prompts that describe a place or use display language are scenes.
+ * On its own this no longer implies the explore kit - `parseArchetype` sends
+ * neutral scenes to the world kit and only quiet scenes to explore.
  */
 export function isExplorePrompt(prompt: string): boolean {
   const text = (prompt ?? "").toLowerCase();
   if (GOAL_PATTERN.test(text)) return false;
   return SCENE_PATTERN.test(text);
+}
+
+/** Explicit quiet-scene detector: the explore kit's deterministic fallback. */
+export function isQuietScenePrompt(prompt: string): boolean {
+  const text = (prompt ?? "").toLowerCase();
+  if (GOAL_PATTERN.test(text)) return false;
+  return QUIET_SCENE_PATTERN.test(text);
 }
 
 /** Deterministic inspect detector for the classifier fallback path. */
@@ -161,10 +178,13 @@ export function isWalkthroughPrompt(prompt: string): boolean {
  * Deterministic world/sandbox detector for the classifier fallback path. World
  * prompts describe an open place to roam (island, city, zoo, farm, village,
  * park) or ask to "build me" / "create a" world, with no goal to achieve.
- * Prompts that state a goal, name a technical study object, race a vehicle or
- * walk through an interior stay with their own kits - the same precedence
- * `parseArchetype` applies: machine > inspect > drive > walkthrough > world >
- * explore.
+ * Free-form default: any other neutral scene prompt (no goal, no explicit
+ * quiet-scene cue) also routes here, so "why can't it build a city" prompts
+ * land in a live world instead of a static explore scene.
+ * Prompts that state a goal, name a technical study object, race a vehicle,
+ * walk through an interior or ask for a quiet scene stay with their own kits -
+ * the same precedence `parseArchetype` applies: machine > inspect > drive >
+ * walkthrough > world > explore.
  */
 export function isWorldPrompt(prompt: string): boolean {
   const text = (prompt ?? "").toLowerCase();
@@ -173,7 +193,9 @@ export function isWorldPrompt(prompt: string): boolean {
   if (DRIVE_PATTERN.test(text)) return false;
   if (WALKTHROUGH_VERB_PATTERN.test(text)) return false;
   if (MACHINE_PATTERN.test(text)) return false;
-  return WORLD_PATTERN.test(text);
+  if (WORLD_PATTERN.test(text)) return true;
+  if (QUIET_SCENE_PATTERN.test(text)) return false;
+  return SCENE_PATTERN.test(text);
 }
 
 function normalize(raw: string): { spaced: string; compact: string } {
@@ -194,7 +216,8 @@ export function buildClassifierPrompt(prompt: string): string {
     '- "puzzle-switch": a goal game about switches, plates, beams or puzzles that open an exit.',
     '- "platformer-lite": a goal game about jumping across platforms to reach a summit or exit.',
     '- "stealth-chase": a goal game about sneaking past guards or escaping a pursuer.',
-    '- "explore": a free-roam scene or place with no goal to achieve.',
+    '- "explore": a quiet, calm or cozy place to linger in with no goal - a forest',
+    "  clearing, room, cabin or peaceful scene.",
     '- "inspect": a clickable showcase of an object - a PCB, circuit board, machine,',
     "  engine, gadget, device, product viewer or blueprint - with no goal and no",
     "  movement challenge.",
@@ -212,7 +235,11 @@ export function buildClassifierPrompt(prompt: string): string {
     "Rules:",
     "- Respond with ONLY the archetype string.",
     "- No commentary, no punctuation, no markdown.",
-    '- If the prompt describes a scene or place and states no goal, choose "explore".',
+    '- If the prompt describes a quiet, calm, peaceful or cozy scene and states no',
+    '  goal, choose "explore".',
+    '- If the prompt describes any other scene or place and states no goal, choose',
+    '  "world" (the free-form default) - especially cities, streets, buildings and',
+    "  open sandboxes.",
     '- If the prompt describes a clickable object to study, choose "inspect".',
     '- If the prompt describes a place to walk through, choose "walkthrough".',
     '- If the prompt involves driving, racing, laps or a track, choose "drive".',
@@ -228,6 +255,7 @@ export function buildClassifierPrompt(prompt: string): string {
     '- "hop across floating platforms to the summit" -> platformer-lite',
     '- "sneak past a patrolling guard to the exit" -> stealth-chase',
     '- "a quiet forest clearing with a campfire at dusk" -> explore',
+    '- "a city with tall buildings, streets and people walking around" -> world',
     '- "a 3D PCB I can click and inspect" -> inspect',
     '- "a house I can walk through" -> walkthrough',
     '- "a car racing game with 3 laps" -> drive',

@@ -4,10 +4,13 @@ import type { GameDoc, Vec3 } from "@prompt-to-playable/schema";
 import {
   ARCHETYPE_EXAMPLES,
   CHARACTER_COMPOSITION_BLOCK,
+  CITY_WORLD_BLOCK,
+  CITY_WORLD_EXAMPLE,
   KIT_ARCHETYPES,
   KIT_SCHEMA_ARCHETYPE,
   buildGenerationPrompt,
   generate,
+  isCityWorldPrompt,
 } from "../src/generator.js";
 import type { KitArchetype } from "../src/generator.js";
 import { hasWinPath, requiresWinPath, sanityCheck } from "../src/sanity.js";
@@ -850,6 +853,137 @@ describe("buildGenerationPrompt kit catalogs", () => {
     expect(text).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.world, null, 2));
     expect(text).not.toContain("The game must be winnable through its rules alone.");
     expect(text).not.toContain("The race must be winnable through its rules.");
+  });
+
+  test("city example has towers, streets, six crossing walkers and city controls", () => {
+    const doc = CITY_WORLD_EXAMPLE;
+    expect(doc.meta.mode).toBe("world");
+    expect(doc.meta.archetype).toBe("explore");
+    expect(doc.objectives).toEqual([]);
+    expect(validateGame(doc).ok).toBe(true);
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(doc.world.bounds[0]).toBeGreaterThanOrEqual(60);
+    expect(doc.world.bounds[0]).toBeLessThanOrEqual(80);
+    expect(doc.world.bounds[2]).toBeGreaterThanOrEqual(60);
+    expect(doc.world.bounds[2]).toBeLessThanOrEqual(80);
+    expect(doc.entities.length).toBeLessThanOrEqual(28);
+
+    // At least four part-assembly towers with glass window bands, 6-16 tall.
+    const towers = doc.entities.filter((entity) => {
+      const parts = entity.parts ?? [];
+      const glass = parts.some((part) => part.material?.texture === "glass");
+      const bodyTextured = parts.some((part) =>
+        ["brick", "metal", "grid"].includes(part.material?.texture ?? "")
+      );
+      const height = entity.size?.[1] ?? 0;
+      return glass && bodyTextured && height >= 6 && height <= 16;
+    });
+    expect(towers.length).toBeGreaterThanOrEqual(4);
+
+    // Dark asphalt street slabs form the cross.
+    const darkParts = doc.entities.flatMap((entity) =>
+      (entity.parts ?? []).filter(
+        (part) =>
+          typeof part.color === "string" &&
+          /^#(2|3)[0-9a-f]{5}$/i.test(part.color) &&
+          Math.max(part.size?.[0] ?? 0, part.size?.[2] ?? 0) >= 60
+      )
+    );
+    expect(darkParts.length).toBeGreaterThanOrEqual(2);
+
+    // Six ambient walkers, all patrol roots with 2-4 waypoints and no sight.
+    const walkers = doc.entities.filter(
+      (entity) =>
+        entity.kind === "enemy" &&
+        entity.state === "patrol" &&
+        (entity.patrol?.length ?? 0) >= 2 &&
+        (entity.patrol?.length ?? 0) <= 4
+    );
+    expect(walkers.length).toBeGreaterThanOrEqual(6);
+    for (const walker of walkers) {
+      expect(walker.sight, `${walker.id} stays peaceful`).toBeUndefined();
+      expect(walker.parts?.length ?? 0, `${walker.id} is composed`).toBeGreaterThanOrEqual(
+        4
+      );
+    }
+    const parentedWalkers = doc.entities.filter((entity) =>
+      walkers.some((walker) => walker.id === entity.parent)
+    );
+    expect(parentedWalkers.length).toBeGreaterThanOrEqual(2);
+
+    // Lamps and trees dress the streets.
+    expect(
+      doc.entities.filter((entity) =>
+        (entity.parts ?? []).some(
+          (part) => typeof part.material?.emissive === "string"
+        )
+      ).length
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      doc.entities.filter((entity) => entity.props?.shape === "tree").length
+    ).toBeGreaterThanOrEqual(2);
+
+    // City controls: build a NEW tower, spawn traffic, night toggle, wind slider.
+    const labels = (doc.controls ?? []).map((control) => control.label);
+    expect(labels).toEqual(
+      expect.arrayContaining(["Build tower", "Traffic", "Night", "Wind"])
+    );
+    const buildTower = doc.controls?.find((control) => control.label === "Build tower");
+    const spawnIds = (buildTower?.bind?.onPress ?? [])
+      .filter((action) => action.type === "spawn")
+      .map((action) => (action.type === "spawn" ? action.entity.id : ""));
+    expect(spawnIds.length).toBe(1);
+    expect(doc.entities.some((entity) => entity.id === spawnIds[0])).toBe(false);
+    const night = doc.controls?.find((control) => control.label === "Night");
+    expect(night?.type).toBe("toggle");
+    expect(night?.bind?.var).toBe("night");
+    expect(
+      doc.rules.some(
+        (rule) =>
+          rule.on.event === "tick" &&
+          rule.then.some((action) => action.type === "setColor")
+      )
+    ).toBe(true);
+    const wind = doc.controls?.find((control) => control.label === "Wind");
+    expect(wind?.type).toBe("slider");
+    expect(wind?.bind?.property).toBe("rotation.y");
+
+    // Two labeled landmarks open panels.
+    const panels = doc.rules.filter(
+      (rule) =>
+        rule.on.event === "click" &&
+        rule.then.some((action) => action.type === "showPanel")
+    );
+    expect(panels.length).toBeGreaterThanOrEqual(2);
+    for (const rule of panels) {
+      expect(
+        doc.entities.find((entity) => entity.id === rule.on.entity)?.label
+      ).toBeDefined();
+    }
+  });
+
+  test("city prompts select city guidance and the city few-shot", () => {
+    const cityPrompt =
+      "a city with tall buildings, streets and characters walking around everywhere";
+    expect(isCityWorldPrompt(cityPrompt)).toBe(true);
+    const text = buildGenerationPrompt(cityPrompt, "world");
+    expect(text).toContain("open 3D city");
+    expect(text).toContain(CITY_WORLD_BLOCK.join("\n"));
+    expect(text).toContain("Build tower");
+    expect(text).toContain("Traffic");
+    expect(text).toContain('"Night"');
+    expect(text).toContain("CRISS-CROSS");
+    expect(text).toContain("Budget: at most 28 entities TOTAL");
+    expect(text).toContain("12 rules and 6");
+    expect(text).toContain("no tower exceeds 16");
+    expect(text).toContain(JSON.stringify(CITY_WORLD_EXAMPLE, null, 2));
+    expect(text).not.toContain("Ember Hollow");
+
+    const islandText = buildGenerationPrompt("an open world island with trees", "world");
+    expect(islandText).toContain("Open world requirements");
+    expect(islandText).toContain("Budget: at most 24 entities, 12 rules and 6 controls");
+    expect(islandText).toContain(JSON.stringify(ARCHETYPE_EXAMPLES.world, null, 2));
+    expect(islandText).not.toContain("City world requirements");
   });
 
   test("world prompt carries the shared character composition block", () => {

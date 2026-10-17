@@ -375,6 +375,109 @@ describe("live kit fixtures are playable offline", () => {
     expect(panel?.body.length ?? 0).toBeGreaterThan(0);
   });
 
+  test("city: towers and crossing walkers populate the grid, Build tower adds a building", () => {
+    const doc = loadFixture("kit-city.json");
+    expect(doc.meta.archetype).toBe("explore");
+    expect(doc.meta.mode).toBe("world");
+    expect(validateGame(doc).ok).toBe(true);
+    expect(sanityCheck(doc).ok).toBe(true);
+    expect(doc.objectives).toEqual([]);
+    expect(doc.world.bounds[0]).toBeGreaterThanOrEqual(60);
+    expect(doc.world.bounds[0]).toBeLessThanOrEqual(80);
+    expect(doc.world.bounds[2]).toBeGreaterThanOrEqual(60);
+    expect(doc.world.bounds[2]).toBeLessThanOrEqual(80);
+    expect(doc.entities.length).toBeLessThanOrEqual(28);
+
+    // 1. At least four building entities that are parts assemblies with glass
+    // window bands (inline or on a parented window-band entity) and
+    // street-scale heights.
+    const hasGlass = (entity: (typeof doc.entities)[number]): boolean =>
+      (entity.parts ?? []).some((part) => part.material?.texture === "glass") ||
+      doc.entities.some(
+        (child) =>
+          child.parent === entity.id &&
+          (child.parts ?? []).some((part) => part.material?.texture === "glass")
+      );
+    const buildings = doc.entities.filter((entity) => {
+      const parts = entity.parts ?? [];
+      const body = parts.some((part) =>
+        ["brick", "metal", "grid"].includes(part.material?.texture ?? "")
+      );
+      const height = entity.size?.[1] ?? 0;
+      return body && height >= 6 && height <= 16 && hasGlass(entity);
+    });
+    expect(
+      buildings.length,
+      "city kit needs at least 4 part-assembly buildings with glass bands"
+    ).toBeGreaterThanOrEqual(4);
+
+    // 2. At least six peaceful walkers with their own patrol routes.
+    const walkers = doc.entities.filter(
+      (entity) =>
+        entity.kind === "enemy" &&
+        entity.state === "patrol" &&
+        (entity.patrol?.length ?? 0) >= 2
+    );
+    expect(
+      walkers.length,
+      "city kit needs at least 6 ambient walkers with patrol paths"
+    ).toBeGreaterThanOrEqual(6);
+    for (const walker of walkers) {
+      expect(walker.sight, `${walker.id} stays peaceful`).toBeUndefined();
+    }
+
+    // 3. The walkers actually move: simulate and confirm they cross ground.
+    const engine = createEngine();
+    engine.load(doc);
+    const starts = new Map(
+      walkers.map((walker) => [
+        walker.id,
+        [...engine.getState().entityRuntime[walker.id].position] as Vec3,
+      ])
+    );
+    let state = engine.getState();
+    for (let tick = 0; tick < 300; tick += 1) {
+      state = engine.step(FIXED_DT_MS);
+    }
+    const moved = walkers.filter((walker) => {
+      const start = starts.get(walker.id);
+      const now = state.entityRuntime[walker.id]?.position;
+      return (
+        start !== undefined &&
+        now !== undefined &&
+        xzDistance(now as Vec3, start) > 0.5
+      );
+    });
+    expect(moved.length, "city walkers visibly move").toBeGreaterThanOrEqual(4);
+
+    // 4. Press "Build tower": a new building entity appears.
+    const controls = doc.controls ?? [];
+    const known = new Set(doc.entities.map((entity) => entity.id));
+    const buildTower =
+      controls.find((control) => /build tower/i.test(control.label)) ??
+      controls.find(
+        (control) =>
+          control.type === "button" &&
+          (control.bind?.onPress ?? []).some(
+            (action) => action.type === "spawn" && !known.has(action.entity.id)
+          )
+      );
+    expect(buildTower, "city kit needs a Build tower button").toBeDefined();
+    if (!buildTower) return;
+
+    const additions = (buildTower.bind?.onPress ?? []).filter(
+      (action) => action.type === "spawn" && !known.has(action.entity.id)
+    );
+    expect(additions.length).toBeGreaterThanOrEqual(1);
+    const before = engine.getState().entities.length;
+    engine.pressControl(buildTower.id);
+    state = engine.step(FIXED_DT_MS);
+    expect(
+      state.entities.length,
+      "pressing Build tower adds a new building entity"
+    ).toBeGreaterThanOrEqual(before + 1);
+  });
+
   test(`drive: throttle and checkpoint pursuit wins within ${TICK_BUDGET} ticks`, () => {
     const doc = loadFixture("kit-race.json");
     expect(doc.meta.archetype).toBe("collect-a-thon");

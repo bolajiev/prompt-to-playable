@@ -1,0 +1,2800 @@
+{
+  "version": "1.0.0",
+  "meta": {
+    "title": "Lantern Heights",
+    "archetype": "explore",
+    "genre": "city sandbox",
+    "difficulty": 0,
+    "seed": 48210,
+    "mode": "world"
+  },
+  "world": {
+    "bounds": [
+      72,
+      28,
+      72
+    ],
+    "lighting": "day",
+    "skybox": "outdoor",
+    "gravity": 9.8,
+    "terrain": {
+      "type": "flat",
+      "obstacles": []
+    }
+  },
+  "entities": [
+    {
+      "id": "player",
+      "kind": "player",
+      "name": "City wanderer",
+      "position": [
+        0,
+        1,
+        -31
+      ],
+      "tags": [],
+      "active": true
+    },
+    {
+      "id": "street-ew",
+      "kind": "prop",
+      "name": "Cross street",
+      "position": [
+        0,
+        0.05,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "solid": false,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            68,
+            0.12,
+            12
+          ],
+          "color": "#2f3437",
+          "material": {
+            "roughness": 0.95,
+            "texture": "grid"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.02,
+            0
+          ],
+          "size": [
+            68,
+            0.13,
+            0.34
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "street-ns",
+      "kind": "prop",
+      "name": "Main street",
+      "position": [
+        0,
+        0.05,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "solid": false,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            12,
+            0.12,
+            68
+          ],
+          "color": "#2f3437",
+          "material": {
+            "roughness": 0.95,
+            "texture": "grid"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.02,
+            0
+          ],
+          "size": [
+            0.34,
+            0.13,
+            68
+          ],
+          "color": "#e8e2d0",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ]
+    },
+    {
+      "id": "tower-ivory",
+      "kind": "prop",
+      "name": "Ivory tower",
+      "position": [
+        -18,
+        7,
+        -18
+      ],
+      "size": [
+        9,
+        14,
+        9
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            1,
+            1
+          ],
+          "color": "#c9b8a3",
+          "material": {
+            "roughness": 0.9,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.26,
+            0
+          ],
+          "size": [
+            0.94,
+            0.05,
+            0.94
+          ],
+          "color": "#ffe9b0",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.94,
+            0.05,
+            0.94
+          ],
+          "color": "#ffe9b0",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.26,
+            0
+          ],
+          "size": [
+            0.94,
+            0.05,
+            0.94
+          ],
+          "color": "#ffe9b0",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.52,
+            0
+          ],
+          "size": [
+            0.98,
+            0.04,
+            0.98
+          ],
+          "color": "#6b5844",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ],
+      "label": {
+        "text": "Ivory tower",
+        "offset": [
+          0,
+          0.6,
+          0
+        ],
+        "size": 0.42
+      }
+    },
+    {
+      "id": "tower-cobalt",
+      "kind": "prop",
+      "name": "Cobalt tower",
+      "position": [
+        18,
+        7.5,
+        -18
+      ],
+      "size": [
+        10,
+        15,
+        10
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            1,
+            1
+          ],
+          "color": "#3f5b73",
+          "material": {
+            "metalness": 0.45,
+            "roughness": 0.5,
+            "texture": "metal"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.53,
+            0
+          ],
+          "size": [
+            0.98,
+            0.03,
+            0.98
+          ],
+          "color": "#22323f",
+          "material": {
+            "roughness": 0.7
+          }
+        }
+      ],
+      "label": {
+        "text": "Cobalt tower",
+        "offset": [
+          0,
+          0.6,
+          0
+        ],
+        "size": 0.42
+      }
+    },
+    {
+      "id": "tower-cobalt-windows",
+      "kind": "prop",
+      "name": "Cobalt window bands",
+      "parent": "tower-cobalt",
+      "attach": [
+        0,
+        0,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "color": "#8fd3ff",
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -5,
+            0
+          ],
+          "size": [
+            10.4,
+            0.7,
+            10.4
+          ],
+          "color": "#8fd3ff",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            10.4,
+            0.7,
+            10.4
+          ],
+          "color": "#8fd3ff",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            5,
+            0
+          ],
+          "size": [
+            10.4,
+            0.7,
+            10.4
+          ],
+          "color": "#8fd3ff",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tower-amber",
+      "kind": "prop",
+      "name": "Amber hall",
+      "position": [
+        -18,
+        4.5,
+        18
+      ],
+      "size": [
+        8,
+        9,
+        8
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            1,
+            1
+          ],
+          "color": "#8d6e63",
+          "material": {
+            "roughness": 0.9,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.22,
+            0
+          ],
+          "size": [
+            0.92,
+            0.07,
+            0.92
+          ],
+          "color": "#ffd9a0",
+          "material": {
+            "roughness": 0.2,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.22,
+            0
+          ],
+          "size": [
+            0.92,
+            0.07,
+            0.92
+          ],
+          "color": "#ffd9a0",
+          "material": {
+            "roughness": 0.2,
+            "opacity": 0.6,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "wedge",
+          "offset": [
+            0,
+            0.52,
+            0
+          ],
+          "size": [
+            0.95,
+            0.09,
+            0.95
+          ],
+          "color": "#5d4037",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ],
+      "label": {
+        "text": "Amber hall",
+        "offset": [
+          0,
+          0.62,
+          0
+        ],
+        "size": 0.4
+      }
+    },
+    {
+      "id": "tower-glass",
+      "kind": "prop",
+      "name": "Glass block",
+      "position": [
+        18,
+        6,
+        18
+      ],
+      "size": [
+        10,
+        12,
+        10
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            1,
+            1,
+            1
+          ],
+          "color": "#607d8b",
+          "material": {
+            "metalness": 0.35,
+            "roughness": 0.5,
+            "texture": "grid"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.3,
+            0
+          ],
+          "size": [
+            0.94,
+            0.06,
+            0.94
+          ],
+          "color": "#9be7ff",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.55,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.94,
+            0.06,
+            0.94
+          ],
+          "color": "#9be7ff",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.55,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.3,
+            0
+          ],
+          "size": [
+            0.94,
+            0.06,
+            0.94
+          ],
+          "color": "#9be7ff",
+          "material": {
+            "roughness": 0.15,
+            "opacity": 0.55,
+            "texture": "glass"
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.51,
+            0
+          ],
+          "size": [
+            0.97,
+            0.025,
+            0.97
+          ],
+          "color": "#455a64",
+          "material": {
+            "roughness": 0.7
+          }
+        }
+      ],
+      "label": {
+        "text": "Glass block",
+        "offset": [
+          0,
+          0.6,
+          0
+        ],
+        "size": 0.4
+      }
+    },
+    {
+      "id": "lamp-cross-west",
+      "kind": "prop",
+      "name": "West cross-street lamp",
+      "position": [
+        -14,
+        2,
+        -7
+      ],
+      "tags": [],
+      "active": true,
+      "solid": false,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.6,
+            0
+          ],
+          "size": [
+            0.18,
+            2.8,
+            0.18
+          ],
+          "color": "#37474f",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1,
+            0
+          ],
+          "size": [
+            0.55,
+            0.55,
+            0.55
+          ],
+          "color": "#ffd166",
+          "material": {
+            "roughness": 0.3,
+            "emissive": "#ffd166"
+          }
+        }
+      ],
+      "label": {
+        "text": "Lamp",
+        "offset": [
+          0,
+          1.85,
+          0
+        ],
+        "size": 0.3
+      }
+    },
+    {
+      "id": "lamp-cross-east",
+      "kind": "prop",
+      "name": "East cross-street lamp",
+      "position": [
+        14,
+        2,
+        7
+      ],
+      "tags": [],
+      "active": true,
+      "solid": false,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.6,
+            0
+          ],
+          "size": [
+            0.18,
+            2.8,
+            0.18
+          ],
+          "color": "#37474f",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1,
+            0
+          ],
+          "size": [
+            0.55,
+            0.55,
+            0.55
+          ],
+          "color": "#ffd166",
+          "material": {
+            "roughness": 0.3,
+            "emissive": "#ffd166"
+          }
+        }
+      ]
+    },
+    {
+      "id": "tree-east",
+      "kind": "prop",
+      "name": "East sidewalk tree",
+      "position": [
+        31,
+        3,
+        12
+      ],
+      "size": [
+        4,
+        6,
+        4
+      ],
+      "color": "#4f8a5b",
+      "tags": [],
+      "active": true,
+      "props": {
+        "shape": "tree"
+      }
+    },
+    {
+      "id": "tree-west",
+      "kind": "prop",
+      "name": "West sidewalk tree",
+      "position": [
+        -31,
+        3,
+        -12
+      ],
+      "size": [
+        4,
+        6,
+        4
+      ],
+      "color": "#4f8a5b",
+      "tags": [],
+      "active": true,
+      "props": {
+        "shape": "tree"
+      }
+    },
+    {
+      "id": "city-fountain",
+      "kind": "prop",
+      "name": "Lantern fountain",
+      "position": [
+        11,
+        0.65,
+        11
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.2,
+            0
+          ],
+          "size": [
+            3.4,
+            0.9,
+            3.4
+          ],
+          "color": "#b0bec5",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0.05,
+            0
+          ],
+          "size": [
+            2.8,
+            0.2,
+            2.8
+          ],
+          "color": "#4fc3f7",
+          "material": {
+            "metalness": 0.1,
+            "roughness": 0.2
+          }
+        },
+        {
+          "shape": "torus",
+          "offset": [
+            0,
+            0.28,
+            0
+          ],
+          "size": [
+            3.2,
+            0.16,
+            3.2
+          ],
+          "rotation": [
+            1.5708,
+            0,
+            0
+          ],
+          "color": "#90a4ae",
+          "material": {
+            "roughness": 0.7
+          }
+        }
+      ],
+      "label": {
+        "text": "Lantern fountain",
+        "offset": [
+          0,
+          0.95,
+          0
+        ],
+        "size": 0.38
+      }
+    },
+    {
+      "id": "founders-statue",
+      "kind": "prop",
+      "name": "Founders statue",
+      "position": [
+        -11,
+        1.5,
+        -11
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.75,
+            0
+          ],
+          "size": [
+            2.2,
+            1.5,
+            2.2
+          ],
+          "color": "#9aa5ad",
+          "material": {
+            "roughness": 0.9,
+            "texture": "brick"
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0.25,
+            0
+          ],
+          "size": [
+            0.9,
+            1.5,
+            0.9
+          ],
+          "color": "#cfd8dc",
+          "material": {
+            "metalness": 0.2,
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.15,
+            0
+          ],
+          "size": [
+            0.62,
+            0.62,
+            0.62
+          ],
+          "color": "#cfd8dc",
+          "material": {
+            "metalness": 0.2,
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.5,
+            0.7,
+            0
+          ],
+          "size": [
+            0.7,
+            0.22,
+            0.22
+          ],
+          "rotation": [
+            0,
+            0,
+            -0.35
+          ],
+          "color": "#cfd8dc",
+          "material": {
+            "metalness": 0.2,
+            "roughness": 0.6
+          }
+        }
+      ],
+      "label": {
+        "text": "Founders statue",
+        "offset": [
+          0,
+          1.9,
+          0
+        ],
+        "size": 0.38
+      }
+    },
+    {
+      "id": "wind-spinner",
+      "kind": "prop",
+      "name": "Rooftop wind spinner",
+      "position": [
+        -18,
+        14.3,
+        -18
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.4,
+            0.5,
+            0.4
+          ],
+          "rotation": [
+            1.5708,
+            0,
+            0
+          ],
+          "color": "#263238",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            1.2,
+            0
+          ],
+          "size": [
+            0.3,
+            2.2,
+            0.1
+          ],
+          "color": "#eceff1",
+          "material": {
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            1.04,
+            -0.6,
+            0
+          ],
+          "size": [
+            0.3,
+            2.2,
+            0.1
+          ],
+          "rotation": [
+            0,
+            0,
+            2.0944
+          ],
+          "color": "#eceff1",
+          "material": {
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -1.04,
+            -0.6,
+            0
+          ],
+          "size": [
+            0.3,
+            2.2,
+            0.1
+          ],
+          "rotation": [
+            0,
+            0,
+            -2.0944
+          ],
+          "color": "#eceff1",
+          "material": {
+            "roughness": 0.6
+          }
+        }
+      ],
+      "label": {
+        "text": "Wind spinner",
+        "offset": [
+          0,
+          2.6,
+          0
+        ],
+        "size": 0.32
+      }
+    },
+    {
+      "id": "keeper",
+      "kind": "prop",
+      "name": "Keeper of the fountain",
+      "position": [
+        7,
+        1,
+        13
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.82,
+            0.9,
+            0.48
+          ],
+          "color": "#7b8fa1",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.53,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.8,
+            0.24
+          ],
+          "color": "#5d7386",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.53,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.8,
+            0.24
+          ],
+          "color": "#5d7386",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.32,
+            0.25
+          ],
+          "size": [
+            0.6,
+            0.5,
+            0.05
+          ],
+          "color": "#c9a227",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#3a4a57",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#3a4a57",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "size": [
+            0.44,
+            0.44,
+            0.44
+          ],
+          "color": "#e0ac69",
+          "material": {
+            "roughness": 0.75
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            1.5,
+            0
+          ],
+          "size": [
+            0.56,
+            0.14,
+            0.56
+          ],
+          "color": "#4a4e69",
+          "material": {
+            "roughness": 0.8
+          }
+        }
+      ],
+      "label": {
+        "text": "Keeper",
+        "offset": [
+          0,
+          1.85,
+          0
+        ],
+        "size": 0.3
+      }
+    },
+    {
+      "id": "walker-juno",
+      "kind": "enemy",
+      "name": "Scout robot Juno",
+      "position": [
+        -30,
+        1,
+        -28
+      ],
+      "tags": [],
+      "active": true,
+      "speed": 1.9,
+      "patrol": [
+        [
+          -30,
+          1,
+          -28
+        ],
+        [
+          -30,
+          1,
+          -4
+        ],
+        [
+          28,
+          1,
+          -4
+        ],
+        [
+          28,
+          1,
+          -28
+        ]
+      ],
+      "state": "patrol",
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.12,
+            0
+          ],
+          "size": [
+            0.72,
+            0.28,
+            0.46
+          ],
+          "color": "#3d5a80",
+          "material": {
+            "metalness": 0.3,
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.62,
+            0
+          ],
+          "size": [
+            0.86,
+            0.85,
+            0.5
+          ],
+          "color": "#e07a5f",
+          "material": {
+            "metalness": 0.25,
+            "roughness": 0.6
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0.62,
+            0.26
+          ],
+          "size": [
+            0.16,
+            0.16,
+            0.16
+          ],
+          "color": "#7ef9ff",
+          "material": {
+            "roughness": 0.3,
+            "emissive": "#7ef9ff"
+          }
+        }
+      ],
+      "label": {
+        "text": "Juno",
+        "offset": [
+          0,
+          1.6,
+          0
+        ],
+        "size": 0.3
+      }
+    },
+    {
+      "id": "juno-head",
+      "kind": "prop",
+      "name": "Juno head",
+      "parent": "walker-juno",
+      "attach": [
+        0,
+        1.28,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            0,
+            0
+          ],
+          "size": [
+            0.44,
+            0.44,
+            0.44
+          ],
+          "color": "#e8f1f2",
+          "material": {
+            "metalness": 0.3,
+            "roughness": 0.5
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            0.34,
+            0
+          ],
+          "size": [
+            0.05,
+            0.28,
+            0.05
+          ],
+          "color": "#37474f",
+          "material": {
+            "metalness": 0.6,
+            "roughness": 0.4
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.02,
+            0.2
+          ],
+          "size": [
+            0.24,
+            0.07,
+            0.05
+          ],
+          "color": "#7ef9ff",
+          "material": {
+            "roughness": 0.3,
+            "emissive": "#7ef9ff"
+          }
+        }
+      ]
+    },
+    {
+      "id": "juno-arm-l",
+      "kind": "prop",
+      "name": "Juno left arm",
+      "parent": "walker-juno",
+      "attach": [
+        -0.54,
+        0.9,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.42,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#3d5a80",
+          "material": {
+            "metalness": 0.3,
+            "roughness": 0.6
+          }
+        }
+      ]
+    },
+    {
+      "id": "juno-arm-r",
+      "kind": "prop",
+      "name": "Juno right arm",
+      "parent": "walker-juno",
+      "attach": [
+        0.54,
+        0.9,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            -0.42,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#3d5a80",
+          "material": {
+            "metalness": 0.3,
+            "roughness": 0.6
+          }
+        }
+      ]
+    },
+    {
+      "id": "juno-leg-l",
+      "kind": "prop",
+      "name": "Juno left leg",
+      "parent": "walker-juno",
+      "attach": [
+        -0.2,
+        0,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.24,
+            1,
+            0.24
+          ],
+          "color": "#264653",
+          "material": {
+            "metalness": 0.3,
+            "roughness": 0.65
+          }
+        }
+      ]
+    },
+    {
+      "id": "juno-leg-r",
+      "kind": "prop",
+      "name": "Juno right leg",
+      "parent": "walker-juno",
+      "attach": [
+        0.2,
+        0,
+        0
+      ],
+      "position": [
+        0,
+        0,
+        0
+      ],
+      "tags": [],
+      "active": true,
+      "parts": [
+        {
+          "shape": "cylinder",
+          "offset": [
+            0,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.24,
+            1,
+            0.24
+          ],
+          "color": "#264653",
+          "material": {
+            "metalness": 0.3,
+            "roughness": 0.65
+          }
+        }
+      ]
+    },
+    {
+      "id": "walker-nadia",
+      "kind": "enemy",
+      "name": "Walker Nadia",
+      "position": [
+        -28,
+        1,
+        4
+      ],
+      "tags": [],
+      "active": true,
+      "speed": 1.8,
+      "patrol": [
+        [
+          -28,
+          1,
+          4
+        ],
+        [
+          28,
+          1,
+          4
+        ],
+        [
+          28,
+          1,
+          20
+        ]
+      ],
+      "state": "patrol",
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.86,
+            0.95,
+            0.5
+          ],
+          "color": "#2a9d8f",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#e9c46a",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#e9c46a",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#3d405b",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#3d405b",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "size": [
+            0.46,
+            0.46,
+            0.46
+          ],
+          "color": "#d9a066",
+          "material": {
+            "roughness": 0.75
+          }
+        }
+      ],
+      "label": {
+        "text": "Nadia",
+        "offset": [
+          0,
+          1.55,
+          0
+        ],
+        "size": 0.28,
+        "flat": true
+      }
+    },
+    {
+      "id": "walker-bex",
+      "kind": "enemy",
+      "name": "Walker Bex",
+      "position": [
+        0,
+        1,
+        -28
+      ],
+      "tags": [],
+      "active": true,
+      "speed": 1.6,
+      "patrol": [
+        [
+          0,
+          1,
+          -28
+        ],
+        [
+          0,
+          1,
+          28
+        ]
+      ],
+      "state": "patrol",
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.86,
+            0.95,
+            0.5
+          ],
+          "color": "#6d597a",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#b56576",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#b56576",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#355070",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#355070",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "size": [
+            0.46,
+            0.46,
+            0.46
+          ],
+          "color": "#ffcc9c",
+          "material": {
+            "roughness": 0.75
+          }
+        }
+      ],
+      "label": {
+        "text": "Bex",
+        "offset": [
+          0,
+          1.55,
+          0
+        ],
+        "size": 0.28,
+        "flat": true
+      }
+    },
+    {
+      "id": "walker-rio",
+      "kind": "enemy",
+      "name": "Walker Rio",
+      "position": [
+        -28,
+        1,
+        10
+      ],
+      "tags": [],
+      "active": true,
+      "speed": 2.4,
+      "patrol": [
+        [
+          -28,
+          1,
+          10
+        ],
+        [
+          28,
+          1,
+          -10
+        ]
+      ],
+      "state": "patrol",
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.86,
+            0.95,
+            0.5
+          ],
+          "color": "#457b9d",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#a8dadc",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#a8dadc",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#1d3557",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#1d3557",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "size": [
+            0.46,
+            0.46,
+            0.46
+          ],
+          "color": "#c68b59",
+          "material": {
+            "roughness": 0.75
+          }
+        }
+      ],
+      "label": {
+        "text": "Rio",
+        "offset": [
+          0,
+          1.55,
+          0
+        ],
+        "size": 0.28,
+        "flat": true
+      }
+    },
+    {
+      "id": "walker-iris",
+      "kind": "enemy",
+      "name": "Walker Iris",
+      "position": [
+        -26,
+        1,
+        -14
+      ],
+      "tags": [],
+      "active": true,
+      "speed": 2.1,
+      "patrol": [
+        [
+          -26,
+          1,
+          -14
+        ],
+        [
+          0,
+          1,
+          20
+        ],
+        [
+          26,
+          1,
+          -14
+        ]
+      ],
+      "state": "patrol",
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.86,
+            0.95,
+            0.5
+          ],
+          "color": "#e9c46a",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#f4a261",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#f4a261",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#264653",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#264653",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "size": [
+            0.46,
+            0.46,
+            0.46
+          ],
+          "color": "#ffcc9c",
+          "material": {
+            "roughness": 0.75
+          }
+        }
+      ],
+      "label": {
+        "text": "Iris",
+        "offset": [
+          0,
+          1.55,
+          0
+        ],
+        "size": 0.28,
+        "flat": true
+      }
+    },
+    {
+      "id": "walker-pia",
+      "kind": "enemy",
+      "name": "Walker Pia",
+      "position": [
+        -24,
+        1,
+        28
+      ],
+      "tags": [],
+      "active": true,
+      "speed": 2.2,
+      "patrol": [
+        [
+          -24,
+          1,
+          28
+        ],
+        [
+          -24,
+          1,
+          -28
+        ],
+        [
+          24,
+          1,
+          -28
+        ],
+        [
+          24,
+          1,
+          10
+        ]
+      ],
+      "state": "patrol",
+      "parts": [
+        {
+          "shape": "box",
+          "offset": [
+            0,
+            0.5,
+            0
+          ],
+          "size": [
+            0.86,
+            0.95,
+            0.5
+          ],
+          "color": "#f28482",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            -0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#84a59d",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "box",
+          "offset": [
+            0.55,
+            0.5,
+            0
+          ],
+          "size": [
+            0.2,
+            0.85,
+            0.24
+          ],
+          "color": "#84a59d",
+          "material": {
+            "roughness": 0.8
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            -0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#495057",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "cylinder",
+          "offset": [
+            0.2,
+            -0.5,
+            0
+          ],
+          "size": [
+            0.22,
+            1,
+            0.22
+          ],
+          "color": "#495057",
+          "material": {
+            "roughness": 0.85
+          }
+        },
+        {
+          "shape": "sphere",
+          "offset": [
+            0,
+            1.24,
+            0
+          ],
+          "size": [
+            0.46,
+            0.46,
+            0.46
+          ],
+          "color": "#ffcc9c",
+          "material": {
+            "roughness": 0.75
+          }
+        }
+      ],
+      "label": {
+        "text": "Pia",
+        "offset": [
+          0,
+          1.55,
+          0
+        ],
+        "size": 0.28,
+        "flat": true
+      }
+    }
+  ],
+  "objectives": [],
+  "rules": [
+    {
+      "id": "keeper-breathes",
+      "on": {
+        "event": "tick"
+      },
+      "if": {
+        "op": "==",
+        "left": {
+          "var": "awake"
+        },
+        "right": 0
+      },
+      "then": [
+        {
+          "type": "animate",
+          "entity": "keeper",
+          "kind": "bob",
+          "amplitude": 0.09,
+          "speed": 1.4
+        },
+        {
+          "type": "setVar",
+          "key": "awake",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "night-lights-on",
+      "on": {
+        "event": "tick"
+      },
+      "if": {
+        "op": "and",
+        "conditions": [
+          {
+            "op": "==",
+            "left": {
+              "var": "night"
+            },
+            "right": 1
+          },
+          {
+            "op": "==",
+            "left": {
+              "var": "nightApplied"
+            },
+            "right": 0
+          }
+        ]
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "lamp-cross-west",
+          "color": "#ffe08a"
+        },
+        {
+          "type": "setColor",
+          "entity": "lamp-cross-east",
+          "color": "#ffe08a"
+        },
+        {
+          "type": "setColor",
+          "entity": "tower-cobalt-windows",
+          "color": "#ffd76e"
+        },
+        {
+          "type": "setVar",
+          "key": "nightApplied",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "day-lights-off",
+      "on": {
+        "event": "tick"
+      },
+      "if": {
+        "op": "and",
+        "conditions": [
+          {
+            "op": "==",
+            "left": {
+              "var": "night"
+            },
+            "right": 0
+          },
+          {
+            "op": "==",
+            "left": {
+              "var": "nightApplied"
+            },
+            "right": 1
+          }
+        ]
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "lamp-cross-west",
+          "color": "#ffd166"
+        },
+        {
+          "type": "setColor",
+          "entity": "lamp-cross-east",
+          "color": "#ffd166"
+        },
+        {
+          "type": "setColor",
+          "entity": "tower-cobalt-windows",
+          "color": "#8fd3ff"
+        },
+        {
+          "type": "setVar",
+          "key": "nightApplied",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "id": "inspect-fountain",
+      "on": {
+        "event": "click",
+        "entity": "city-fountain"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "city-fountain",
+          "color": "#7fd8ff"
+        },
+        {
+          "type": "showPanel",
+          "title": "Lantern fountain",
+          "body": "The plaza fountain at the heart of Lantern Heights. Its ring glows brighter once the lamps come on at night.",
+          "entity": "city-fountain"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "id": "inspect-statue",
+      "on": {
+        "event": "click",
+        "entity": "founders-statue"
+      },
+      "then": [
+        {
+          "type": "setColor",
+          "entity": "founders-statue",
+          "color": "#d9e4ea"
+        },
+        {
+          "type": "showPanel",
+          "title": "Founders statue",
+          "body": "Raised to the surveyors who laid the cross streets. Walkers pass beneath it on every diagonal route through town.",
+          "entity": "founders-statue"
+        },
+        {
+          "type": "setVar",
+          "key": "focused",
+          "value": 1
+        }
+      ]
+    }
+  ],
+  "controls": [
+    {
+      "id": "build-tower",
+      "type": "button",
+      "label": "Build tower",
+      "bind": {
+        "onPress": [
+          {
+            "type": "spawn",
+            "entity": {
+              "id": "tower-spawn-1",
+              "kind": "prop",
+              "name": "Civic tower",
+              "position": [
+                30,
+                7,
+                30
+              ],
+              "size": [
+                8,
+                14,
+                8
+              ],
+              "tags": [],
+              "active": true,
+              "parts": [
+                {
+                  "shape": "box",
+                  "offset": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "size": [
+                    1,
+                    1,
+                    1
+                  ],
+                  "color": "#5c6f7b",
+                  "material": {
+                    "metalness": 0.4,
+                    "roughness": 0.55,
+                    "texture": "metal"
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    0,
+                    -0.3,
+                    0
+                  ],
+                  "size": [
+                    0.93,
+                    0.05,
+                    0.93
+                  ],
+                  "color": "#a5f3ff",
+                  "material": {
+                    "roughness": 0.15,
+                    "opacity": 0.6,
+                    "texture": "glass"
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    0,
+                    0,
+                    0
+                  ],
+                  "size": [
+                    0.93,
+                    0.05,
+                    0.93
+                  ],
+                  "color": "#a5f3ff",
+                  "material": {
+                    "roughness": 0.15,
+                    "opacity": 0.6,
+                    "texture": "glass"
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    0,
+                    0.3,
+                    0
+                  ],
+                  "size": [
+                    0.93,
+                    0.05,
+                    0.93
+                  ],
+                  "color": "#a5f3ff",
+                  "material": {
+                    "roughness": 0.15,
+                    "opacity": 0.6,
+                    "texture": "glass"
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    0,
+                    0.52,
+                    0
+                  ],
+                  "size": [
+                    0.97,
+                    0.03,
+                    0.97
+                  ],
+                  "color": "#33424d",
+                  "material": {
+                    "roughness": 0.7
+                  }
+                }
+              ],
+              "label": {
+                "text": "Civic tower",
+                "offset": [
+                  0,
+                  0.6,
+                  0
+                ],
+                "size": 0.4
+              }
+            }
+          },
+          {
+            "type": "incVar",
+            "key": "towersBuilt",
+            "by": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "traffic",
+      "type": "button",
+      "label": "Traffic",
+      "bind": {
+        "onPress": [
+          {
+            "type": "spawn",
+            "entity": {
+              "id": "car-1",
+              "kind": "enemy",
+              "name": "Cross-town car",
+              "position": [
+                -30,
+                0.35,
+                2
+              ],
+              "tags": [],
+              "active": true,
+              "speed": 3.2,
+              "patrol": [
+                [
+                  -30,
+                  0.35,
+                  2
+                ],
+                [
+                  30,
+                  0.35,
+                  2
+                ]
+              ],
+              "state": "patrol",
+              "parts": [
+                {
+                  "shape": "box",
+                  "offset": [
+                    0,
+                    0.55,
+                    0
+                  ],
+                  "size": [
+                    2.9,
+                    0.7,
+                    1.3
+                  ],
+                  "color": "#f9c74f",
+                  "material": {
+                    "metalness": 0.35,
+                    "roughness": 0.45
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    0.2,
+                    1,
+                    0
+                  ],
+                  "size": [
+                    1.4,
+                    0.5,
+                    1.15
+                  ],
+                  "color": "#f9844a",
+                  "material": {
+                    "metalness": 0.3,
+                    "roughness": 0.4
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    -0.9,
+                    0,
+                    0.62
+                  ],
+                  "size": [
+                    0.7,
+                    0.7,
+                    0.24
+                  ],
+                  "color": "#1b1f22",
+                  "material": {
+                    "roughness": 0.9
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    -0.9,
+                    0,
+                    -0.62
+                  ],
+                  "size": [
+                    0.7,
+                    0.7,
+                    0.24
+                  ],
+                  "color": "#1b1f22",
+                  "material": {
+                    "roughness": 0.9
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    0.9,
+                    0,
+                    0.62
+                  ],
+                  "size": [
+                    0.7,
+                    0.7,
+                    0.24
+                  ],
+                  "color": "#1b1f22",
+                  "material": {
+                    "roughness": 0.9
+                  }
+                },
+                {
+                  "shape": "box",
+                  "offset": [
+                    0.9,
+                    0,
+                    -0.62
+                  ],
+                  "size": [
+                    0.7,
+                    0.7,
+                    0.24
+                  ],
+                  "color": "#1b1f22",
+                  "material": {
+                    "roughness": 0.9
+                  }
+                },
+                {
+                  "shape": "sphere",
+                  "offset": [
+                    1.5,
+                    0.6,
+                    0.4
+                  ],
+                  "size": [
+                    0.16,
+                    0.16,
+                    0.16
+                  ],
+                  "color": "#fff3b0",
+                  "material": {
+                    "emissive": "#fff3b0"
+                  }
+                },
+                {
+                  "shape": "sphere",
+                  "offset": [
+                    1.5,
+                    0.6,
+                    -0.4
+                  ],
+                  "size": [
+                    0.16,
+                    0.16,
+                    0.16
+                  ],
+                  "color": "#fff3b0",
+                  "material": {
+                    "emissive": "#fff3b0"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "type": "incVar",
+            "key": "trafficSpawned",
+            "by": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "night",
+      "type": "toggle",
+      "label": "Night",
+      "value": 0,
+      "bind": {
+        "entity": "tower-cobalt-windows",
+        "property": "emissive",
+        "scale": 2.6,
+        "var": "night"
+      }
+    },
+    {
+      "id": "wind",
+      "type": "slider",
+      "label": "Wind",
+      "min": 0,
+      "max": 2.4,
+      "step": 0.1,
+      "value": 0.6,
+      "bind": {
+        "entity": "wind-spinner",
+        "property": "rotation.y",
+        "scale": 2.4
+      }
+    }
+  ],
+  "scratch": {
+    "focused": 0,
+    "night": 0,
+    "nightApplied": 0,
+    "awake": 0,
+    "towersBuilt": 0,
+    "trafficSpawned": 0
+  }
+}

@@ -646,6 +646,11 @@ function machineIssues(doc: GameDoc): SanityIssue[] {
  * (a spawn payload whose id is not already in `entities`), so pressing it
  * visibly adds something to the world. Bind/onPress reference checks above
  * guard every other control.
+ *
+ * City requirements (part-assembly towers, streets, six crossing walkers,
+ * Build tower / Traffic / Night / Wind controls) are prompt guidance in the
+ * generator's city block, deliberately NOT hard gates here: a world that is
+ * merely an island or a village must keep passing sanity.
  */
 function worldIssues(doc: GameDoc): SanityIssue[] {
   const existing = new Set(doc.entities.map((entity) => entity.id));
